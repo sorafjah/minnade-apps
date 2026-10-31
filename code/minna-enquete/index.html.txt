@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+/* ===== 共通 ===== */
+:root {
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --ink: #1f2a37;
+    --sub: #5b6776;
+    --line: #d6dee8;
+    --pri: #2d6cd2;
+    --pri-ink: #ffffff;
+    --pri-weak: #e5eeff;
+    --ok: #1d8f62;
+    --ok-weak: #e1f4ea;
+    --warn: #b86e00;
+    --warn-weak: #fff2db;
+    --gauge: #f19a2b;
+    --gauge-weak: #fdebd3;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: 'BIZ UDPGothic', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    line-height: 1.6;
+  }
+  input, textarea, select { font-family: inherit; font-size: 18px; -webkit-user-select: text; user-select: text; }
+  ruby rt { font-size: 0.5em; font-weight: normal; }
+
+  button {
+    font-family: inherit;
+    font-size: 18px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 2px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.pri { background: var(--pri); border-color: var(--pri); color: var(--pri-ink); font-weight: bold; }
+  button.ok { background: var(--ok); border-color: var(--ok); color: #fff; font-weight: bold; }
+  button.quiet { background: transparent; }
+  button:focus-visible, [tabindex]:focus-visible { outline: 3px solid #8fb4f0; outline-offset: 2px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1 1 auto; }
+  .sub { color: var(--sub); }
+  .hide { display: none !important; }
+
+  #demoBar { background: #fff7e0; border-bottom: 1px solid #ecd9a0; font-size: 14px; padding: 6px 10px; }
+  #demoBar:empty { display: none; }
+  #demoBar button, #demoBar select { font-size: 14px; min-height: 36px; min-width: 36px; padding: 4px 8px; }
+/* ===== 評価ゲージ ===== */
+/* ===== 評価ゲージ（見た目はゲージ、中は0〜100の100段階） ===== */
+  .gauge { margin: 8px 0 4px; outline: none; }
+  .g-track {
+    position: relative; height: 72px; border-radius: 36px;
+    background: var(--gauge-weak); border: 2px solid #e8c595;
+    touch-action: none; cursor: pointer; overflow: visible;
+  }
+  .g-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    background: var(--gauge); border-radius: 34px 0 0 34px;
+  }
+  .g-fill.full { border-radius: 34px; }
+  .g-tick { position: absolute; top: 18px; bottom: 18px; width: 2px; background: rgba(150,100,30,.25); }
+  .g-knob {
+    position: absolute; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
+    border-radius: 50%; background: #fff; border: 4px solid #c97412;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  }
+  .g-hint {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #9a6418; font-size: 18px; pointer-events: none;
+  }
+  .g-ends { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 18px; }
+  .g-ends span:last-child { text-align: right; }
+  .g-state { min-height: 1.8em; margin-top: 6px; font-size: 18px; color: var(--ok); font-weight: bold; }
+  .g-num { font-size: 22px; font-weight: bold; color: #9a5a0c; }
+
+  /* 小さい表示用（確認画面・結果） */
+  .g-mini { position: relative; height: 16px; border-radius: 8px; background: var(--gauge-weak); border: 1px solid #e8c595; overflow: hidden; }
+  .g-mini > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--gauge); }
+/* ===== 回答者の画面（body.student の中だけ） ===== */
+body.student { font-size: 22px;
+}
+body.student .wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px 40px;
+}
+body.student .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px;
+}
+body.student .top .title { font-weight: bold; font-size: 20px; color: var(--sub);
+}
+body.student .big { font-size: 28px; font-weight: bold; line-height: 1.9;
+}
+body.student .msg { font-size: 22px; line-height: 2;
+}
+body.student .note { font-size: 19px; color: var(--sub); line-height: 1.9;
+}
+body.student .center { text-align: center;
+}
+body.student .stack > * + * { margin-top: 16px;
+}
+body.student .btn-lg { font-size: 24px; min-height: 64px; padding: 10px 28px; border-radius: 16px;
+}
+body.student .nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px;
+}
+body.student .nav .pri, body.student .nav .ok { margin-left: auto;
+}
+body.student .gentle { background: var(--warn-weak); color: #7a4a00; border-radius: 12px; padding: 10px 14px; font-size: 20px;
+}
+body.student .gentle:empty { display: none;
+}
+body.student .code-boxes { display: flex; justify-content: center; gap: 10px; margin: 8px 0 16px;
+}
+body.student .code-boxes span { width: 64px; height: 76px; border: 3px solid var(--line); border-radius: 14px; background: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold;
+}
+body.student .code-boxes span.now { border-color: var(--pri);
+}
+body.student .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 360px; margin: 0 auto;
+}
+body.student .pad button { font-size: 30px; min-height: 66px; font-weight: bold;
+}
+body.student .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;
+}
+body.student .grid button { min-height: 72px; font-size: 24px; font-weight: bold;
+}
+body.student .chara { display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+body.student .chara .dot { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #333; border: 2px solid rgba(0,0,0,.1);
+}
+body.student input.name-in { width: 100%; font-size: 28px; padding: 12px 14px; border: 3px solid var(--line); border-radius: 14px;
+}
+body.student input.name-in:focus { border-color: var(--pri); outline: none;
+}
+body.student .progress { height: 12px; background: #e3e9f1; border-radius: 6px; overflow: hidden;
+}
+body.student .progress > i { display: block; height: 100%; background: var(--pri);
+}
+body.student .qno { font-size: 19px; color: var(--sub); margin-top: 8px;
+}
+body.student .qtext { font-size: 28px; font-weight: bold; line-height: 2; margin: 6px 0 4px;
+}
+body.student .opts { display: grid; gap: 12px; margin-top: 12px;
+}
+body.student .opt { text-align: left; font-size: 24px; min-height: 68px; padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+}
+body.student .opt .mark { width: 34px; height: 34px; flex: 0 0 34px; border: 3px solid var(--line); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff;
+}
+body.student .opt.multi .mark { border-radius: 8px;
+}
+body.student .opt[aria-pressed="true"] { border-color: var(--pri); background: var(--pri-weak);
+}
+body.student .opt[aria-pressed="true"] .mark { background: var(--pri); border-color: var(--pri);
+}
+body.student .opt .badge { margin-left: auto; font-size: 18px; color: var(--pri); font-weight: bold;
+}
+body.student textarea.free { width: 100%; min-height: 180px; font-size: 22px; line-height: 1.7; padding: 12px; border: 3px solid var(--line); border-radius: 14px; resize: vertical;
+}
+body.student textarea.free:focus { border-color: var(--pri); outline: none;
+}
+body.student .clist { display: grid; gap: 12px;
+}
+body.student .citem { display: flex; gap: 12px; align-items: flex-start;
+}
+body.student .citem .body { flex: 1 1 auto; min-width: 0;
+}
+body.student .citem .q { font-size: 18px; color: var(--sub); line-height: 1.8;
+}
+body.student .citem .a { font-size: 22px; font-weight: bold; word-break: break-all; white-space: pre-wrap;
+}
+body.student .citem .g-mini { margin-top: 6px; height: 20px;
+}
+body.student .done-mark { font-size: 64px; color: var(--ok); line-height: 1;
+}
+@media (max-width: 480px) {
+body.student { font-size: 20px;
+}
+body.student .qtext { font-size: 24px;
+}
+body.student .opt { font-size: 21px;
+}
+body.student .grid { grid-template-columns: repeat(2, 1fr);
+}
+}
+/* 大人向け：ふりがながないので、文字と行間を少しおさえる */
+body.student.adult { font-size: 18px; }
+body.student.adult .big { font-size: 24px; line-height: 1.6; }
+body.student.adult .msg { font-size: 19px; line-height: 1.7; }
+body.student.adult .note { font-size: 16px; line-height: 1.6; }
+body.student.adult .qtext { font-size: 23px; line-height: 1.6; }
+body.student.adult .opt { font-size: 19px; min-height: 58px; }
+body.student.adult .gentle { font-size: 17px; }
+body.student.adult .citem .q { font-size: 15px; line-height: 1.6; }
+body.student.adult .citem .a { font-size: 18px; }
+body.student.adult .qno { font-size: 16px; }
+body.student.adult .g-ends, body.student.adult .g-state, body.student.adult .g-hint { font-size: 16px; }
+body.student.adult .btn-lg { font-size: 20px; min-height: 56px; }
+body.student.adult .grid button { font-size: 19px; min-height: 60px; }
+body.student.adult textarea.free { font-size: 18px; }
+@media (max-width: 480px) {
+body.student.adult .qtext { font-size: 20px; }
+body.student.adult .opt { font-size: 17px; }
+}
+/* ===== 先生の画面（body.teacher の中だけ） ===== */
+body.teacher { font-size: 16px;
+}
+body.teacher .wrap { max-width: 1080px; margin: 0 auto; padding: 12px 16px 60px;
+}
+body.teacher header.t-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 12px;
+}
+body.teacher header.t-head h1 { font-size: 22px; margin: 0;
+}
+body.teacher .tabs { display: flex; gap: 6px; flex-wrap: wrap;
+}
+body.teacher .tabs button { font-size: 16px;
+}
+body.teacher .tabs button[aria-selected="true"] { background: var(--pri); border-color: var(--pri); color: #fff; font-weight: bold;
+}
+body.teacher h2 { font-size: 19px; margin: 0 0 10px;
+}
+body.teacher h3 { font-size: 16px; margin: 0 0 8px;
+}
+body.teacher section + section, body.teacher .card + .card { margin-top: 14px;
+}
+body.teacher .status { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
+}
+body.teacher .status.off { grid-template-columns: 1fr;
+}
+body.teacher .pill { display: inline-block; padding: 2px 12px; border-radius: 999px; font-weight: bold; font-size: 15px;
+}
+body.teacher .pill.on { background: var(--ok-weak); color: var(--ok);
+}
+body.teacher .pill.off { background: #eceff3; color: var(--sub);
+}
+body.teacher .code { font-size: 44px; font-weight: bold; letter-spacing: .12em; color: var(--pri); line-height: 1.2;
+}
+body.teacher .qr img { width: 150px; height: 150px; image-rendering: pixelated; display: block;
+}
+body.teacher .people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+}
+body.teacher .people span { border-radius: 999px; padding: 3px 10px; font-size: 14px; border: 1px solid var(--line); background: #fff;
+}
+body.teacher .people span.done { background: var(--ok-weak); border-color: #b9e2cd;
+}
+body.teacher .urlbox { width: 100%; font-size: 14px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--sub);
+}
+body.teacher .field { padding: 12px 0; border-top: 1px solid var(--line);
+}
+body.teacher .field:first-of-type { border-top: 0;
+}
+body.teacher .field > .lab { font-weight: bold; margin-bottom: 8px;
+}
+body.teacher .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+body.teacher .chips label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px; border: 2px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer;
+}
+body.teacher .chips label:has(input:checked) { border-color: var(--pri); background: var(--pri-weak); font-weight: bold;
+}
+body.teacher .chips input[type=radio], body.teacher .chips input[type=checkbox] { width: 20px; height: 20px; margin: 0;
+}
+body.teacher select, body.teacher input[type=text], body.teacher textarea.t { font-size: 16px; min-height: 44px; padding: 6px 10px; border: 1px solid #b9c4d2; border-radius: 10px; background: #fff;
+}
+body.teacher textarea.t { width: 100%; min-height: 64px; line-height: 1.6; resize: vertical;
+}
+body.teacher .help { font-size: 14px; color: var(--sub);
+}
+body.teacher .msgline { min-height: 1.6em; margin-top: 8px; font-weight: bold;
+}
+body.teacher .msgline.err { color: #b3261e;
+}
+body.teacher .msgline.ok { color: var(--ok);
+}
+body.teacher .qcard { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fbfcfe;
+}
+body.teacher .qcard + .qcard { margin-top: 10px;
+}
+body.teacher .qcard .qhead { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;
+}
+body.teacher .qcard .qhead b { font-size: 17px;
+}
+body.teacher .qcard .tools { margin-left: auto; display: flex; gap: 6px;
+}
+body.teacher .qcard label.blk { display: block; margin-top: 8px; font-size: 14px; color: var(--sub);
+}
+body.teacher .rubyprev { font-size: 18px; margin-top: 4px; padding: 6px 10px; background: #fff; border: 1px dashed var(--line); border-radius: 8px;
+}
+body.teacher .rubyprev:empty { display: none;
+}
+body.teacher .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+body.teacher .kpi { display: flex; gap: 20px; flex-wrap: wrap; align-items: baseline;
+}
+body.teacher .kpi .n { font-size: 34px; font-weight: bold;
+}
+body.teacher .rq { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px;
+}
+body.teacher .rq .qt { font-weight: bold; font-size: 17px; margin-bottom: 8px;
+}
+body.teacher .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 6px; background: #eef1f6; color: var(--sub); margin-right: 6px; vertical-align: middle;
+}
+body.teacher .avg { display: flex; gap: 22px; flex-wrap: wrap; align-items: baseline; margin-bottom: 8px;
+}
+body.teacher .avg .big { font-size: 36px; font-weight: bold; color: #9a5a0c;
+}
+body.teacher .plot { position: relative; height: 54px; margin: 6px 14px 4px;
+}
+body.teacher .plot .line { position: absolute; left: 0; right: 0; top: 26px; height: 4px; background: var(--gauge-weak); border-radius: 2px;
+}
+body.teacher .plot .dot { position: absolute; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: rgba(241,154,43,.55); border: 1px solid #c97412;
+}
+body.teacher .plot .am { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: #1f2a37;
+}
+body.teacher .plot .al { position: absolute; top: -2px; font-size: 12px; transform: translateX(-50%); white-space: nowrap; background: #fff; padding: 0 4px;
+}
+body.teacher .plot-ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--sub); margin: 0 4px 8px;
+}
+body.teacher .bars { display: grid; gap: 6px;
+}
+body.teacher .bar { display: grid; grid-template-columns: minmax(80px, 200px) 1fr 110px; gap: 10px; align-items: center; font-size: 15px;
+}
+body.teacher .bar .b { height: 20px; background: #eef2f8; border-radius: 6px; overflow: hidden;
+}
+body.teacher .bar .b i { display: block; height: 100%; background: var(--pri);
+}
+body.teacher .bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 4px; font-size: 13px; text-align: center;
+}
+body.teacher .bands div { background: #f6f8fb; border-radius: 6px; padding: 4px;
+}
+body.teacher .vals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 14px;
+}
+body.teacher .vals span { background: #fff6ea; border: 1px solid #f0d2a6; border-radius: 8px; padding: 2px 8px;
+}
+body.teacher .frees { display: grid; gap: 6px;
+}
+body.teacher .frees div { background: #f6f8fb; border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; word-break: break-all;
+}
+body.teacher .frees b { font-size: 13px; color: var(--sub); display: block;
+}
+body.teacher .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+body.teacher table.tbl { border-collapse: collapse; font-size: 14px; min-width: 100%;
+}
+body.teacher table.tbl th, body.teacher table.tbl td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; white-space: nowrap;
+}
+body.teacher table.tbl td.wrap { white-space: normal; min-width: 160px; max-width: 320px;
+}
+body.teacher table.tbl th { background: #f1f4f9; position: sticky; top: 0;
+}
+body.teacher table.tbl td.num { text-align: right; font-weight: bold;
+}
+body.teacher #big { position: fixed; inset: 0; background: #fff; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 20px; text-align: center;
+}
+body.teacher #big[hidden] { display: none;
+}
+body.teacher #big .t { font-size: 30px; font-weight: bold;
+}
+body.teacher #big .c { font-size: 120px; font-weight: bold; letter-spacing: .15em; color: var(--pri); line-height: 1;
+}
+body.teacher #big img { width: min(46vh, 80vw); height: min(46vh, 80vw); image-rendering: pixelated;
+}
+body.teacher #big .close { position: absolute; top: 12px; right: 12px;
+}
+@media (max-width: 640px) {
+body.teacher .status { grid-template-columns: 1fr;
+}
+body.teacher .two { grid-template-columns: 1fr;
+}
+body.teacher .bar { grid-template-columns: 90px 1fr 96px;
+}
+}
+</style>
+</head>
+<body>
+<script>const PARAMS = <?!= params ?>; const PAGE = PARAMS.page === 'teacher' ? 'teacher' : 'student'; document.body.className = PAGE;</script>
+<div id="demoBar"></div>
+<div id="studentRoot">
+<div class="wrap"><main id="app"></main></div>
+</div>
+<div id="teacherRoot">
+<div class="wrap">
+  <header class="t-head">
+    <h1>アンケート（先生用）</h1>
+    <div class="tabs" role="tablist">
+      <button data-tab="run" role="tab">受付</button>
+      <button data-tab="edit" role="tab">質問をつくる</button>
+      <button data-tab="res" role="tab">結果を見る</button>
+    </div>
+  </header>
+  <section id="statusCard" class="card"></section>
+  <main id="main"></main>
+</div>
+<div id="big" hidden></div>
+</div>
+
+<!-- ===== 共通の処理・デモ用のにせサーバー ===== -->
+<script>
+/* ===== 共通（回答者・先生の両方で使う） ===== */
+const IS_GAS = !!(window.google && google.script && google.script.run);
+
+// サーバーを呼ぶ（GASがないときはデモ用のにせサーバー）
+function call(fn, ...args) {
+  if (!IS_GAS) {
+    return new Promise((res, rej) => setTimeout(() => {
+      try {
+        if (DEMO.offline && fn === 'submit') throw new Error('通信できません（デモ）');
+        const r = DEMO[fn](...args);
+        res(r === undefined ? r : JSON.parse(JSON.stringify(r)));
+      } catch (e) { rej(e); }
+    }, 180));
+  }
+  return new Promise((res, rej) => {
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args);
+  });
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function R(base, yomi) { return '<ruby>' + base + '<rt>' + yomi + '</rt></ruby>'; }
+
+// 先生が書いた「漢字《かんじ》」「｜文字《もじ》」をふりがな付きにする
+function rubyText(s) {
+  return esc(s)
+    .replace(/｜([^｜《》]+)《([^》]+)》/g, (m, b, y) => R(b, y))
+    .replace(/([一-鿿㐀-䶿々〆ヵヶ]+)《([^》]+)》/g, (m, b, y) => R(b, y))
+    .replace(/\n/g, '<br>');
+}
+function plainText(s) { return String(s || '').replace(/｜/g, '').replace(/《[^》]*》/g, ''); }
+
+// 7時5分 / 7時
+function fmtTime(ms) {
+  const d = new Date(ms); const m = d.getMinutes();
+  return d.getHours() + '時' + (m ? m + '分' : '');
+}
+function fmtDate(ms) { const d = new Date(ms); return (d.getMonth() + 1) + '月' + d.getDate() + '日'; }
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function deviceKind() {
+  const ua = navigator.userAgent || '';
+  if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iPad';
+  if (/iPhone|iPod/.test(ua)) return 'iPhone';
+  if (/Android/.test(ua)) return /Mobile/.test(ua) ? 'Androidスマホ' : 'Androidタブレット';
+  return 'パソコン';
+}
+
+// 要素ごと入れかえる（iPadで消した文字が残らないように）
+function replaceView(el, html) {
+  const n = el.cloneNode(false);
+  n.innerHTML = html;
+  el.replaceWith(n);
+  return n;
+}
+
+// ダブルタップでの拡大を防ぐ（操作する部品は対象外）
+(function () {
+  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+  let last = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    const t = e.target;
+    const parts = t && t.closest && t.closest('button,input,textarea,select,label,a,[data-tap],.gauge');
+    if (!parts && now - last < 300) e.preventDefault();
+    last = now;
+  }, { passive: false });
+})();
+
+// 画面の中に出す確認（confirm() が使えない場所でも動く）
+function confirmBox(message, okLabel) {
+  return new Promise(resolve => {
+    const o = document.createElement('div');
+    o.setAttribute('role', 'dialog');
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,45,.45);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px';
+    o.innerHTML = '<div class="card" style="max-width:440px;width:100%"><p style="margin:0 0 16px;font-size:17px;line-height:1.7"></p>' +
+      '<div class="row" style="justify-content:flex-end"><button class="cb-no">やめる</button><button class="pri cb-ok"></button></div></div>';
+    o.querySelector('p').textContent = message;
+    o.querySelector('.cb-ok').textContent = okLabel || 'はい';
+    const close = v => { o.remove(); resolve(v); };
+    o.querySelector('.cb-no').addEventListener('click', () => close(false));
+    o.querySelector('.cb-ok').addEventListener('click', () => close(true));
+    document.body.appendChild(o);
+    o.querySelector('.cb-ok').focus();
+  });
+}
+
+/* ===== デモ用のにせサーバー（GASがないときだけ使う） ===== */
+const DEMO = (function () {
+  const SAMPLE = [
+    { type: 'gauge', text: '校外学習《こうがいがくしゅう》は どうだった？', left: 'たのしくなかった', right: 'たのしかった', required: true },
+    { type: 'choice', text: 'いちばん よかった ところは どこ？', options: ['水族館《すいぞくかん》', 'お弁当《べんとう》', 'バス', '買《か》い物《もの》'], multi: false, required: true },
+    { type: 'choice', text: 'また 行《い》きたい ところは？（いくつでも）', options: ['水族館《すいぞくかん》', '公園《こうえん》', '動物園《どうぶつえん》'], multi: true, required: false },
+    { type: 'gauge', text: 'お弁当《べんとう》は おいしかった？', left: 'おいしくなかった', right: 'おいしかった', required: true },
+    { type: 'free', text: '感想《かんそう》を 書《か》いてね', required: false }
+  ];
+  const LESSON = [
+    { type: 'gauge', text: '今日《きょう》の 授業《じゅぎょう》は わかった？', left: 'わからなかった', right: 'よくわかった', required: true },
+    { type: 'choice', text: 'いちばん がんばったのは？', options: ['計算《けいさん》', '話《はな》し合《あ》い', '発表《はっぴょう》'], multi: false, required: true },
+    { type: 'free', text: 'ひとこと どうぞ', required: false }
+  ];
+  const sheet = { '校外学習のふりかえり': SAMPLE, '今日の授業': LESSON };
+  const rosters = { '1組': ['あおい', 'たろう', 'はなこ', 'ゆうと'], '2組': ['さくら', 'けんた', 'みさき'] };
+  const TYPE_JA = { free: '自由', choice: '選択', gauge: 'ゲージ' };
+  const NAMES = ['あおい', 'たろう', 'はなこ', 'ゆうと', 'さくら', 'けんた', 'みさき', 'りく'];
+  const FREE = ['たのしかった', 'イルカが すごかった', 'またいきたい', '', 'バスで よった'];
+
+  function rid(d) {
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+  }
+  const answers = [];
+  const rounds = [];
+  let survey = SAMPLE;
+  let draft = null;
+  const people = {};
+  let fakeCount = 0;
+
+  function addFake(roundId, qs, name) {
+    const sendId = 'f' + Math.random().toString(36).slice(2);
+    const t = Date.now();
+    qs.forEach((q, i) => {
+      let answer = '', value = null;
+      if (q.type === 'gauge') { value = Math.max(0, Math.min(100, Math.round(40 + Math.random() * 60 - (i % 2) * 15))); answer = String(value); }
+      else if (q.type === 'choice') {
+        const opts = q.options.map(plainText);
+        answer = q.multi ? opts.filter(() => Math.random() < .5).join(' / ') : opts[Math.floor(Math.random() * opts.length)];
+      } else answer = FREE[Math.floor(Math.random() * FREE.length)];
+      answers.push({ sendId, name, no: i + 1, type: q.type, q: plainText(q.text), answer, value, time: t });
+    });
+    people[name + '@' + sendId] = { name, status: 'done', t };
+  }
+
+  // 前の回（きのう）のデータを入れておく
+  const past = new Date(Date.now() - 86400000); past.setHours(10, 5, 0);
+  const pastId = rid(past);
+  rounds.push({ id: pastId, title: '今日の授業', started: past.getTime(), count: 6, questions: LESSON });
+  NAMES.slice(0, 6).forEach(n => addFake(pastId, LESSON, n));
+
+  const s = { open: false, roundId: '', code: '1234', audience: 'adult', needCode: true, nameMode: 'roster', roster: '1組', showNumber: false, shared: false, title: '', startedAt: 0, qCount: 0 };
+
+  function start(cfg) {
+    const qs = cfg.source === 'sheet' ? sheet[cfg.sheetName] : cfg.questions;
+    if (!qs || !qs.length) throw new Error('質問が1つもありません。');
+    if (cfg.source !== 'sheet') qs.forEach((q, i) => { if (!String(q.text || '').trim()) throw new Error('質問' + (i + 1) + 'の質問文が空です。'); });
+    const d = new Date(); d.setSeconds(d.getSeconds() + rounds.length);
+    s.open = true; s.roundId = rid(d);
+    s.code = String(1000 + Math.floor(Math.random() * 9000));
+    s.audience = cfg.audience === 'student' ? 'student' : 'adult';
+    s.needCode = !!cfg.needCode; s.nameMode = cfg.nameMode || 'none'; s.roster = s.nameMode === 'roster' ? (cfg.roster || '') : '';
+    s.showNumber = !!cfg.showNumber; s.shared = !!cfg.shared;
+    s.title = cfg.source === 'sheet' ? cfg.sheetName : (cfg.title || 'アンケート');
+    s.startedAt = Date.now(); s.qCount = qs.length; survey = qs; fakeCount = 0;
+    rounds.push({ id: s.roundId, title: s.title, started: s.startedAt, count: 0, questions: qs });
+  }
+  // 回答者プレビューでは、はじめから受付中にしておく
+  if (typeof PAGE !== 'undefined' && PAGE === 'student') {
+    start({ source: 'sheet', sheetName: '校外学習のふりかえり', needCode: true, nameMode: 'roster', roster: '1組' });
+    s.code = '1234';
+  }
+
+  const api = {
+    offline: false,
+    getPublicState() { return { open: s.open, roundId: s.roundId, needCode: s.needCode, title: s.title, audience: s.audience }; },
+    join(code, prev) {
+      if (!s.open) return { ok: false, reason: 'closed' };
+      if (s.needCode && String(code) !== s.code && !(prev && prev !== s.roundId && rounds.some(r => r.id === prev))) return { ok: false, reason: 'code' };
+      return { ok: true, roundId: s.roundId, title: s.title, audience: s.audience, nameMode: s.nameMode, showNumber: s.showNumber, shared: s.shared, survey, names: s.nameMode === 'roster' ? rosters[s.roster] : undefined };
+    },
+    setStatus(roundId, key, name, status) { if (roundId === s.roundId) people[key] = { name, status, t: Date.now() }; return true; },
+    submit(p) {
+      if (answers.some(a => a.sendId === p.sendId)) return { ok: true, dup: true };
+      p.answers.forEach(a => answers.push({ sendId: p.sendId, name: p.name || '（名前なし）', no: a.no, type: a.type, q: plainText(a.text), answer: String(a.answer), value: a.type === 'gauge' && a.value != null ? a.value : null, time: Date.now(), _round: p.roundId }));
+      if (p.statusKey && p.roundId === s.roundId) people[p.statusKey] = { name: p.name || '（名前なし）', status: 'done', t: Date.now() };
+      return { ok: true };
+    },
+    tInit() {
+      return {
+        url: 'https://script.google.com/macros/s/（デモ）/exec',
+        surveys: Object.keys(sheet).map(n => ({ name: n, count: sheet[n].length })),
+        rosters: Object.keys(rosters), state: api._tstate(), draft, rounds: api._rounds()
+      };
+    },
+    tGetSurvey(pass, name) { return sheet[name] || []; },
+    tStart(pass, cfg) { start(cfg); Object.keys(people).forEach(k => delete people[k]); return api.tStatus(); },
+    tStop() { s.open = false; return api.tStatus(); },
+    tStatus() {
+      // デモ：受付中は、ときどき回答がとどく
+      if (s.open && fakeCount < 6 && Math.random() < .7) {
+        const n = s.nameMode === 'none' ? '（名前なし）' : NAMES[fakeCount];
+        addFake(s.roundId, survey, n); answers.slice(-survey.length).forEach(a => a._round = s.roundId); fakeCount++;
+      }
+      const list = Object.keys(people).map(k => people[k]);
+      return { state: api._tstate(), people: s.roundId ? list.map(p => ({ name: p.name, status: p.status, t: p.t })) : [], count: new Set(answers.filter(a => roundOf(a) === s.roundId).map(a => a.sendId)).size };
+    },
+    tResults(pass, roundId) {
+      const id = roundId || s.roundId;
+      const r = rounds.find(x => x.id === id);
+      return { roundId: id, title: r ? r.title : '', started: r ? r.started : 0, open: s.open && id === s.roundId, questions: r ? r.questions : [], answers: answers.filter(a => roundOf(a) === id), rounds: api._rounds() };
+    },
+    tSaveDraft(pass, d) { draft = d; return true; },
+    tSaveSurveyToSheet(pass, name, qs) { if (!name) throw new Error('アンケート名を入れてください。'); sheet[name] = qs; return Object.keys(sheet).map(n => ({ name: n, count: sheet[n].length })); },
+    _tstate() { return Object.assign({}, s); },
+    _rounds() { return rounds.map(r => ({ id: r.id, title: r.title, started: r.started, count: new Set(answers.filter(a => roundOf(a) === r.id).map(a => a.sendId)).size })).reverse(); },
+    _set(o) { Object.assign(s, o); },
+    _state: s,
+    _newRound() { const keep = { audience: s.audience, needCode: s.needCode, nameMode: s.nameMode, roster: s.roster, showNumber: s.showNumber, shared: s.shared }; start(Object.assign({ source: 'sheet', sheetName: '今日の授業' }, keep)); }
+  };
+  // 回答がどの回のものか（デモ用の目印）
+  function roundOf(a) { if (a._round) return a._round; return pastId; }
+  return api;
+})();
+</script>
+
+<!-- ===== 評価ゲージ ===== -->
+<script>
+const Gauge = {
+  /**
+   * host に評価ゲージを作る
+   * opt: { left, right, value(null か 0〜100), showNumber, onChange(v) }
+   */
+  create(host, opt) {
+    let value = (opt.value === null || opt.value === undefined) ? null : opt.value;
+    const fmt = opt.fmt || rubyText;
+    const el = document.createElement('div');
+    el.className = 'gauge';
+    el.tabIndex = 0;
+    el.setAttribute('role', 'slider');
+    el.setAttribute('aria-valuemin', '0');
+    el.setAttribute('aria-valuemax', '100');
+    el.innerHTML =
+      '<div class="g-track">' +
+        [25, 50, 75].map(p => '<i class="g-tick" style="left:' + p + '%"></i>').join('') +
+        '<div class="g-fill"></div><div class="g-knob"></div><div class="g-hint"></div>' +
+      '</div>' +
+      '<div class="g-ends"><span>' + fmt(opt.left) + '</span><span>' + fmt(opt.right) + '</span></div>' +
+      '<div class="g-state"></div>';
+    host.appendChild(el);
+    const track = el.querySelector('.g-track');
+    const fill = el.querySelector('.g-fill');
+    const knob = el.querySelector('.g-knob');
+    const hint = el.querySelector('.g-hint');
+    const state = el.querySelector('.g-state');
+
+    function draw() {
+      const on = value !== null;
+      fill.style.display = knob.style.display = on ? '' : 'none';
+      hint.style.display = on ? 'none' : '';
+      if (!on) {
+        hint.innerHTML = opt.hintText || 'ここを おしてね';
+        state.innerHTML = '';
+        el.setAttribute('aria-valuetext', 'まだ');
+        return;
+      }
+      fill.style.width = value + '%';
+      fill.classList.toggle('full', value >= 99);
+      knob.style.left = value + '%';
+      el.setAttribute('aria-valuenow', String(value));
+      el.setAttribute('aria-valuetext', String(value));
+      state.innerHTML = opt.showNumber
+        ? '✓ <span class="g-num">' + value + '</span>'
+        : '✓ ' + (opt.doneText || R('答', 'こた') + 'えたよ');
+    }
+    function setFromX(x) {
+      const r = track.getBoundingClientRect();
+      let v = Math.round(((x - r.left) / r.width) * 100);
+      v = Math.max(0, Math.min(100, v));
+      if (v !== value) { value = v; draw(); if (opt.onChange) opt.onChange(v); }
+    }
+    let dragging = false;
+    track.addEventListener('pointerdown', e => {
+      dragging = true;
+      try { track.setPointerCapture(e.pointerId); } catch (_) {}
+      setFromX(e.clientX);
+      e.preventDefault();
+    });
+    track.addEventListener('pointermove', e => { if (dragging) setFromX(e.clientX); });
+    const end = () => { dragging = false; };
+    track.addEventListener('pointerup', end);
+    track.addEventListener('pointercancel', end);
+    // パソコンのキーボードでも動かせる
+    el.addEventListener('keydown', e => {
+      const step = e.shiftKey ? 10 : 1;
+      let v = value === null ? 50 : value;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') v += step;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') v -= step;
+      else return;
+      e.preventDefault();
+      value = Math.max(0, Math.min(100, v)); draw(); if (opt.onChange) opt.onChange(value);
+    });
+    draw();
+    return { el, get value() { return value; } };
+  },
+
+  mini(v) {
+    return '<div class="g-mini"><i style="width:' + (v == null ? 0 : v) + '%"></i></div>';
+  }
+};
+</script>
+
+<script>
+/* ===== 回答者の画面 ===== */
+function runStudent() {
+
+/* ===== 回答者画面 ===== */
+let view = document.getElementById('app');
+function show(html) { view = replaceView(view, html); window.scrollTo(0, 0); return view; }
+
+const deviceId = store.get('svy_device', '') || (() => { const d = uid(); store.set('svy_device', d); return d; })();
+
+/* ---------- 対象（大人向け・生徒向け）で言葉を切りかえる ---------- */
+// 大人向け：ふつうの文章・ふりがななし ／ 生徒向け：やさしい言葉・ふりがなつき
+let AUD = store.get('svy_aud', 'adult') === 'student' ? 'student' : 'adult';
+function setAud(a) {
+  AUD = a === 'student' ? 'student' : 'adult';
+  store.set('svy_aud', AUD);
+  document.body.classList.toggle('adult', AUD === 'adult');
+}
+setAud(AUD);
+const J = (kids, adult) => AUD === 'student' ? kids : adult;
+// 先生が書いた文：生徒向けは《》をふりがなに、大人向けは《》を取りのぞく
+function qt(s) { return AUD === 'student' ? rubyText(s) : esc(plainText(s)).replace(/\n/g, '<br>'); }
+
+const CHARAS = [
+  { n: 'いぬ', c: '#f4c98a' }, { n: 'ねこ', c: '#f4b0b0' }, { n: 'うさぎ', c: '#f6d3e4' }, { n: 'くま', c: '#d5b18f' },
+  { n: 'パンダ', c: '#dfe3e8' }, { n: 'ペンギン', c: '#b3cdef' }, { n: 'きつね', c: '#f2bd8c' }, { n: 'かえる', c: '#b6e0ae' },
+  { n: 'ひよこ', c: '#f7e594' }, { n: 'ぞう', c: '#cdd1ea' }
+];
+
+const S = {
+  roundId: '', title: '', survey: [], nameMode: 'none', names: [], showNumber: false, shared: false,
+  name: '', answers: [], idx: 0, phase: 'boot', timer: null, sendBusy: false
+};
+
+function stopPoll() { if (S.timer) { clearInterval(S.timer); S.timer = null; } }
+function poll(fn, ms) { stopPoll(); S.timer = setInterval(fn, IS_GAS ? ms : Math.min(ms, 3000)); }
+
+function head() {
+  return '<div class="top"><span class="title">' + qt(S.title || 'アンケート') + '</span></div>';
+}
+
+/* ---------- はじめ ---------- */
+async function boot() {
+  S.phase = 'boot';
+  show('<div class="card center msg">' + J(R('読', 'よ') + 'みこんでいるよ…', '読み込み中です…') + '</div>');
+  let p;
+  try { p = await call('getPublicState'); }
+  catch (e) {
+    show('<div class="card center stack"><p class="msg">' +
+      J(R('通信', 'つうしん') + 'が つながらないみたい。<br>すこし まってね。', '通信できません。<br>しばらくお待ちください。') + '</p></div>');
+    setTimeout(boot, 8000);
+    return;
+  }
+  if (p.audience) setAud(p.audience);
+  const lastDone = store.get('svy_lastDone', '');
+  if (p.open && lastDone === p.roundId) { showDone(true); return; }  // この回はもう答えた
+  if (!p.open) { showWait(); return; }
+  tryJoin(p, PARAMS.code || '');
+}
+
+async function tryJoin(p, code) {
+  let r;
+  try { r = await call('join', code, store.get('svy_lastDone', '')); }
+  catch (e) { showWait(); return; }
+  if (r.ok) { enter(r); return; }
+  if (r.reason === 'code') { showCode(false); return; }
+  showWait();
+}
+
+/* ---------- 受付を待つ ---------- */
+function showWait() {
+  S.phase = 'wait';
+  show('<div class="card center stack">' +
+    '<p class="big">' + J('アンケートが ' + R('始', 'はじ') + 'まるまで まってね', 'アンケートの開始をお待ちください') + '</p>' +
+    '<p class="note">' + J(R('先生', 'せんせい') + 'が ' + R('始', 'はじ') + 'めたら、' + R('自動', 'じどう') + 'で つぎへ すすむよ',
+      '開始されると、自動で画面が進みます') + '</p>' +
+    '</div>');
+  poll(async () => {
+    try {
+      const p = await call('getPublicState');
+      if (p.open && S.phase === 'wait') {
+        stopPoll();
+        if (p.audience) setAud(p.audience);
+        tryJoin(p, PARAMS.code || '');
+      }
+    } catch (e) {}
+  }, 8000);
+}
+
+/* ---------- 参加コード ---------- */
+function showCode(wrong) {
+  stopPoll();
+  S.phase = 'code';
+  let digits = '';
+  const v = show('<div class="card center stack">' +
+    '<p class="big">' + J(R('参加', 'さんか') + 'コードを ' + R('入', 'い') + 'れてね', '参加コードを入力してください') + '</p>' +
+    '<div class="code-boxes"></div>' +
+    '<div class="gentle">' + (wrong ? J('コードが ちがうみたい。もう' + R('一度', 'いちど') + ' ' + R('入', 'い') + 'れてね',
+      'コードが違います。もう一度入力してください') : '') + '</div>' +
+    '<div class="pad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => '<button data-d="' + n + '">' + n + '</button>').join('') +
+    '<button data-d="del" aria-label="' + J('1つ けす', '1文字消す') + '">' + J('けす', '消す') + '</button><button data-d="0">0</button><span></span></div>' +
+    '</div>');
+  const boxes = v.querySelector('.code-boxes');
+  function draw() {
+    boxes.innerHTML = [0, 1, 2, 3].map(i => '<span class="' + (i === digits.length ? 'now' : '') + '">' + (digits[i] || '') + '</span>').join('');
+  }
+  draw();
+  v.querySelector('.pad').addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const d = b.dataset.d;
+    if (d === 'del') digits = digits.slice(0, -1);
+    else if (digits.length < 4) digits += d;
+    draw();
+    if (digits.length === 4) {
+      v.querySelectorAll('.pad button').forEach(x => x.disabled = true);
+      let r;
+      try { r = await call('join', digits, ''); } catch (err) { r = { ok: false, reason: 'net' }; }
+      if (r.ok) enter(r);
+      else if (r.reason === 'closed') showWait();
+      else showCode(true);
+    }
+  });
+}
+
+/* ---------- 参加できた ---------- */
+function enter(r) {
+  stopPoll();
+  setAud(r.audience);
+  S.roundId = r.roundId; S.title = r.title; S.survey = r.survey || []; S.nameMode = r.nameMode;
+  S.names = r.names || []; S.showNumber = r.showNumber; S.shared = r.shared;
+  const saved = store.get('svy_progress', null);   // 読みこみ直したときは、とちゅうから
+  if (saved && saved.roundId === S.roundId && saved.answers && saved.answers.length === S.survey.length) {
+    S.answers = saved.answers; S.name = saved.name || ''; S.idx = saved.idx || 0;
+    if (S.name || S.nameMode === 'none') { showQ(S.idx); return; }
+  } else {
+    resetAnswers();
+  }
+  showName();
+}
+
+function resetAnswers() {
+  S.answers = S.survey.map(q => q.type === 'choice' ? [] : (q.type === 'gauge' ? null : ''));
+  S.idx = 0; S.name = '';
+  store.del('svy_progress');
+}
+function saveProgress() { store.set('svy_progress', { roundId: S.roundId, answers: S.answers, name: S.name, idx: S.idx }); }
+function statusKey() { return (S.name || '名前なし') + '@' + deviceId.slice(-4); }
+
+/* ---------- 名前 ---------- */
+function showName() {
+  S.phase = 'name';
+  if (S.nameMode === 'none') { S.name = ''; beginAnswer(); return; }
+  if (S.nameMode === 'input') {
+    const v = show(head() + '<div class="card stack">' +
+      '<p class="big">' + J(R('名前', 'なまえ') + 'を ' + R('書', 'か') + 'いてね', 'お名前を入力してください') + '</p>' +
+      '<input class="name-in" type="text" maxlength="30" autocomplete="off" aria-label="' + J('なまえ', 'お名前') + '">' +
+      '<div class="gentle"></div>' +
+      '<div class="nav"><button class="pri btn-lg">' + J('つぎへ', '次へ') + '</button></div></div>');
+    const inp = v.querySelector('input');
+    inp.value = S.name;
+    const go = () => {
+      const n = inp.value.trim();
+      if (!n) {
+        v.querySelector('.gentle').innerHTML = J(R('名前', 'なまえ') + 'を ' + R('書', 'か') + 'いてから つぎへ すすめるよ', 'お名前を入力してください');
+        return;
+      }
+      S.name = n; inp.blur(); beginAnswer();
+    };
+    v.querySelector('.pri').addEventListener('click', go);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) go(); });
+    return;
+  }
+  if (S.nameMode === 'roster') {
+    const v = show(head() + '<div class="card stack">' +
+      '<p class="big">' + J(R('自分', 'じぶん') + 'の ' + R('名前', 'なまえ') + 'を おしてね', 'ご自分のお名前を選んでください') + '</p>' +
+      '<div class="grid">' + S.names.map((n, i) => '<button data-i="' + i + '">' + esc(n) + '</button>').join('') + '</div></div>');
+    v.querySelector('.grid').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      S.name = S.names[+b.dataset.i]; beginAnswer();
+    });
+    return;
+  }
+  // キャラで参加
+  const v = show(head() + '<div class="card stack">' +
+    '<p class="big">' + J('すきな キャラを えらんでね', 'お好きなキャラクターを選んでください') + '</p>' +
+    '<div class="grid">' + CHARAS.map((c, i) => '<button class="chara" data-i="' + i + '"><span class="dot" style="background:' + c.c + '">' + c.n[0] + '</span>' + c.n + '</button>').join('') + '</div></div>');
+  v.querySelector('.grid').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    S.name = CHARAS[+b.dataset.i].n; beginAnswer();
+  });
+}
+
+function beginAnswer() {
+  call('setStatus', S.roundId, statusKey(), S.name || '（名前なし）', 'answering').catch(() => {});
+  S.idx = 0; saveProgress(); showQ(0);
+}
+
+/* ---------- 質問 ---------- */
+function isEmpty(i) {
+  const a = S.answers[i]; const q = S.survey[i];
+  if (q.type === 'choice') return !a || !a.length;
+  if (q.type === 'gauge') return a === null || a === undefined;
+  return !String(a || '').trim();
+}
+
+function showQ(i) {
+  S.phase = 'q'; S.idx = i; saveProgress();
+  const q = S.survey[i]; const n = S.survey.length;
+  let body = '';
+  if (q.type === 'choice') {
+    body = '<p class="note">' + (q.multi ? J('いくつでも えらべるよ', '当てはまるものをすべて選んでください（複数選択可）') : J('1つ えらんでね', '1つ選んでください')) + '</p><div class="opts">' +
+      q.options.map((o, k) => '<button class="opt' + (q.multi ? ' multi' : '') + '" data-k="' + k + '" aria-pressed="false"><span class="mark"></span><span>' + qt(o) + '</span><span class="badge"></span></button>').join('') +
+      '</div>';
+  } else if (q.type === 'gauge') {
+    body = '<p class="note">' + J('ゲージを おしてね。ゆびで うごかしても いいよ', '当てはまる位置を押してください（指でずらして調整することもできます）') + '</p><div class="gbox"></div>';
+  } else {
+    body = '<p class="note">' + J('ここに ' + R('書', 'か') + 'いてね', 'ご自由にお書きください') + '</p><textarea class="free" maxlength="1000" aria-label="' + J('こたえ', '回答') + '"></textarea>';
+  }
+  const v = show(head() +
+    '<div class="progress"><i style="width:' + Math.round((i / n) * 100) + '%"></i></div>' +
+    '<div class="qno">' + J('しつもん ', '質問 ') + (i + 1) + ' / ' + n +
+      (q.required ? '' : J('　（' + R('答', 'こた') + 'えなくても いいよ）', '　（任意）')) + '</div>' +
+    '<div class="card" style="margin-top:8px"><div class="qtext">' + qt(q.text) + '</div>' + body +
+    '<div class="gentle" style="margin-top:12px"></div>' +
+    '<div class="nav">' + (i > 0 ? '<button class="back btn-lg">' + J(R('前', 'まえ') + 'へ', '戻る') + '</button>' : '') +
+    '<button class="pri next btn-lg">' + (i === n - 1 ? J('かくにんへ', '確認へ') : J('つぎへ', '次へ')) + '</button></div></div>');
+
+  if (q.type === 'choice') {
+    const draw = () => v.querySelectorAll('.opt').forEach(b => {
+      const on = S.answers[i].indexOf(+b.dataset.k) >= 0;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.querySelector('.mark').innerHTML = on ? '✓' : '';
+      b.querySelector('.badge').innerHTML = on ? J('えらんだ', '選択中') : '';
+    });
+    draw();
+    v.querySelector('.opts').addEventListener('click', e => {
+      const b = e.target.closest('.opt'); if (!b) return;
+      const k = +b.dataset.k; let a = S.answers[i].slice();
+      if (q.multi) a = a.indexOf(k) >= 0 ? a.filter(x => x !== k) : a.concat(k).sort((x, y) => x - y);
+      else a = [k];
+      S.answers[i] = a; saveProgress(); draw();
+      v.querySelector('.gentle').innerHTML = '';
+    });
+  } else if (q.type === 'gauge') {
+    Gauge.create(v.querySelector('.gbox'), {
+      left: q.left, right: q.right, value: S.answers[i], showNumber: S.showNumber, fmt: qt,
+      hintText: J('ここを おしてね', 'ここを押して回答'),
+      doneText: J(R('答', 'こた') + 'えたよ', '回答済み'),
+      onChange: val => { S.answers[i] = val; saveProgress(); v.querySelector('.gentle').innerHTML = ''; }
+    });
+  } else {
+    const ta = v.querySelector('textarea');
+    ta.value = S.answers[i] || '';
+    ta.addEventListener('input', () => { S.answers[i] = ta.value; saveProgress(); });
+  }
+  const back = v.querySelector('.back');
+  if (back) back.addEventListener('click', () => showQ(i - 1));
+  v.querySelector('.next').addEventListener('click', () => {
+    const ta = v.querySelector('textarea'); if (ta) ta.blur();
+    if (q.required && isEmpty(i)) {
+      v.querySelector('.gentle').innerHTML = J('まだ ' + R('答', 'こた') + 'えて いないよ', 'この質問は回答が必要です');
+      return;
+    }
+    if (i < n - 1) showQ(i + 1); else showConfirm();
+  });
+}
+
+/* ---------- 確認 ---------- */
+function answerText(i) {
+  const q = S.survey[i], a = S.answers[i];
+  if (isEmpty(i)) return '';
+  if (q.type === 'choice') return a.map(k => plainText(q.options[k])).join(' / ');
+  if (q.type === 'gauge') return String(a);
+  return String(a).trim();
+}
+
+function showConfirm() {
+  S.phase = 'confirm';
+  const none = J('（' + R('答', 'こた') + 'えていない）', '（未回答）');
+  const v = show(head() + '<div class="card stack">' +
+    '<p class="big">' + J('これで ' + R('送', 'おく') + 'るよ', '以下の内容で送信します') + '</p>' +
+    '<div class="clist">' + S.survey.map((q, i) => {
+      let a;
+      if (isEmpty(i)) a = '<div class="a sub">' + none + '</div>';
+      else if (q.type === 'gauge') a = (S.showNumber ? '<div class="a">' + S.answers[i] + '</div>' : '') + Gauge.mini(S.answers[i]);
+      else if (q.type === 'choice') a = '<div class="a">' + S.answers[i].map(k => qt(q.options[k])).join('、') + '</div>';
+      else a = '<div class="a">' + esc(S.answers[i]) + '</div>';
+      return '<div class="citem card"><div class="body"><div class="q">' + (i + 1) + '. ' + qt(q.text) + '</div>' + a + '</div>' +
+        '<button data-i="' + i + '">' + J('なおす', '修正する') + '</button></div>';
+    }).join('') + '</div>' +
+    '<div class="nav"><button class="ok btn-lg send">' + J(R('送', 'おく') + 'る', '送信する') + '</button></div></div>');
+  v.querySelector('.clist').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (b) showQ(+b.dataset.i);
+  });
+  v.querySelector('.send').addEventListener('click', e => { e.target.closest('button').disabled = true; send(); });
+}
+
+/* ---------- 送る（送れなかったら、ためておいて あとで送る） ---------- */
+function getQueue() { return store.get('svy_queue', []); }
+
+async function flushQueue() {
+  if (S.sendBusy) return getQueue().length === 0;
+  S.sendBusy = true;
+  try {
+    const q = getQueue(); const rest = [];
+    for (const item of q) {
+      try { await call('submit', item); }
+      catch (e) { rest.push(item); }
+    }
+    // 送っているあいだに足されたものも残す
+    const now = getQueue().filter(x => !q.some(y => y.sendId === x.sendId));
+    store.set('svy_queue', rest.concat(now));
+    return rest.length + now.length === 0;
+  } finally { S.sendBusy = false; }
+}
+
+async function send() {
+  const payload = {
+    sendId: S.roundId + '-' + deviceId.slice(-6) + '-' + uid(),
+    roundId: S.roundId, title: S.title, name: S.name, device: deviceKind(), statusKey: statusKey(),
+    answers: S.survey.map((q, i) => ({
+      no: i + 1, type: q.type, text: q.text, answer: answerText(i),
+      value: q.type === 'gauge' ? S.answers[i] : null
+    }))
+  };
+  store.set('svy_queue', getQueue().concat([payload]));
+  store.del('svy_progress');
+  if (!S.shared) store.set('svy_lastDone', S.roundId);
+  show(head() + '<div class="card center msg">' + J(R('送', 'おく') + 'っているよ…', '送信中です…') + '</div>');
+  await flushQueue();
+  showDone(false);
+}
+
+/* ---------- ありがとう・つぎの回を待つ ---------- */
+function sentText() { return J(R('送', 'おく') + 'れたよ', '送信しました'); }
+
+function showDone(already) {
+  S.phase = 'done';
+  const pending = getQueue().length;
+  const v = show(head() + '<div class="card center stack">' +
+    '<div class="done-mark">✓</div>' +
+    '<p class="big">' + J(R('答', 'こた') + 'えてくれて ありがとう！', 'ご回答ありがとうございました') + '</p>' +
+    '<p class="note sendstate">' + (pending
+      ? J('いまは ' + R('通信', 'つうしん') + 'が つながって いないみたい。<br>つながったら ' + R('自動', 'じどう') + 'で ' + R('送', 'おく') + 'るね',
+          '現在、通信できない状態です。<br>通信が回復すると自動で送信します')
+      : (already ? J('この アンケートは もう ' + R('答', 'こた') + 'えたよ', 'このアンケートには回答済みです') : sentText())) + '</p>' +
+    (S.shared ? '<button class="pri btn-lg nextp">' + J('つぎの ' + R('人', 'ひと') + 'が ' + R('答', 'こた') + 'える', '次の方が回答する') + '</button>' : '') +
+    '<p class="note">' + J('つぎの アンケートが ' + R('始', 'はじ') + 'まったら、' + R('自動', 'じどう') + 'で ' + R('始', 'はじ') + 'まるよ',
+      '次のアンケートが始まると、自動で画面が進みます') + '</p>' +
+    '</div>');
+  const np = v.querySelector('.nextp');
+  if (np) np.addEventListener('click', () => { resetAnswers(); showName(); });
+  const myRound = S.roundId || store.get('svy_lastDone', '');
+  poll(async () => {
+    if (S.phase !== 'done') return;
+    if (getQueue().length) {
+      const ok = await flushQueue();
+      const st = view.querySelector('.sendstate');
+      if (ok && st) st.innerHTML = sentText();
+    }
+    try {
+      const p = await call('getPublicState');
+      if (p.open && p.roundId && p.roundId !== myRound && S.phase === 'done') {
+        stopPoll();
+        if (p.audience) setAud(p.audience);
+        const r = await call('join', '', myRound);
+        if (r.ok) enter(r); else showCode(false);
+      }
+    } catch (e) {}
+  }, 10000);
+}
+
+window.addEventListener('online', () => { if (getQueue().length) flushQueue(); });
+setInterval(() => { if (getQueue().length && S.phase !== 'done') flushQueue(); }, 20000);
+
+/* ---------- おためし用の操作バー（GASでは出ない） ---------- */
+function demoBar() {
+  if (IS_GAS) return;
+  const bar = document.getElementById('demoBar');
+  const st = DEMO._state;
+  bar.innerHTML = '<div class="row">' +
+    '<b>おためし</b>' +
+    '<label>対象 <select id="dmAud"><option value="adult">大人向け</option><option value="student">生徒向け</option></select></label>' +
+    '<label>名前 <select id="dmName"><option value="none">集めない</option><option value="input">書いてもらう</option><option value="roster">名簿</option><option value="chara">キャラ</option></select></label>' +
+    '<label><input type="checkbox" id="dmCode"> コード（1234）</label>' +
+    '<label><input type="checkbox" id="dmNum"> 数字を見せる</label>' +
+    '<label><input type="checkbox" id="dmShared"> 1台を順番に</label>' +
+    '<label><input type="checkbox" id="dmOff"> 通信を切る</label>' +
+    '<button id="dmApply">この設定で最初から</button>' +
+    '<button id="dmNext">先生が次の回を始めた</button></div>';
+  bar.querySelector('#dmAud').value = st.audience || 'adult';
+  bar.querySelector('#dmName').value = st.nameMode;
+  bar.querySelector('#dmCode').checked = st.needCode;
+  bar.querySelector('#dmNum').checked = st.showNumber;
+  bar.querySelector('#dmShared').checked = st.shared;
+  bar.querySelector('#dmOff').addEventListener('change', e => { DEMO.offline = e.target.checked; });
+  bar.querySelector('#dmApply').addEventListener('click', () => {
+    DEMO._set({
+      audience: bar.querySelector('#dmAud').value,
+      nameMode: bar.querySelector('#dmName').value, needCode: bar.querySelector('#dmCode').checked,
+      showNumber: bar.querySelector('#dmNum').checked, shared: bar.querySelector('#dmShared').checked, code: '1234'
+    });
+    store.del('svy_lastDone'); store.del('svy_progress');
+    stopPoll(); boot();
+  });
+  bar.querySelector('#dmNext').addEventListener('click', () => { DEMO._newRound(); DEMO._set({ code: '1234' }); });
+}
+
+demoBar();
+boot();
+}
+
+
+/* ===== 先生の画面 ===== */
+function runTeacher() {
+
+/* ===== 先生画面 ===== */
+const POLL_MS = IS_GAS ? 10000 : 3000;
+const AUDIENCES = [['adult', '大人向け（ふつうの文章）'], ['student', '生徒向け（やさしい言葉・ふりがな）']];
+const NAME_MODES = [['none', '集めない（無記名）'], ['input', '書いてもらう'], ['roster', '名簿から選ぶ'], ['chara', 'キャラで参加']];
+const TYPE_LABEL = { free: '自由に書く', choice: '選ぶ', gauge: '評価ゲージ' };
+
+const T = {
+  pass: store.get('svy_t_pass', ''),
+  init: null, st: null, people: [], count: 0, tab: 'run',
+  cfg: Object.assign({ source: 'sheet', sheetName: '', audience: 'adult', nameMode: 'none', roster: '', needCode: true, showNumber: false, shared: false }, store.get('svy_t_cfg', {})),
+  ed: store.get('svy_t_ed', null) || { title: '', questions: [] },
+  resRound: '', res: null, timer: null
+};
+let main = document.getElementById('main');
+function setMain(html) { main = replaceView(main, html); return main; }
+
+function errText(e) {
+  const m = String((e && e.message) || e || '');
+  return m.replace(/^Exception:\s*/, '').replace(/^Error:\s*/, '');
+}
+
+/* ---------- はじめ ---------- */
+async function boot() {
+  setMain('<div class="card">読みこみ中…</div>');
+  try {
+    T.init = await call('tInit', T.pass);
+  } catch (e) {
+    if (/NEED_PASS/.test(errText(e))) { showPass(); return; }
+    setMain('<div class="card"><p class="msgline err">読みこめませんでした：' + esc(errText(e)) + '</p><button class="pri" onclick="window.__tBoot()">もう一度読みこむ</button></div>');
+    return;
+  }
+  T.st = T.init.state;
+  if (!T.cfg.sheetName && T.init.surveys.length) T.cfg.sheetName = T.init.surveys[0].name;
+  if (!T.cfg.roster && T.init.rosters.length) T.cfg.roster = T.init.rosters[0];
+  if (!T.ed.questions.length && T.init.draft && T.init.draft.questions) T.ed = T.init.draft;
+  await refreshStatus();
+  setTab(T.tab);
+  startPoll();
+}
+
+function showPass() {
+  const v = setMain('<div class="card" style="max-width:460px"><h2>先生用のあいことば</h2>' +
+    '<p class="help">スクリプトプロパティ TEACHER_PASS に入れたあいことばを入力してください。</p>' +
+    '<div class="row"><input type="text" class="grow" id="pw" autocomplete="off"><button class="pri" id="pwgo">この あいことばで開く</button></div>' +
+    '<p class="msgline err">' + (T.pass ? 'あいことばが違います。' : '') + '</p></div>');
+  v.querySelector('#pwgo').addEventListener('click', () => {
+    T.pass = v.querySelector('#pw').value.trim(); store.set('svy_t_pass', T.pass); boot();
+  });
+}
+
+function startPoll() {
+  if (T.timer) clearInterval(T.timer);
+  T.timer = setInterval(async () => {
+    if (!T.st || !T.st.open) return;
+    await refreshStatus();
+    if (T.tab === 'res' && T.res && T.res.open) loadResults(T.resRound, true);
+  }, POLL_MS);
+}
+
+async function refreshStatus() {
+  try {
+    const r = await call('tStatus', T.pass);
+    T.st = r.state; T.people = r.people; T.count = r.count;
+  } catch (e) {}
+  renderStatus();
+}
+
+/* ---------- 受付の状態（いつも上に出す） ---------- */
+function joinUrl() {
+  const base = (T.init && T.init.url) || '';
+  return T.st && T.st.needCode ? base + '?code=' + T.st.code : base;
+}
+function qrImg(text, cell) {
+  try {
+    if (typeof qrcode === 'undefined') return '<p class="help">QRコードを出せませんでした（通信を確かめてください）</p>';
+    const q = qrcode(0, 'M'); q.addData(text); q.make();
+    return '<img alt="参加用のQRコード" src="' + q.createDataURL(cell || 6, 2) + '">';
+  } catch (e) { return '<p class="help">QRコードを出せませんでした</p>'; }
+}
+
+function renderStatus() {
+  const box = document.getElementById('statusCard');
+  const st = T.st || {};
+  if (!st.open) {
+    box.innerHTML = '<div class="status off"><div><span class="pill off">受付していません</span>' +
+      (st.title ? '　<span class="sub">前の回：' + esc(st.title) + '</span>' : '') +
+      '<p class="help" style="margin:8px 0 0">「受付」タブで設定を選んで、受付を始めてください。回答者の画面は受付が始まると自動で進みます。</p></div></div>';
+    return;
+  }
+  const nm = (NAME_MODES.find(x => x[0] === st.nameMode) || ['', ''])[1];
+  box.innerHTML = '<div class="status"><div>' +
+    '<span class="pill on">受付中</span>　<b style="font-size:18px">' + esc(plainText(st.title)) + '</b>' +
+    '<div class="sub" style="margin-top:4px">' + fmtTime(st.startedAt) + 'に開始　・　' + (st.audience === 'student' ? '生徒向け' : '大人向け') + '　・　質問 ' + st.qCount + '問　・　名前：' + nm + (st.nameMode === 'roster' && st.roster ? '（' + esc(st.roster) + '）' : '') + '</div>' +
+    '<div class="row" style="margin-top:8px;align-items:baseline">' +
+      (st.needCode ? '<span>参加コード</span><span class="code">' + esc(st.code) + '</span>' : '<span class="sub">参加コードなし</span>') +
+      '<span style="margin-left:12px">回答 <b style="font-size:26px">' + T.count + '</b> 件</span></div>' +
+    '<div class="row" style="margin-top:8px"><button class="pri" id="bigBtn">コードとQRを大きく出す</button><button id="copyBtn">回答用のURLをコピーする</button><button id="stopBtn2">受付を終える</button></div>' +
+    '<input class="urlbox" readonly value="' + esc(joinUrl()) + '" style="margin-top:8px">' +
+    '<div class="people">' + T.people.map(p => '<span class="' + (p.status === 'done' ? 'done' : '') + '">' + esc(p.name) + '：' + (p.status === 'done' ? '送信済み' : '回答中') + '</span>').join('') + '</div>' +
+    '</div><div class="qr">' + qrImg(joinUrl(), 5) + '</div></div>';
+  box.querySelector('#bigBtn').addEventListener('click', showBig);
+  box.querySelector('#copyBtn').addEventListener('click', e => copyUrl(e.target));
+  box.querySelector('#stopBtn2').addEventListener('click', stopRound);
+}
+
+function copyUrl(btn) {
+  const url = joinUrl();
+  const done = () => { btn.textContent = 'コピーしました'; setTimeout(() => btn.textContent = '回答用のURLをコピーする', 1800); };
+  try {
+    navigator.clipboard.writeText(url).then(done, () => { selectUrl(); });
+  } catch (e) { selectUrl(); }
+  function selectUrl() { const i = document.querySelector('.urlbox'); i.focus(); i.select(); btn.textContent = '選ばれた文字をコピーしてください'; }
+}
+
+function showBig() {
+  const st = T.st;
+  const b = document.getElementById('big');
+  b.innerHTML = '<button class="close">閉じる</button>' +
+    '<div class="t">' + esc(plainText(st.title)) + '</div>' +
+    (st.needCode ? '<div>参加コード</div><div class="c">' + esc(st.code) + '</div>' : '') +
+    qrImg(joinUrl(), 8) +
+    '<div class="sub" style="word-break:break-all;max-width:90vw">' + esc(joinUrl()) + '</div>';
+  b.hidden = false;
+  b.querySelector('.close').addEventListener('click', () => { b.hidden = true; b.innerHTML = ''; });
+}
+
+/* ---------- タブ ---------- */
+function setTab(t) {
+  T.tab = t;
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'));
+  if (t === 'run') renderRun();
+  else if (t === 'edit') renderEdit();
+  else { renderResShell(); loadResults(T.resRound || (T.st && T.st.roundId) || '', false); }
+}
+document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
+
+/* ---------- 受付タブ ---------- */
+function chips(name, items, cur) {
+  return '<div class="chips">' + items.map(([v, l]) =>
+    '<label><input type="radio" name="' + name + '" value="' + esc(v) + '"' + (String(cur) === String(v) ? ' checked' : '') + '>' + esc(l) + '</label>').join('') + '</div>';
+}
+
+function renderRun() {
+  const c = T.cfg, I = T.init;
+  const opts = I.surveys.map(s => '<option value="' + esc(s.name) + '"' + (s.name === c.sheetName ? ' selected' : '') + '>' + esc(s.name) + '（' + s.count + '問）</option>').join('');
+  const ros = I.rosters.map(r => '<option' + (r === c.roster ? ' selected' : '') + '>' + esc(r) + '</option>').join('');
+  const v = setMain('<div class="card"><h2>受付の設定</h2>' +
+    '<div class="field"><div class="lab">どの質問を使うか</div>' +
+      chips('source', [['sheet', 'スプレッドシートの「しつもん」タブ'], ['app', '「質問をつくる」タブで作った質問（' + T.ed.questions.length + '問）']], c.source) +
+      '<div class="row" id="sheetRow" style="margin-top:8px">' + (opts ? '<select id="sheetName">' + opts + '</select>' : '<span class="help">「しつもん」タブにアンケートがありません。</span>') +
+      '<button id="reload">シートを読み直す</button></div></div>' +
+    '<div class="field"><div class="lab">回答する人（画面の言葉づかい）</div>' + chips('audience', AUDIENCES, c.audience) +
+      '<p class="help">大人向け：ふつうの文章で、ふりがなは付きません（質問文の《》も表示しません）。生徒向け：やさしい言葉で、ふりがなが付きます。</p></div>' +
+    '<div class="field"><div class="lab">名前の集め方</div>' + chips('nameMode', NAME_MODES, c.nameMode) +
+      '<div class="row" id="rosterRow" style="margin-top:8px">名簿：' + (ros ? '<select id="roster">' + ros + '</select>' : '<span class="help">「めいぼ」タブの1行目に名簿の名前を入れてください。</span>') + '</div></div>' +
+    '<div class="field"><div class="lab">参加コード（4けた）</div>' + chips('needCode', [['1', '使う'], ['0', '使わない']], c.needCode ? '1' : '0') +
+      '<p class="help">使うときは、QRコードにコードが入るので、QRから開いた人はコードを打たずに入れます。</p></div>' +
+    '<div class="field"><div class="lab">評価ゲージの数字</div>' + chips('showNumber', [['0', '回答者には見せない'], ['1', '回答者にも見せる']], c.showNumber ? '1' : '0') +
+      '<p class="help">ゲージはどちらでも0〜100の100段階で記録します。</p></div>' +
+    '<div class="field"><div class="lab">端末の使い方</div>' + chips('shared', [['0', '1人1台'], ['1', '1台を順番に使う（送ったあとに「つぎの人が答える」ボタンを出す）']], c.shared ? '1' : '0') + '</div>' +
+    '<div class="field"><div class="row">' +
+      '<button class="pri" id="startBtn">' + (T.st && T.st.open ? 'この設定で次の回を始める' : 'この設定で受付を始める') + '</button>' +
+      (T.st && T.st.open ? '<button id="stopBtn">受付を終える</button>' : '') +
+    '</div><div class="msgline" id="runMsg"></div></div>' +
+    '<div class="field"><div class="lab">使う質問の中身</div><div id="qPrev" class="help">…</div></div>' +
+    '</div>');
+
+  function sync() {
+    c.source = (v.querySelector('input[name=source]:checked') || {}).value || 'sheet';
+    c.audience = (v.querySelector('input[name=audience]:checked') || {}).value === 'student' ? 'student' : 'adult';
+    c.nameMode = (v.querySelector('input[name=nameMode]:checked') || {}).value || 'none';
+    c.needCode = (v.querySelector('input[name=needCode]:checked') || {}).value === '1';
+    c.showNumber = (v.querySelector('input[name=showNumber]:checked') || {}).value === '1';
+    c.shared = (v.querySelector('input[name=shared]:checked') || {}).value === '1';
+    const sn = v.querySelector('#sheetName'); if (sn) c.sheetName = sn.value;
+    const rs = v.querySelector('#roster'); if (rs) c.roster = rs.value;
+    v.querySelector('#sheetRow').style.display = c.source === 'sheet' ? '' : 'none';
+    v.querySelector('#rosterRow').style.display = c.nameMode === 'roster' ? '' : 'none';
+    store.set('svy_t_cfg', c);
+  }
+  async function preview() {
+    sync();
+    const box = v.querySelector('#qPrev');
+    let qs = [];
+    if (c.source === 'app') qs = T.ed.questions;
+    else if (c.sheetName) { try { qs = await call('tGetSurvey', T.pass, c.sheetName); } catch (e) { box.innerHTML = '<span class="msgline err">' + esc(errText(e)) + '</span>'; return; } }
+    box.innerHTML = qs.length ? '<ol style="margin:0;padding-left:1.4em">' + qs.map(q => '<li><span class="tag">' + TYPE_LABEL[q.type] + '</span>' + esc(plainText(q.text)) + '</li>').join('') + '</ol>' : '質問がありません。';
+  }
+  v.addEventListener('change', e => { if (e.target.matches('input[name=source], #sheetName')) preview(); else sync(); });
+  sync(); preview();
+
+  v.querySelector('#reload').addEventListener('click', async e => {
+    e.target.disabled = true;
+    try { const r = await call('tInit', T.pass); T.init = r; renderRun(); } catch (err) { msg(errText(err), true); e.target.disabled = false; }
+  });
+  v.querySelector('#startBtn').addEventListener('click', startRound);
+  const sb = v.querySelector('#stopBtn'); if (sb) sb.addEventListener('click', stopRound);
+  function msg(t, err) { const m = v.querySelector('#runMsg'); m.className = 'msgline ' + (err ? 'err' : 'ok'); m.textContent = t; }
+  v._msg = msg;
+}
+
+async function startRound() {
+  const c = T.cfg;
+  const m = main.querySelector('#runMsg');
+  const btn = main.querySelector('#startBtn');
+  const say = (t, err) => { if (m) { m.className = 'msgline ' + (err ? 'err' : 'ok'); m.textContent = t; } };
+  if (c.source === 'app' && !T.ed.questions.length) { say('「質問をつくる」タブで質問を作ってください。', true); return; }
+  if (btn) btn.disabled = true;
+  say('始めています…');
+  try {
+    const r = await call('tStart', T.pass, Object.assign({}, c, { questions: T.ed.questions, title: T.ed.title }));
+    T.st = r.state; T.people = r.people; T.count = r.count;
+    renderStatus(); renderRun();
+    const m2 = main.querySelector('#runMsg'); if (m2) { m2.className = 'msgline ok'; m2.textContent = '受付を始めました。'; }
+    T.resRound = T.st.roundId;
+  } catch (e) {
+    say('始められませんでした：' + errText(e), true);
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function stopRound() {
+  if (!await confirmBox('受付を終えますか？（終えたあとに届いた回答も記録されます）', '受付を終える')) return;
+  try {
+    const r = await call('tStop', T.pass);
+    T.st = r.state; T.people = r.people; T.count = r.count;
+    renderStatus(); if (T.tab === 'run') renderRun();
+  } catch (e) { alert('終えられませんでした：' + errText(e)); }
+}
+
+/* ---------- 質問をつくるタブ ---------- */
+function newQ(type) {
+  if (type === 'choice') return { type, text: '', options: ['', ''], multi: false, required: true };
+  if (type === 'gauge') return { type, text: '', left: 'よくなかった', right: 'よかった', required: true };
+  return { type: 'free', text: '', required: false };
+}
+function saveEd() { store.set('svy_t_ed', T.ed); }
+
+function renderEdit() {
+  const I = T.init;
+  const v = setMain('<div class="card"><h2>質問をつくる</h2>' +
+    '<p class="help">生徒向けで使うときは、「漢字《かんじ》」と書くとふりがなが付きます（例：感想《かんそう》、｜お弁当《おべんとう》のように｜で区切ることもできます）。大人向けで使うときは《》の部分は表示されません。</p>' +
+    '<div class="row"><label>アンケート名 <input type="text" id="edTitle" style="min-width:260px"></label></div>' +
+    '<div class="row" style="margin-top:8px"><span class="help">シートのアンケートを読みこむ：</span>' +
+      '<select id="loadName">' + I.surveys.map(s => '<option>' + esc(s.name) + '</option>').join('') + '</select>' +
+      '<button id="loadBtn">このアンケートを読みこんで編集する</button></div>' +
+    '<div id="qList" style="margin-top:14px"></div>' +
+    '<div class="row" style="margin-top:12px"><span>質問を足す：</span>' +
+      '<button data-add="gauge">＋ 評価ゲージ</button><button data-add="choice">＋ 選ぶ</button><button data-add="free">＋ 自由に書く</button></div>' +
+    '<div class="field" style="margin-top:14px"><div class="row">' +
+      '<button id="draftBtn">下書きとして保存する</button>' +
+      '<button class="pri" id="toSheetBtn">シートの「しつもん」タブに保存する</button>' +
+      '<button id="clearBtn">ぜんぶ消して作り直す</button></div>' +
+      '<p class="help">シートに保存すると、同じアンケート名の行は書きかわります。</p>' +
+      '<div class="msgline" id="edMsg"></div></div></div>');
+  const ttl = v.querySelector('#edTitle');
+  ttl.value = T.ed.title || '';
+  ttl.addEventListener('input', () => { T.ed.title = ttl.value; saveEd(); });
+  const say = (t, err) => { const m = v.querySelector('#edMsg'); m.className = 'msgline ' + (err ? 'err' : 'ok'); m.textContent = t; };
+
+  drawQList(v.querySelector('#qList'));
+
+  v.querySelector('#loadBtn').addEventListener('click', async () => {
+    const name = v.querySelector('#loadName').value; if (!name) return;
+    if (T.ed.questions.length && !await confirmBox('いま作っている質問を「' + name + '」に置きかえますか？', '置きかえる')) return;
+    try {
+      const qs = await call('tGetSurvey', T.pass, name);
+      T.ed = { title: name, questions: qs.map(q => Object.assign({ options: [], left: '', right: '' }, q)) };
+      saveEd(); renderEdit();
+    } catch (e) { say(errText(e), true); }
+  });
+  v.addEventListener('click', e => {
+    const b = e.target.closest('button[data-add]'); if (!b) return;
+    T.ed.questions.push(newQ(b.dataset.add)); saveEd(); drawQList(v.querySelector('#qList'));
+  });
+  v.querySelector('#draftBtn').addEventListener('click', async () => {
+    try { await call('tSaveDraft', T.pass, T.ed); say('下書きを保存しました。'); } catch (e) { say(errText(e), true); }
+  });
+  v.querySelector('#toSheetBtn').addEventListener('click', async () => {
+    const name = (T.ed.title || '').trim();
+    if (!name) { say('アンケート名を入れてください。', true); return; }
+    if (!T.ed.questions.length) { say('質問を1つ以上作ってください。', true); return; }
+    if (I.surveys.some(s => s.name === name) && !await confirmBox('「' + name + '」はシートにあります。書きかえますか？', '書きかえる')) return;
+    try { I.surveys = await call('tSaveSurveyToSheet', T.pass, name, T.ed.questions); say('「しつもん」タブに保存しました。'); }
+    catch (e) { say('保存できませんでした：' + errText(e), true); }
+  });
+  v.querySelector('#clearBtn').addEventListener('click', async () => {
+    if (!await confirmBox('作っている質問をぜんぶ消しますか？', 'ぜんぶ消す')) return;
+    T.ed = { title: '', questions: [] }; saveEd(); renderEdit();
+  });
+}
+
+function drawQList(box) {
+  const qs = T.ed.questions;
+  if (!qs.length) { box.innerHTML = '<p class="help">まだ質問がありません。下のボタンで足してください。</p>'; return; }
+  box.innerHTML = qs.map((q, i) => {
+    let extra = '';
+    if (q.type === 'choice') {
+      extra = '<label class="blk">選択肢（1行に1つ）</label><textarea class="t" data-f="options">' + esc((q.options || []).join('\n')) + '</textarea>' +
+        '<div class="chips" style="margin-top:6px"><label><input type="checkbox" data-f="multi"' + (q.multi ? ' checked' : '') + '>いくつでも選べる</label></div>';
+    } else if (q.type === 'gauge') {
+      extra = '<div class="two"><div><label class="blk">左はしの言葉</label><input type="text" data-f="left" value="' + esc(q.left || '') + '" style="width:100%"></div>' +
+        '<div><label class="blk">右はしの言葉</label><input type="text" data-f="right" value="' + esc(q.right || '') + '" style="width:100%"></div></div>';
+    }
+    return '<div class="qcard" data-i="' + i + '"><div class="qhead"><b>質問 ' + (i + 1) + '</b>' +
+      '<select data-f="type">' + Object.keys(TYPE_LABEL).map(t => '<option value="' + t + '"' + (t === q.type ? ' selected' : '') + '>' + TYPE_LABEL[t] + '</option>').join('') + '</select>' +
+      '<div class="chips"><label><input type="checkbox" data-f="required"' + (q.required ? ' checked' : '') + '>答えないと次へ進めない</label></div>' +
+      '<div class="tools"><button data-act="up" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>▲</button><button data-act="down" aria-label="下へ"' + (i === qs.length - 1 ? ' disabled' : '') + '>▼</button><button data-act="del">削除</button></div></div>' +
+      '<label class="blk">質問文</label><textarea class="t" data-f="text">' + esc(q.text || '') + '</textarea>' +
+      '<div class="rubyprev">' + (q.text ? rubyText(q.text) : '') + '</div>' + extra + '</div>';
+  }).join('');
+  box.oninput = e => {
+    const card = e.target.closest('.qcard'); if (!card) return;
+    const q = qs[+card.dataset.i]; const f = e.target.dataset.f;
+    if (f === 'text') { q.text = e.target.value; card.querySelector('.rubyprev').innerHTML = q.text ? rubyText(q.text) : ''; }
+    else if (f === 'options') q.options = e.target.value.split('\n').map(x => x.trim()).filter(x => x);
+    else if (f === 'left' || f === 'right') q[f] = e.target.value;
+    saveEd();
+  };
+  box.onchange = e => {
+    const card = e.target.closest('.qcard'); if (!card) return;
+    const i = +card.dataset.i; const q = qs[i]; const f = e.target.dataset.f;
+    if (f === 'multi') q.multi = e.target.checked;
+    else if (f === 'required') q.required = e.target.checked;
+    else if (f === 'type') {
+      const n = newQ(e.target.value); n.text = q.text; qs[i] = n; drawQList(box);
+    }
+    else if (f === 'options') q.options = e.target.value.split('\n').map(x => x.trim()).filter(x => x);
+    saveEd();
+  };
+  box.onclick = async e => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    const i = +b.closest('.qcard').dataset.i;
+    if (b.dataset.act === 'up' && i > 0) [qs[i - 1], qs[i]] = [qs[i], qs[i - 1]];
+    else if (b.dataset.act === 'down' && i < qs.length - 1) [qs[i + 1], qs[i]] = [qs[i], qs[i + 1]];
+    else if (b.dataset.act === 'del') { if (!await confirmBox('質問 ' + (i + 1) + ' を削除しますか？', '削除する')) return; qs.splice(i, 1); }
+    saveEd(); drawQList(box);
+  };
+}
+
+/* ---------- 結果タブ ---------- */
+function renderResShell() {
+  setMain('<div class="card"><div class="row"><h2 style="margin:0">結果を見る</h2>' +
+    '<select id="roundSel" style="min-width:260px"></select><button id="resReload">最新の結果にする</button></div>' +
+    '<div id="resBody" style="margin-top:12px" class="help">読みこみ中…</div></div>');
+  main.querySelector('#roundSel').addEventListener('change', e => { T.resRound = e.target.value; loadResults(T.resRound, false); });
+  main.querySelector('#resReload').addEventListener('click', () => loadResults(T.resRound, false));
+}
+
+async function loadResults(roundId, quiet) {
+  if (T.tab !== 'res') return;
+  let r;
+  try { r = await call('tResults', T.pass, roundId); }
+  catch (e) { if (!quiet) { const b = main.querySelector('#resBody'); if (b) b.innerHTML = '<span class="msgline err">' + esc(errText(e)) + '</span>'; } return; }
+  if (T.tab !== 'res') return;
+  T.res = r; T.resRound = r.roundId;
+  const sel = main.querySelector('#roundSel');
+  if (sel) sel.innerHTML = (r.rounds || []).map(x => '<option value="' + esc(x.id) + '"' + (x.id === r.roundId ? ' selected' : '') + '>' +
+    (x.started ? fmtDate(x.started) + ' ' + fmtTime(x.started) + '　' : '') + esc(plainText(x.title)) + '</option>').join('') || '<option>まだ記録がありません</option>';
+  const body = main.querySelector('#resBody');
+  if (body) body.replaceWith(Object.assign(document.createElement('div'), { id: 'resBody', innerHTML: resultsHtml(r) }));
+  const nb = main.querySelector('#resBody'); if (nb) nb.style.marginTop = '12px';
+}
+
+function stats(vals) {
+  if (!vals.length) return null;
+  const s = vals.slice().sort((a, b) => a - b);
+  const sum = s.reduce((a, b) => a + b, 0);
+  const mid = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+  return { n: s.length, avg: sum / s.length, min: s[0], max: s[s.length - 1], med: mid };
+}
+
+function resultsHtml(r) {
+  if (!r.roundId) return '<p class="help">まだ記録がありません。受付を始めると、ここに結果が出ます。</p>';
+  // 回答者ごとにまとめる
+  const people = {}; const order = [];
+  r.answers.forEach(a => {
+    if (!people[a.sendId]) { people[a.sendId] = { name: a.name, time: a.time, by: {} }; order.push(a.sendId); }
+    people[a.sendId].by[a.no] = a;
+  });
+  let qs = r.questions && r.questions.length ? r.questions.map((q, i) => Object.assign({ no: i + 1 }, q)) : null;
+  if (!qs) {  // 質問の内容がないときは、回答から作る
+    const m = {}; r.answers.forEach(a => { if (!m[a.no]) m[a.no] = { no: a.no, type: a.type, text: a.q, options: [] }; });
+    qs = Object.keys(m).sort((a, b) => a - b).map(k => m[k]);
+  }
+  const n = order.length;
+  let html = '<div class="kpi"><div><span class="n">' + n + '</span> 人が回答</div>' +
+    '<div class="sub">' + esc(plainText(r.title)) + (r.started ? '　' + fmtDate(r.started) + ' ' + fmtTime(r.started) + 'に開始' : '') + (r.open ? '　<span class="pill on">受付中・自動で更新</span>' : '') + '</div></div>';
+  if (!n) return html + '<p class="help">まだ回答がありません。</p>';
+
+  qs.forEach(q => {
+    const list = order.map(id => ({ p: people[id], a: people[id].by[q.no] })).filter(x => x.a);
+    html += '<div class="rq"><div class="qt"><span class="tag">' + q.no + '. ' + TYPE_LABEL[q.type] + '</span>' + esc(plainText(q.text)) + '</div>';
+    if (q.type === 'gauge') {
+      const vals = list.filter(x => x.a.value !== null && x.a.value !== '' && !isNaN(x.a.value)).map(x => ({ v: Number(x.a.value), name: x.p.name }));
+      const s = stats(vals.map(x => x.v));
+      if (!s) { html += '<p class="help">数値の回答がありません。</p></div>'; return; }
+      const bands = [0, 0, 0, 0, 0]; vals.forEach(x => bands[Math.min(4, Math.floor(x.v / 20))]++);
+      html += '<div class="avg"><div>平均 <span class="big">' + s.avg.toFixed(1) + '</span></div>' +
+        '<div>中央値 <b>' + (Math.round(s.med * 10) / 10) + '</b></div><div>いちばん低い <b>' + s.min + '</b></div><div>いちばん高い <b>' + s.max + '</b></div><div>' + s.n + '人</div></div>' +
+        '<div class="plot"><div class="line"></div>' +
+        vals.map((x, k) => '<span class="dot" title="' + esc(x.name) + '：' + x.v + '" style="left:' + x.v + '%;top:' + (14 + (k % 3) * 6) + 'px"></span>').join('') +
+        '<span class="am" style="left:' + s.avg + '%"></span><span class="al" style="left:' + s.avg + '%">平均 ' + s.avg.toFixed(1) + '</span></div>' +
+        '<div class="plot-ends"><span>0：' + esc(plainText(q.left || '')) + '</span><span>' + esc(plainText(q.right || '')) + '：100</span></div>' +
+        '<div class="bands">' + ['0〜19', '20〜39', '40〜59', '60〜79', '80〜100'].map((l, k) => '<div>' + l + '<br><b>' + bands[k] + '人</b></div>').join('') + '</div>' +
+        '<div class="vals">' + vals.map(x => '<span>' + esc(x.name) + '：<b>' + x.v + '</b></span>').join('') + '</div>';
+    } else if (q.type === 'choice') {
+      const opts = (q.options || []).map(plainText);
+      const cnt = {}; opts.forEach(o => cnt[o] = 0);
+      let answered = 0;
+      list.forEach(x => {
+        const parts = String(x.a.answer || '').split(' / ').map(s => s.trim()).filter(s => s);
+        if (parts.length) answered++;
+        parts.forEach(p => { cnt[p] = (cnt[p] || 0) + 1; });
+      });
+      const keys = Object.keys(cnt);
+      const max = Math.max(1, ...keys.map(k => cnt[k]));
+      html += '<div class="bars">' + keys.map(k => '<div class="bar"><span>' + esc(k) + '</span><div class="b"><i style="width:' + (cnt[k] / max * 100) + '%"></i></div><span><b>' + cnt[k] + '</b>人' + (answered ? '（' + Math.round(cnt[k] / answered * 100) + '%）' : '') + '</span></div>').join('') + '</div>' +
+        (q.multi ? '<p class="help">いくつでも選べる質問です（%は答えた人の数をもとにしています）。</p>' : '');
+    } else {
+      const fr = list.filter(x => String(x.a.answer || '').trim());
+      html += fr.length ? '<div class="frees">' + fr.map(x => '<div><b>' + esc(x.p.name) + '</b>' + esc(x.a.answer) + '</div>').join('') + '</div>' : '<p class="help">書かれた回答はありません。</p>';
+    }
+    html += '</div>';
+  });
+
+  // 回答者ごとの一覧
+  const gaugeNos = qs.filter(q => q.type === 'gauge').map(q => q.no);
+  html += '<div class="rq"><div class="qt">回答者ごとの一覧</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>名前</th><th>時刻</th>' +
+    qs.map(q => '<th>' + q.no + '. ' + esc(plainText(q.text).slice(0, 14)) + '</th>').join('') +
+    (gaugeNos.length > 1 ? '<th>ゲージの平均</th>' : '') + '</tr></thead><tbody>' +
+    order.map(id => {
+      const p = people[id];
+      const gv = gaugeNos.map(no => p.by[no] && p.by[no].value).filter(v => v !== null && v !== undefined && v !== '');
+      return '<tr><td>' + esc(p.name) + '</td><td>' + fmtTime(p.time) + '</td>' +
+        qs.map(q => { const a = p.by[q.no]; if (!a) return '<td></td>';
+          return q.type === 'gauge' ? '<td class="num">' + (a.value === null ? '' : a.value) + '</td>' : '<td class="wrap">' + esc(a.answer) + '</td>'; }).join('') +
+        (gaugeNos.length > 1 ? '<td class="num">' + (gv.length ? (gv.reduce((x, y) => x + Number(y), 0) / gv.length).toFixed(1) : '') + '</td>' : '') + '</tr>';
+    }).join('') + '</tbody></table></div></div>';
+  return html;
+}
+
+window.__tBoot = boot;
+boot();
+}
+
+(function () {
+  var unused = document.getElementById(PAGE === 'teacher' ? 'studentRoot' : 'teacherRoot');
+  if (unused) unused.remove();
+  if (PAGE === 'teacher') runTeacher(); else runStudent();
+})();
+</script>
+</body>
+</html>

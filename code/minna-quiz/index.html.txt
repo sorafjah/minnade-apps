@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>みんなでクイズ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f6fa; --card:#ffffff; --ink:#23303b; --sub:#5f6d7a; --line:#d6dee7; --soft:#e8edf3;
+  --main:#2f7fc8; --mainsoft:#e6f0fa; --ok:#2e8f53; --warn:#c94b4b;
+  /* せんたくし：ぜんぶ うすい水色 */
+  --o:#c6e3f7; --o-bg:#eef8fe; --o-line:#b3d9f2; --o-bar:#8cc4ea;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font-family:'BIZ UDPGothic',sans-serif;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+button{
+  font-family:inherit;font-weight:700;border:none;cursor:pointer;color:var(--ink);
+  min-width:44px;min-height:44px;border-radius:14px;
+}
+button:disabled{opacity:.5;cursor:default}
+input,textarea{
+  font-family:inherit;font-size:18px;color:var(--ink);
+  -webkit-user-select:text;user-select:text;
+  border:2px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;width:100%;
+}
+textarea{resize:vertical;min-height:84px;line-height:1.6}
+input:focus,textarea:focus{outline:none;border-color:var(--main)}
+ruby rt{font-size:.5em;font-weight:400}
+.hidden{display:none!important}
+.scroll{overflow:auto;-webkit-overflow-scrolling:touch}
+#app{height:100%;display:flex;flex-direction:column}
+
+/* プレビュー用の切りかえ（GASでは出ない） */
+.pv{display:flex;gap:8px;align-items:center;padding:6px 12px;background:#e6edf5;border-bottom:1px solid var(--line);font-size:14px;flex:none}
+.pv button{background:#fff;border:2px solid var(--line);padding:0 14px;font-size:15px}
+.pv button.on{border-color:var(--main);color:var(--main)}
+
+.view{flex:1;display:flex;flex-direction:column;min-height:0}
+.net{text-align:center;color:var(--sub);font-size:15px;min-height:22px;padding:2px;flex:none}
+.time{font-weight:700;color:var(--main);white-space:nowrap;font-size:clamp(20px,3vw,32px)}
+.time.warn{color:var(--warn)}
+/* のこり時間のバー（だんだん へっていく） */
+.tbar{flex:none;height:18px;background:var(--soft)}
+.tfill{height:100%;width:100%;background:var(--main);border-radius:0 9px 9px 0}
+.tbar.warn .tfill{background:var(--warn)}
+
+/* ---------- 先生・生徒 共通の 問題表示 ---------- */
+.chip{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;border-radius:12px;color:var(--ink);margin:0 .1em;flex:none;font-weight:700}
+.chip,.pickbtn{background:var(--o)}
+.fill{background:var(--o-bar)}
+.stage{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
+.q{font-size:clamp(24px,3.4vw,44px);font-weight:700;line-height:1.8}
+.qimg{display:block;max-width:100%;max-height:34vh;object-fit:contain;margin:0 auto;border-radius:12px}
+.hints{font-size:clamp(20px,2.8vw,32px);font-weight:700}
+.hint{color:var(--sub);border-left:6px solid var(--o-bar);padding:2px 0 2px 12px;margin-top:6px}
+.subimg{display:block;max-width:100%;max-height:28vh;object-fit:contain;margin:6px 0;border-radius:10px}
+.explain{background:#fff;border:3px solid var(--ok);border-radius:16px;padding:10px 16px;font-size:clamp(20px,2.8vw,32px);font-weight:700;line-height:1.7}
+.explain .lab{color:var(--ok);font-size:.75em}
+/* 画像（よみこみ中は うすい 四角） */
+img[data-img]:not([src]){min-height:90px;min-width:120px;background:var(--soft)}
+.nfimg{color:var(--warn);font-size:16px;font-weight:700;border:2px dashed var(--warn);border-radius:10px;padding:8px 12px;margin:6px 0;line-height:1.6}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;text-align:left;
+  border:3px solid var(--o-line);background:var(--o-bg);border-radius:16px;padding:8px 16px;
+  font-size:clamp(22px,2.8vw,34px);font-weight:700;line-height:1.6;color:var(--ink);font-family:inherit}
+button.opt{cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.08)}
+button.opt:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.opt .otxt{flex:1;min-width:0}
+.opt .track{width:30%;height:38px;background:#fff;border-radius:10px;overflow:hidden;flex:none}
+.opt .fill{height:100%;border-radius:10px;transition:width .4s}
+.opt .n{width:3.4em;text-align:right;flex:none}
+.opt.dim{opacity:.4}
+.opt.win{border:5px solid var(--ok)}
+.opt.mine{border:5px solid var(--main)}
+.opt.ask{border:5px dashed var(--main)}
+.helpbody{display:flex;flex-direction:column;gap:14px;font-size:17px;line-height:1.8}
+.helpbody h3{margin:0;font-size:18px;color:var(--main)}
+.helpbody ol,.helpbody ul{margin:4px 0 0;padding-left:1.4em}
+.helpbody li{margin-bottom:4px}
+.opt .tag{font-size:.65em;flex:none;padding:2px 10px;border-radius:999px;background:#fff}
+.opt .tag.ok{color:var(--ok)}
+.opt .tag.me{color:var(--main)}
+.opts.only .opt{justify-content:center}
+.opts.only .chip{font-size:1.5em}
+.idle{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:16px}
+.idle .m1{font-size:clamp(28px,4.2vw,48px);font-weight:700;line-height:1.7}
+.idle .m2{font-size:clamp(18px,2.2vw,24px);font-weight:700;color:var(--sub)}
+
+/* ---------- 生徒 ---------- */
+.s-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line);flex:none}
+.namebtn{background:var(--bg);border:2px solid var(--line);padding:4px 14px;font-size:clamp(18px,2.4vw,24px);display:flex;align-items:center;gap:8px}
+.namebtn small{font-size:.65em;color:var(--sub)}
+.namebtn:disabled{opacity:1;border-color:transparent;background:transparent}
+.s-round{color:var(--main);font-size:clamp(20px,3vw,30px);font-weight:700;white-space:nowrap}
+.s-main{flex:1;display:flex;flex-direction:column;gap:10px;padding:10px 16px;min-height:0}
+.s-msg{flex:none;text-align:center;font-size:clamp(20px,3.2vw,32px);font-weight:700;line-height:1.6;padding:8px 14px;border-radius:16px;background:var(--card);border:2px solid var(--line)}
+.s-msg.ok{color:var(--ok);border-color:var(--ok)}
+.s-msg .maru{font-size:1.4em}
+.pickview{flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;padding:16px;min-height:0}
+.pickview .m1{font-size:clamp(26px,4vw,40px);font-weight:700}
+.nicks{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:100%;max-width:900px}
+.nick{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:100px;background:var(--card);border:3px solid var(--line);font-size:clamp(16px,2.2vw,22px);padding:6px}
+.nick .emo{font-size:clamp(36px,5vw,52px);line-height:1.15}
+.nick.on{border-color:var(--main);background:var(--mainsoft)}
+.nick small{font-size:13px;color:var(--sub)}
+.nicks.roster .nick{min-height:76px;word-break:keep-all;font-size:clamp(20px,2.6vw,28px);font-weight:700;line-height:1.5}
+.nicks.roster .nick rt{font-size:.5em;font-weight:400}
+.codechip{flex:none;display:flex;align-items:baseline;gap:8px;border:2px solid var(--main);background:var(--mainsoft);border-radius:14px;padding:4px 14px;font-size:15px;font-weight:700;color:var(--sub);white-space:nowrap}
+.codechip b{font-size:clamp(24px,3.2vw,34px);color:var(--main);letter-spacing:.12em;font-variant-numeric:tabular-nums}
+.bigcode{display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:700;color:var(--sub);font-size:clamp(18px,2.4vw,26px)}
+.bigcode b{font-size:clamp(64px,11vw,130px);line-height:1.1;color:var(--main);letter-spacing:.18em;font-variant-numeric:tabular-nums}
+.codeview{flex:1;display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px;min-height:0;overflow:auto}
+.codeview .m1{font-size:clamp(24px,3.6vw,38px);font-weight:700;text-align:center;line-height:1.5}
+.codeboxes{display:flex;gap:12px}
+.codebox{width:clamp(56px,9vw,84px);height:clamp(72px,11vw,104px);display:flex;align-items:center;justify-content:center;font-size:clamp(40px,6vw,64px);font-weight:700;background:#fff;border:3px solid var(--line);border-radius:14px;font-variant-numeric:tabular-nums}
+.codebox.on{border-color:var(--main);background:var(--mainsoft)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(420px,100%)}
+.keys button{min-height:clamp(58px,9vh,84px);font-size:clamp(26px,4vw,38px);font-weight:700;background:var(--card);border:3px solid var(--line);border-radius:16px;font-family:inherit}
+.keys button.fn{font-size:clamp(16px,2.4vw,22px);color:var(--sub)}
+.namelist{display:flex;flex-wrap:wrap;gap:8px}
+.namelist button{background:#fff;border:2px solid var(--line);padding:4px 14px;font-size:17px;min-height:44px}
+.namelist button.arm{border-color:var(--warn);color:var(--warn)}
+.pickmsg{min-height:24px;color:var(--warn);font-weight:700;text-align:center}
+
+/* ---------- 先生 ---------- */
+.t-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--line);flex:none}
+.t-round{font-size:clamp(22px,3vw,34px);font-weight:700;white-space:nowrap}
+.t-round b{color:var(--main);font-size:1.3em}
+.t-round small{font-size:.7em;color:var(--sub)}
+.t-info{flex:1 1 150px;min-width:0;overflow:hidden}
+.t-set{font-size:clamp(14px,1.7vw,18px);font-weight:700;color:var(--main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-phase{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(17px,2.2vw,24px);font-weight:700;color:var(--sub)}
+.tool{background:#fff;border:2px solid var(--line);color:var(--sub);padding:0 14px;font-size:15px}
+.tool.arm{border-color:var(--warn);color:var(--warn)}
+.t-main{flex:1;display:flex;gap:20px;padding:16px 20px;min-height:0}
+.t-side{width:min(26%,240px);display:flex;flex-direction:column;gap:12px;min-height:0;flex:none}
+.t-count{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px;text-align:center}
+.t-count .lab,.t-count .unit{font-size:clamp(16px,2vw,22px);font-weight:700;color:var(--sub)}
+.t-count .num{font-size:clamp(60px,9vw,120px);font-weight:700;color:var(--main);line-height:1.1}
+.names{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;flex:1;min-height:0}
+.name{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:clamp(15px,1.8vw,20px);font-weight:700}
+.t-foot{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px 20px 14px;background:var(--card);border-top:1px solid var(--line);flex-wrap:wrap;flex:none}
+.t-foot .lab{font-size:clamp(20px,2.4vw,26px);font-weight:700}
+.main-btn{background:var(--main);color:#fff;font-size:clamp(20px,2.6vw,28px);padding:12px 32px;min-height:60px}
+.sub-btn{background:#fff;border:2px solid var(--main);color:var(--main);font-size:clamp(18px,2.2vw,24px);padding:10px 24px;min-height:60px}
+.pickbtn{font-size:28px;width:72px;height:60px}
+
+/* ---------- パネル ---------- */
+.ov{position:fixed;inset:0;background:rgba(30,40,50,.45);display:flex;align-items:center;justify-content:center;z-index:10;padding:12px}
+.panel{background:#fff;border-radius:20px;width:min(760px,100%);max-height:100%;padding:18px 22px;display:flex;flex-direction:column;gap:16px}
+.panel h2{margin:0;font-size:24px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:16px;font-weight:700;color:var(--sub)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button,.setbtn{background:#fff;border:2px solid var(--line);padding:0 16px;font-size:17px}
+.seg button.on,.setbtn.on{border-color:var(--main);background:var(--mainsoft);color:var(--main)}
+.setlist{display:flex;flex-direction:column;gap:8px;max-height:36vh}
+.setbtn{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;padding:8px 16px}
+.setbtn small{color:var(--sub);flex:none}
+.numbox{display:flex;align-items:center;gap:6px}
+.numbox button{width:48px;height:48px;background:var(--soft);font-size:18px}
+.numbox input{width:90px;text-align:center}
+.note{font-size:14px;color:var(--sub);line-height:1.7}
+.pbtns{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}
+.danger{background:#fff;border:2px solid var(--line);color:var(--sub);padding:0 16px;font-size:16px;align-self:flex-start}
+.danger.arm{border-color:var(--warn);color:var(--warn)}
+/* がぞう パネル */
+.filebtn{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;cursor:pointer;position:relative;font-weight:700}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.imglist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.imgitem{display:flex;flex-direction:column;gap:6px;align-items:stretch;background:var(--bg);border:2px solid var(--line);border-radius:14px;padding:8px}
+.imgitem.new{border-color:var(--ok)}
+.imgitem img{width:100%;height:100px;object-fit:contain;background:#fff;border-radius:8px}
+.imgitem .iname{font-size:15px;font-weight:700;word-break:break-all;-webkit-user-select:text;user-select:text}
+.copybtn{background:#fff;border:2px solid var(--main);color:var(--main);font-size:15px;min-height:40px}
+.copybtn.done{border-color:var(--ok);color:var(--ok)}
+a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-radius:14px;font-weight:700}
+
+@media (max-width:760px){
+  .t-main{flex-direction:column}
+  .t-side{width:100%;flex-direction:row}
+  .t-count{display:flex;align-items:center;gap:10px}
+  .t-count .num{font-size:48px}
+  .grid2{grid-template-columns:1fr}
+  .opt .track{width:22%}
+}
+@media (max-width:520px){
+  .nicks{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="pv" class="pv hidden">
+    <span>プレビュー：</span>
+    <button id="pvT" class="on">せんせいの がめん</button>
+    <button id="pvS">せいとの がめん</button>
+  </div>
+
+  <!-- つかいかた -->
+  <div id="helpOv" class="ov hidden">
+    <div class="panel scroll">
+      <h2 id="helpTitle">つかいかた</h2>
+      <div id="helpBody" class="helpbody"></div>
+      <div class="pbtns"><button id="helpClose" class="main-btn">とじる</button></div>
+    </div>
+  </div>
+
+  <!-- 生徒 -->
+  <section id="student" class="view hidden">
+    <header class="s-head">
+      <button id="sNameBtn" class="namebtn"></button>
+      <button id="sHelpBtn" class="namebtn">つかいかた</button>
+      <span id="sTime" class="time"></span>
+      <span id="sRound" class="s-round"></span>
+    </header>
+    <div id="sBar" class="tbar hidden"><div class="tfill"></div></div>
+    <div id="sCode" class="codeview hidden">
+      <div class="m1"><ruby>先生<rt>せんせい</rt></ruby>の がめんの<br>4けたの すうじを いれてね</div>
+      <div id="sCodeBoxes" class="codeboxes"></div>
+      <div id="sCodeMsg" class="pickmsg"></div>
+      <div id="sKeys" class="keys"></div>
+    </div>
+    <div id="sMain" class="s-main">
+      <div id="sMsg" class="s-msg hidden"></div>
+      <div id="sStage" class="stage scroll hidden">
+        <div id="sQ" class="q"></div>
+        <div id="sImg" class="hidden"></div>
+        <div id="sHints" class="hints"></div>
+        <div id="sOpts" class="opts"></div>
+        <div id="sExplain" class="explain hidden"></div>
+      </div>
+      <div id="sIdle" class="idle"><div id="sIdleM" class="m1"></div></div>
+    </div>
+    <div id="sPick" class="pickview scroll hidden">
+      <div id="sPickTitle" class="m1">キャラを えらんでね</div>
+      <div id="sNicks" class="nicks"></div>
+      <div id="sPickMsg" class="pickmsg"></div>
+      <button id="sPickBack" class="sub-btn hidden">もどる</button>
+    </div>
+    <div id="sNet" class="net"></div>
+  </section>
+
+  <!-- 先生 -->
+  <section id="teacher" class="view hidden">
+    <header class="t-head">
+      <div class="t-round">もんだい <b id="tRound">0</b></div>
+      <div class="t-info">
+        <div id="tSet" class="t-set"></div>
+        <div id="tPhase" class="t-phase"></div>
+      </div>
+      <div id="tCode" class="codechip hidden"></div>
+      <div id="tTime" class="time"></div>
+      <button id="tFormBtn" class="tool hidden">もんだいを いれる</button>
+      <button id="tHelpBtn" class="tool">つかいかた</button>
+      <button id="tImgBtn" class="tool">がぞう</button>
+      <button id="tSetBtn" class="tool">せってい</button>
+      <button id="tReset" class="tool">さいしょに もどる</button>
+    </header>
+    <div id="tBar" class="tbar hidden"><div class="tfill"></div></div>
+    <div class="t-main">
+      <div id="tIdle" class="idle">
+        <div id="tIdleM1" class="m1"></div>
+        <div id="tIdleCode" class="bigcode hidden"></div>
+        <div id="tIdleM2" class="m2"></div>
+      </div>
+      <div id="tStage" class="stage scroll hidden">
+        <div id="tQ" class="q"></div>
+        <div id="tImg" class="hidden"></div>
+        <div id="tHints" class="hints"></div>
+        <div id="tOpts" class="opts"></div>
+        <div id="tExplain" class="explain hidden"></div>
+      </div>
+      <div class="t-side">
+        <div class="t-count">
+          <div class="lab">こたえた ひと</div>
+          <div id="tCount" class="num">0</div>
+        </div>
+        <div id="tNames" class="names scroll"></div>
+      </div>
+    </div>
+    <footer id="tFoot" class="t-foot"></footer>
+    <div id="tNet" class="net"></div>
+  </section>
+
+  <!-- せってい -->
+  <div id="setOv" class="ov hidden">
+    <div class="panel scroll">
+      <h2>せってい</h2>
+      <div class="field">
+        <span>もんだいの だしかた</span>
+        <div class="seg" id="segSource">
+          <button data-v="sheet">スプレッドシートの セットから</button>
+          <button data-v="manual">この がめんで 1もんずつ いれる</button>
+        </div>
+      </div>
+      <div id="setField" class="field">
+        <span>つかう セット（えらぶと その セットの 1もんめから はじまるよ）</span>
+        <div id="setList" class="setlist scroll"></div>
+      </div>
+      <div class="field">
+        <span>せいとの iPadに もんだいぶんと せんたくしの ことばを</span>
+        <div class="seg" id="segShowQ">
+          <button data-v="1">だす</button>
+          <button data-v="0">ださない（ABCDだけ）</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>せいげん じかん（びょう。0は なし）</span>
+        <div class="numbox">
+          <button type="button" id="sLimDn">▽</button>
+          <input id="sLim" type="text" inputmode="numeric" value="0">
+          <button type="button" id="sLimUp">△</button>
+        </div>
+        <div class="note">つぎに だす もんだいから かわるよ。はじめは 60びょうだよ。スプレッドシートの「制限時間（びょう）」に かいてある もんだいは、そちらの じかんに なるよ。</div>
+      </div>
+      <div class="field">
+        <span>のこり じかんの みせかた</span>
+        <div class="seg" id="segTimeView">
+          <button data-v="bar">バー</button>
+          <button data-v="both">バーと びょう</button>
+          <button data-v="text">びょうだけ</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>もんだいの タブ</span>
+        <button id="makeTpl" class="danger">みだしの はいった あたらしい タブを つくる</button>
+        <div id="tplMsg" class="note"></div>
+      </div>
+      <div class="field">
+        <span><ruby>参加<rt>さんか</rt></ruby>コード（4けたの すうじ）</span>
+        <div class="seg" id="segCode">
+          <button data-v="1">つかう</button>
+          <button data-v="0">つかわない</button>
+        </div>
+        <div class="note">つかうと、コードを いれた iPadだけが さんかできるよ。コードは せんせいの がめんの うえと、はじまる まえの がめんに でるよ。</div>
+        <button id="newCode" class="danger">あたらしい コードに する</button>
+      </div>
+      <div class="field">
+        <span>せいとの なまえの えらびかた</span>
+        <div class="seg" id="segNameMode">
+          <button data-v="roster">めいぼから じぶんの なまえ</button>
+          <button data-v="chara">どうぶつの キャラ</button>
+        </div>
+        <div class="note">かえると、みんな えらびなおしに なるよ。</div>
+      </div>
+      <div id="rosterField" class="field">
+        <span>つかう めいぼ（スプレッドシートの「めいぼ」タブ）</span>
+        <div id="rosterList" class="setlist scroll"></div>
+        <div id="rosterNote" class="note"></div>
+        <button id="makeRoster" class="danger hidden">「めいぼ」タブを つくる</button>
+      </div>
+      <div class="field">
+        <span>えらばれている なまえ（2かい おすと その人だけ えらびなおしに なるよ）</span>
+        <div id="memberList" class="namelist"></div>
+        <button id="clearNames" class="danger">みんなに えらびなおしてもらう</button>
+      </div>
+      <div class="pbtns"><button id="setClose" class="main-btn">とじる</button></div>
+    </div>
+  </div>
+
+  <!-- がぞう -->
+  <div id="imgOv" class="ov hidden">
+    <div class="panel scroll">
+      <h2>がぞう</h2>
+      <div class="note">
+        ここで いれた がぞうは、ドライブの「みんなでクイズの がぞう」フォルダに はいるよ（じどうで ちいさく するよ）。<br>
+        スプレッドシートの「問題の画像」「ヒント1の画像」「解説の画像」の らんに、がぞうの なまえを かいてね。
+      </div>
+      <div>
+        <label class="main-btn filebtn">1. がぞうを えらぶ<input id="upFile" class="vh" type="file" accept="image/*" multiple></label>
+      </div>
+      <div id="upStep2" class="field hidden">
+        <span id="upChosen"></span>
+        <label class="field"><span>2. がぞうの なまえ（からっぽなら もとの ファイルの なまえ）</span><input id="upName" type="text" placeholder="れい：つき"></label>
+        <button id="upGo" class="main-btn">3. いれる</button>
+      </div>
+      <div id="upMsg" class="note"></div>
+      <div class="field">
+        <span>フォルダの なかの がぞう（あたらしい じゅん）</span>
+        <div id="imgList" class="imglist"></div>
+      </div>
+      <div class="pbtns">
+        <a id="imgFolderLink" class="sub-btn linkbtn hidden" target="_blank" rel="noopener">ドライブで ひらく</a>
+        <button id="imgClose" class="main-btn">とじる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1もん いれる -->
+  <div id="formOv" class="ov hidden">
+    <div class="panel scroll">
+      <h2>もんだいを いれる</h2>
+      <label class="field"><span>もんだいぶん</span><textarea id="fText" placeholder="れい：日本《にほん》で いちばん 高《たか》い 山《やま》は？"></textarea></label>
+      <div class="grid2">
+        <label class="field"><span>A</span><input id="fA" type="text"></label>
+        <label class="field"><span>B</span><input id="fB" type="text"></label>
+        <label class="field"><span>C</span><input id="fC" type="text"></label>
+        <label class="field"><span>D</span><input id="fD" type="text"></label>
+      </div>
+      <div class="field">
+        <span>せいかい（えらばないと しめきったあとに えらぶよ）</span>
+        <div class="seg" id="segAns">
+          <button data-v="">きめない</button>
+          <button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button><button data-v="D">D</button>
+        </div>
+      </div>
+      <div class="note">がぞうの らんには、「がぞう」ボタンで いれた がぞうの なまえを かいてね（ドライブの リンクでも いいよ）。</div>
+      <div class="grid2">
+        <label class="field"><span>もんだいの がぞう</span><input id="fImg" type="text" inputmode="url"></label>
+        <div></div>
+        <label class="field"><span>ヒント1</span><input id="fH1" type="text"></label>
+        <label class="field"><span>ヒント1の がぞう</span><input id="fH1i" type="text" inputmode="url"></label>
+        <label class="field"><span>ヒント2</span><input id="fH2" type="text"></label>
+        <label class="field"><span>ヒント2の がぞう</span><input id="fH2i" type="text" inputmode="url"></label>
+        <label class="field"><span>ヒント3</span><input id="fH3" type="text"></label>
+        <label class="field"><span>ヒント3の がぞう</span><input id="fH3i" type="text" inputmode="url"></label>
+        <label class="field"><span>かいせつ（こたえあわせで でるよ）</span><input id="fEx" type="text"></label>
+        <label class="field"><span>かいせつの がぞう</span><input id="fExi" type="text" inputmode="url"></label>
+      </div>
+      <div class="field">
+        <span>せいげん じかん（びょう。からっぽなら せっていの じかん。0は なし）</span>
+        <div class="numbox">
+          <button type="button" id="fLimDn">▽</button>
+          <input id="fLim" type="text" inputmode="numeric" value="" placeholder="せってい">
+          <button type="button" id="fLimUp">△</button>
+        </div>
+      </div>
+      <div class="pbtns">
+        <button id="fCancel" class="sub-btn">やめる</button>
+        <button id="fGo" class="main-btn">この もんだいを だす</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== 標準動作の無効化（ズーム・スクロール） ===== */
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('touchmove', e => {
+  if (!e.target.closest('.scroll')) e.preventDefault();
+}, { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  const typing = e.target.closest('input,textarea');
+  if (!typing && now - lastTouchEnd < 300) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+
+/* ===== サーバーとのやりとり ===== */
+const RAW_PAGE = '<?!= page ?>';
+const HAS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+const LETTERS = 'ABCD';
+const NICKS = ['🐰 うさぎ', '🐶 いぬ', '🐱 ねこ', '🐻 くま', '🐼 パンダ', '🦁 ライオン', '🐯 とら', '🐘 ぞう',
+  '🦒 きりん', '🐵 さる', '🐧 ペンギン', '🐸 かえる', '🐢 かめ', '🐬 いるか', '🦊 きつね', '🐹 ハムスター'];
+const MANUAL_NAME = 'その場の もんだい';
+
+function call(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    if (HAS_GAS) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args);
+    } else {
+      setTimeout(() => { try { resolve(MOCK[fn](...args)); } catch (e) { reject(e); } }, 150);
+    }
+  });
+}
+
+/* たんまつごとの 番号（同じ アカウントで みんなが はいっても 見分ける）。ほぞんできない ときは 画面を ひらいている あいだだけ つかう */
+const CID = (() => {
+  const make = () => 'c' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const K = 'quizCid';
+  for (const st of ['localStorage', 'sessionStorage']) {
+    try {
+      const s = window[st]; let v = s.getItem(K);
+      if (!v) { v = make(); s.setItem(K, v); }
+      return v;
+    } catch (e) { /* つぎの ほぞんばしょへ */ }
+  }
+  return make();
+})();
+const callS = (fn, ...args) => call(fn, CID, ...args);
+
+/* プレビュー用のにせサーバー（GASでは使わない） */
+const MOCK = HAS_GAS ? null : (() => {
+  // れいの 画像（3こずつ 4れつの まる）
+  const dots = (() => {
+    let c = '';
+    for (let y = 0; y < 4; y++) for (let x = 0; x < 3; x++) c += `<circle cx="${30 + x * 40}" cy="${30 + y * 40}" r="14" fill="#8cc4ea"/>`;
+    return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="140" height="180" viewBox="0 0 140 180"><rect width="140" height="180" rx="12" fill="#fff"/>${c}</svg>`);
+  })();
+  const TABS = {
+    '数学': [
+      { set: 'かけざん1', text: '3×4は いくつ？', choices: ['7', '12', '34', '1'], answer: 'B', hints: ['3が 4こ あるよ', { text: 'まるを かぞえてみよう', img: 'まる' }], explain: [{ text: '3こずつ 4れつで 12こ', img: 'まる.svg' }], img: '', limit: '' },
+      { set: 'かけざん1', text: '2×5は いくつ？', choices: ['10', '7'], answer: 'A', hints: [], img: 'りんご', limit: 20 },
+      { set: 'かけざん2', text: '6×7は いくつ？', choices: ['42', '48', '36'], answer: '', hints: ['6が 7こ あるよ', '6×6は 36だよ'], img: '', limit: '' }
+    ],
+    '理科': [
+      { set: '', text: '日本《にほん》で いちばん 高《たか》い 山《やま》は？', choices: ['富士山《ふじさん》', '北岳《きただけ》', '阿蘇山《あそさん》', '高尾山《たかおさん》'], answer: 'A', hints: ['静岡県《しずおかけん》と 山梨県《やまなしけん》に あるよ'], img: '', limit: '' },
+      { set: '', text: 'みずが こおる おんどは？', choices: ['0ど', '10ど', '100ど'], answer: 'A', hints: [], img: '', limit: '' }
+    ]
+  };
+  let tplNo = 0;
+  // にせの 画像フォルダ
+  const FOLDER = { mock000000000001: { name: 'まる.svg', data: dots, t: 1 } };
+  let fileNo = 2;
+  const findImg = s => {
+    const ids = Object.keys(FOLDER);
+    return ids.find(id => FOLDER[id].name === s) || ids.find(id => FOLDER[id].name.replace(/\.[^.]+$/, '') === s);
+  };
+  const imgRef = s => {
+    s = String(s || '').trim();
+    if (!s || /^(data:|https?:|img:|nf:)/.test(s)) return s;
+    const id = findImg(s);
+    return id ? 'img:' + id : 'nf:がぞう「' + s + '」が みつからないよ';
+  };
+  const SEP = '｜';
+  const DEF = { round: 0, phase: 'wait', index: 0, total: 0, hintShown: 0, openedAt: 0, correct: '', setName: '' };
+  let st = { ...DEF }, set = { source: 'sheet', showQ: true, setId: '', limit: 60, timeView: 'bar', nameMode: 'roster', rosterGroup: '1ねん', codeOn: true, code: '1234' }, cur = null, ans = [], joined = false;
+  const ROSTER = {
+    '1ねん': ['山田《やまだ》 花子《はなこ》', 'すずき あおい', '田中《たなか》 はると', 'たかはし けんた', 'いとう さくら', 'わたなべ そうた', '中村《なかむら》 ゆい', 'こばやし りく'],
+    '2ねん': ['さとう ゆうと', 'かとう みお', 'よしだ れん']
+  };
+  const members = { f1: 'すずき あおい', f2: '田中《たなか》 はると', f3: 'いとう さくら', f4: 'わたなべ そうた', f5: 'こばやし りく', f6: '中村《なかむら》 ゆい' };
+  const allowed = () => set.nameMode === 'roster' ? ROSTER[set.rosterGroup] : NICKS;
+  const myN = () => allowed().includes(members[ME]) ? members[ME] : '';
+  const ME = 'me';
+  const label = (t, g) => g ? t + '：' + g : t;
+  const listSets = () => {
+    const out = [];
+    Object.keys(TABS).forEach(t => {
+      const cnt = {}, gs = [];
+      TABS[t].forEach(r => { if (!(r.set in cnt)) { cnt[r.set] = 0; gs.push(r.set); } cnt[r.set]++; });
+      gs.forEach(g => out.push({ id: t + SEP + g, name: label(t, g), count: cnt[g] }));
+    });
+    return out;
+  };
+  const loadSet = id => {
+    const s = listSets().find(x => x.id === id) || listSets()[0];
+    set.setId = s.id;
+    const [t, g] = s.id.split(SEP);
+    return { id: s.id, name: s.name, rows: TABS[t].filter(r => r.set === g) };
+  };
+  const norm = o => {
+    const raw = (o.choices || []).slice(0, 4).map(s => String(s || '').trim());
+    let n = 0; raw.forEach((s, i) => { if (s) n = i + 1; });
+    const choices = n === 0 ? ['', '', '', ''] : raw.slice(0, Math.max(n, 2));
+    while (choices.length < 2) choices.push('');
+    let a = String(o.answer || ''); if (LETTERS.indexOf(a) >= choices.length) a = '';
+    const items = (l, max) => (l || []).map(toItem).map(x => ({ text: x.text, img: imgRef(x.img) }))
+      .filter(x => x.text || x.img).slice(0, max);
+    return { text: String(o.text || '').trim(), choices, answer: a, hints: items(o.hints, 5), explain: items(o.explain, 4),
+      img: imgRef(o.img), limit: String(o.limit ?? '').trim() === '' ? set.limit : Math.max(0, parseInt(o.limit, 10) || 0) };
+  };
+  const pub = () => {
+    const p = { round: st.round, phase: st.phase, index: st.index, total: st.total, correct: st.phase === 'reveal' ? st.correct : '',
+      showQ: set.showQ, source: set.source, openedAt: st.openedAt, setName: st.setName, defLimit: set.limit, timeView: set.timeView,
+      text: '', choices: [], img: '', hints: [], hintTotal: 0, limit: 0, explain: [],
+      nameMode: set.nameMode, roster: set.nameMode === 'roster' ? ROSTER[set.rosterGroup] : [], codeOn: set.codeOn };
+    if (cur && st.round > 0) Object.assign(p, { text: cur.text, choices: cur.choices, img: cur.img, limit: cur.limit,
+      hints: cur.hints.slice(0, st.hintShown), hintTotal: cur.hints.length, explain: st.phase === 'reveal' ? cur.explain : [] });
+    return JSON.parse(JSON.stringify(p));
+  };
+  const isLiveM = () => st.round > 0 && ['open', 'closed', 'reveal'].includes(st.phase);
+  const taken = () => Object.keys(members).filter(e => e !== ME).map(e => members[e]);
+  const roundAns = () => ans.filter(a => a.round === st.round);
+  setInterval(() => {
+    if (st.phase !== 'open' || !cur) return;
+    const left = Object.keys(members).filter(e => e !== ME && !roundAns().some(a => a.e === e));
+    if (left.length && Math.random() < 0.5) {
+      const e = left[Math.floor(Math.random() * left.length)];
+      ans.push({ round: st.round, e, n: members[e], c: LETTERS[Math.floor(Math.random() * cur.choices.length)] });
+    }
+  }, 1200);
+  const restart = () => {
+    const s = loadSet(set.setId);
+    st = { ...DEF, round: st.round, total: s.rows.length, setName: set.source === 'sheet' ? s.name : MANUAL_NAME }; cur = null;
+    return pub();
+  };
+  return {
+    studentHello(cid, code) {
+      if (set.codeOn && !joined) {
+        if (code === set.code) joined = true;
+        else return { needCode: true, wait: false, bad: /^\d{4}$/.test(code || '') };
+      }
+      const m = roundAns().find(a => a.e === ME); return { state: pub(), now: Date.now(), nick: myN(), taken: taken(), mine: m ? m.c : '', chg: !!(m && m.x) }; },
+    getState(cid) { if (set.codeOn && !joined) return { needCode: true }; return { state: pub(), now: Date.now(), nick: myN(), taken: taken() }; },
+    pickNick(cid, n) {
+      if (set.codeOn && !joined) return { ok: false, needCode: true };
+      if (!allowed().includes(n)) return { ok: false, again: true, nick: myN(), taken: taken() };
+      if (isLiveM() && myN()) return { ok: false, locked: true, nick: myN(), taken: taken() };
+      if (taken().includes(n)) return { ok: false, nick: myN(), taken: taken() }; members[ME] = n; return { ok: true, nick: n, taken: taken() }; },
+    submitAnswer(cid, round, c) {
+      if (set.codeOn && !joined) return { ok: false, needCode: true };
+      const p = pub();
+      if (p.phase !== 'open' || p.round !== round) return { ok: false, state: p, now: Date.now() };
+      if (!myN()) return { ok: false, needNick: true, state: p, now: Date.now() };
+      const m = roundAns().find(a => a.e === ME);
+      if (m) {
+        if (m.c === c || m.x) return { ok: true, choice: m.c, chg: !!m.x, state: p, now: Date.now() };
+        m.c = c; m.x = 1;
+        return { ok: true, choice: c, chg: true, state: p, now: Date.now() };
+      }
+      ans.push({ round, e: ME, n: members[ME], c, x: 0 });
+      return { ok: true, choice: c, chg: false, state: p, now: Date.now() };
+    },
+    teacherStatus() {
+      const live = ['open', 'closed', 'reveal'].includes(st.phase);
+      let qCount = st.total, setName = st.setName;
+      if (set.source === 'sheet' && (st.phase === 'wait' || st.phase === 'end')) { const s = loadSet(set.setId); qCount = s.rows.length; setName = s.name; }
+      if (set.source === 'manual') setName = MANUAL_NAME;
+      return { state: pub(), now: Date.now(), list: live ? roundAns().map(a => ({ name: a.n, choice: a.c })) : [],
+        hasKey: !!(cur && cur.answer), qCount, setName, codeOn: set.codeOn, code: set.codeOn ? set.code : '' };
+    },
+    teacherNext() {
+      const s = loadSet(set.setId), idx = st.index + 1;
+      if (idx > s.rows.length) { st.phase = 'end'; st.total = s.rows.length; return pub(); }
+      st = { round: st.round + 1, phase: 'open', index: idx, total: s.rows.length, hintShown: 0, openedAt: Date.now(), correct: '', setName: s.name };
+      cur = norm(s.rows[idx - 1]); return pub();
+    },
+    teacherPush(o) { st = { round: st.round + 1, phase: 'open', index: 0, total: 0, hintShown: 0, openedAt: Date.now(), correct: '', setName: MANUAL_NAME }; cur = norm(o); return pub(); },
+    teacherHint() { if (cur) st.hintShown = Math.min(st.hintShown + 1, cur.hints.length); return pub(); },
+    teacherClose() { if (st.phase === 'open') st.phase = 'closed'; return pub(); },
+    teacherReveal(c) { c = c || (cur && cur.answer); if (!c) throw new Error('せいかいを えらんでね'); st.phase = 'reveal'; st.correct = c; return pub(); },
+    teacherRestart: restart,
+    teacherSets() { loadSet(set.setId); return { sets: listSets(), current: set.setId }; },
+    teacherSettings(o) {
+      let reset = false;
+      if (o.source && o.source !== set.source) { set.source = o.source; reset = true; }
+      if (typeof o.showQ === 'boolean') set.showQ = o.showQ;
+      if (typeof o.setId === 'string' && o.setId !== set.setId) { set.setId = o.setId; reset = true; }
+      if (o.limit !== undefined) set.limit = Math.max(0, Math.min(600, parseInt(o.limit, 10) || 0));
+      if (['bar', 'both', 'text'].includes(o.timeView)) set.timeView = o.timeView;
+      if (typeof o.codeOn === 'boolean') set.codeOn = o.codeOn;
+      const clear = () => Object.keys(members).forEach(k => delete members[k]);
+      if (o.nameMode && o.nameMode !== set.nameMode) { set.nameMode = o.nameMode; clear(); }
+      if (typeof o.rosterGroup === 'string' && o.rosterGroup !== set.rosterGroup) { set.rosterGroup = o.rosterGroup; clear(); }
+      return reset ? restart() : pub();
+    },
+    teacherMakeTemplate() { tplNo++; return 'あたらしい もんだい' + (tplNo > 1 ? tplNo : ''); },
+    getImage(id) { if (!FOLDER[id]) throw new Error('がぞうが ないよ'); return FOLDER[id].data; },
+    uploadImage(data, nm) {
+      const ext = /^data:image\/png/.test(data) ? 'png' : /svg/.test(data.slice(0, 30)) ? 'svg' : 'jpg';
+      const base = String(nm || 'がぞう').replace(/\.[^.]*$/, '').replace(/\s+/g, '_') || 'がぞう';
+      let name = base + '.' + ext, n = 1;
+      while (findImg(name) || findImg(name.replace(/\.[^.]+$/, ''))) name = base + '_' + (++n) + '.' + ext;
+      const id = 'mock' + String(fileNo++).padStart(12, '0');
+      FOLDER[id] = { name, data, t: Date.now() };
+      return { name, id };
+    },
+    listImages() {
+      const items = Object.keys(FOLDER).map(id => ({ id, name: FOLDER[id].name, t: FOLDER[id].t })).sort((a, b) => b.t - a.t);
+      return { folderUrl: '', items, total: items.length };
+    },
+    teacherClearNames() { Object.keys(members).forEach(k => delete members[k]); return true; },
+    teacherRoster() {
+      return { exists: true, mode: set.nameMode, current: set.rosterGroup,
+        groups: Object.keys(ROSTER).map(g => ({ name: g, count: ROSTER[g].length })) };
+    },
+    teacherMakeRoster() { return this.teacherRoster(); },
+    teacherNewCode() { set.code = String(1000 + Math.floor(Math.random() * 9000)); joined = false; return set.code; },
+    teacherMembers() { const v = Object.values(members); return { names: allowed().filter(n => v.includes(n)), mode: set.nameMode }; },
+    teacherRelease(n) { Object.keys(members).forEach(k => { if (members[k] === n) delete members[k]; }); return this.teacherMembers(); }
+  };
+})();
+
+/* ===== 共通の部品 ===== */
+const $ = id => document.getElementById(id);
+const chip = c => `<span class="chip ${c.toLowerCase()}">${c}</span>`;
+let active = '';
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+/** 漢字《かんじ》、｜漢字《かんじ》 を ruby にする */
+function rubyHtml(s) {
+  let h = escapeHtml(s || '');
+  h = h.replace(/[｜|]([^｜|《》]+?)《([^》]+?)》/g, '<ruby>$1<rt>$2</rt></ruby>');
+  h = h.replace(/([一-鿿々〆ヶ]+)《([^》]+?)》/g, '<ruby>$1<rt>$2</rt></ruby>');
+  return h.replace(/\n/g, '<br>');
+}
+
+/** 中身が かわったときだけ 書きかえる（ちらつき ぼうし） */
+function setHtml(el, h) {
+  if (el._h !== h) {
+    el._h = h;
+    el.innerHTML = h;
+    if (h.indexOf('data-img') >= 0) hydrateImgs(el);
+  }
+}
+
+/* ===== 画像の よみこみ =====
+ * スプレッドシートの 画像は「img:ファイルID」の しるしで とどく。
+ * アプリ（サーバー）から 画像の データを もらって 表示する。 */
+const IMG = { cache: {}, state: {}, queue: [], running: 0 };
+
+function loadImg(t) {
+  if (IMG.cache[t] || IMG.state[t] === 'q') return;
+  if (typeof IMG.state[t] === 'number' && IMG.state[t] > Date.now()) return; // しっぱい したら すこし まつ
+  IMG.state[t] = 'q';
+  IMG.queue.push(t);
+  pumpImg();
+}
+
+function pumpImg() {
+  while (IMG.running < 3 && IMG.queue.length) {
+    const t = IMG.queue.shift();
+    IMG.running++;
+    // 生徒が いっせいに もらわないように、すこし ずらす
+    const delay = active === 'student' ? Math.random() * 800 : 0;
+    setTimeout(() => {
+      call('getImage', t.slice(4), CID).then(d => {
+        IMG.cache[t] = d;
+        delete IMG.state[t];
+        document.querySelectorAll('img[data-img]').forEach(el => { if (el.dataset.img === t) el.src = d; });
+      }).catch(() => {
+        IMG.state[t] = Date.now() + 4000;
+      }).then(() => {
+        IMG.running--;
+        pumpImg();
+      });
+    }, delay);
+  }
+}
+
+/** まだ 出ていない 画像を よみこむ */
+function hydrateImgs(root) {
+  root.querySelectorAll('img[data-img]').forEach(el => {
+    const t = el.dataset.img, d = IMG.cache[t];
+    if (d) { if (el.getAttribute('src') !== d) el.src = d; }
+    else loadImg(t);
+  });
+}
+
+/**
+ * 画像の タグ
+ * p が 't'（先生）の ときだけ、見つからない 画像の おしらせを 出す
+ */
+function imgTag(src, cls, p) {
+  if (!src) return '';
+  if (src.indexOf('nf:') === 0) return p === 't' ? `<div class="nfimg">${escapeHtml(src.slice(3))}</div>` : '';
+  if (src.indexOf('img:') === 0) return `<img class="${cls}" data-img="${escapeHtml(src)}" alt="">`;
+  return `<img class="${cls}" src="${escapeHtml(src)}" alt="">`;
+}
+
+/** のこり時間（ミリびょう）。時間が ないときは null */
+function remainMs(st, offset) {
+  if (!st || st.phase !== 'open' || !st.limit) return null;
+  return Math.max(0, st.openedAt + st.limit * 1000 - (Date.now() + offset));
+}
+
+function remainSec(st, offset) {
+  const ms = remainMs(st, offset);
+  return ms === null ? null : Math.ceil(ms / 1000);
+}
+
+/**
+ * のこり時間の 表示（バー・びょうの 文字）
+ * p: 's'（生徒）か 't'（先生）。みせかたは せっていで えらぶ（はじめは バー）
+ */
+function paintTimer(p, st, offset) {
+  const ms = remainMs(st, offset);
+  const view = (st && st.timeView) || 'bar';
+  const txt = $(p + 'Time'), bar = $(p + 'Bar');
+  if (ms === null) {
+    if (txt.textContent !== '') txt.textContent = '';
+    bar.classList.add('hidden');
+    return null;
+  }
+  const sec = Math.ceil(ms / 1000);
+  const label = view === 'bar' ? '' : 'のこり ' + sec + 'びょう';
+  if (txt.textContent !== label) txt.textContent = label;
+  txt.classList.toggle('warn', sec <= 5);
+  const showBar = view !== 'text';
+  bar.classList.toggle('hidden', !showBar);
+  if (showBar) {
+    bar.classList.toggle('warn', sec <= 5);
+    const w = (ms / (st.limit * 1000) * 100).toFixed(1) + '%';
+    const fill = bar.firstElementChild;
+    if (fill.style.width !== w) fill.style.width = w;
+  }
+  return sec;
+}
+
+function isLive(st) {
+  return !!st && st.round > 0 && ['open', 'closed', 'reveal'].includes(st.phase);
+}
+
+/** ヒント・解説の 1こぶん（ことば か 画像） */
+function toItem(v) {
+  if (v && typeof v === 'object') return { text: String(v.text || ''), img: String(v.img || '') };
+  const s = String(v || '').trim();
+  if (/^(https?:|data:image|img:|nf:)/.test(s)) return { text: '', img: s };
+  return { text: s, img: '' };
+}
+
+function itemHtml(v, p) {
+  const it = toItem(v);
+  return (it.text ? rubyHtml(it.text) : '') + imgTag(it.img, 'subimg', p);
+}
+
+/** 問題文・がぞう・ヒント（先生と 生徒で おなじ 見た目） */
+function renderQ(p, st, show) {
+  const has = show && !!st.text;
+  $(p + 'Q').classList.toggle('hidden', !has);
+  setHtml($(p + 'Q'), has ? rubyHtml(st.text) : '');
+  const ih = show ? imgTag(st.img, 'qimg', p) : '';
+  $(p + 'Img').classList.toggle('hidden', !ih);
+  setHtml($(p + 'Img'), ih);
+  setHtml($(p + 'Hints'), show ? st.hints.map(h => `<div class="hint">ヒント：${itemHtml(h, p)}</div>`).join('') : '');
+  hydrateImgs($(p + 'Stage')); // よみこみに しっぱいした 画像を もういちど
+}
+
+/** かいせつ（こたえあわせの ときだけ） */
+function renderExplain(p, st, show) {
+  const el = $(p + 'Explain');
+  const list = (show && st.phase === 'reveal' && st.explain) ? st.explain : [];
+  const h = list.length ? `<div class="lab">かいせつ</div>` + list.map(v => itemHtml(v, p)).join('<br>') : '';
+  el.classList.toggle('hidden', !h);
+  const changed = el._h !== h;
+  setHtml(el, h);
+  if (h && changed && el.scrollIntoView) {
+    try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { /* なにもしない */ }
+  }
+}
+
+/**
+ * せんたくし（先生と 生徒で おなじ 見た目）
+ * o.tap: おせる / o.mine: じぶんの こたえ / o.counts: 人数 / o.showText: ことばを 出す
+ */
+function optsHtml(st, o) {
+  const rev = st.phase === 'reveal';
+  const max = o.counts ? Math.max(1, ...st.choices.map((_, i) => o.counts[LETTERS[i]] || 0)) : 1;
+  return st.choices.map((t, i) => {
+    const L = LETTERS[i], l = L.toLowerCase();
+    let cls = 'opt ' + l;
+    if (rev) cls += st.correct === L ? ' win' : (o.mine === L ? ' mine' : ' dim');
+    else if (o.mine) cls += o.mine === L ? ' mine' : (o.ask === L ? ' ask' : (o.nodim ? '' : ' dim'));
+    const text = o.showText && t ? rubyHtml(t) : '';
+    let extra = '';
+    if (o.counts) {
+      const n = o.counts[L] || 0;
+      extra += `<div class="track"><div class="fill ${l}" style="width:${n / max * 100}%"></div></div><span class="n">${n}<ruby>人<rt>にん</rt></ruby></span>`;
+    }
+    if (rev && st.correct === L) extra += '<span class="tag ok">せいかい</span>';
+    else if (o.mine === L) extra += '<span class="tag me">えらんだよ</span>';
+    else if (o.ask === L) extra += '<span class="tag me">これに かえる？</span>';
+    const tag = o.tap ? 'button' : 'div';
+    return `<${tag} class="${cls}" data-c="${L}">${chip(L)}<span class="otxt">${text}</span>${extra}</${tag}>`;
+  }).join('');
+}
+
+/* ===== つかいかた ===== */
+const HELP_S = `
+  <div><h3>0. <ruby>参加<rt>さんか</rt></ruby>コードを いれる</h3>
+    <ul><li><ruby>先生<rt>せんせい</rt></ruby>の がめんに でている 4けたの すうじを、ボタンで いれてね。</li>
+    <li>いちど いれたら、つぎからは いれなくて いいよ。</li></ul></div>
+  <div><h3>1. <ruby>自分<rt>じぶん</rt></ruby>の なまえを えらぶ</h3>
+    <ul><li>はじめに、なまえの ボタンを おしてね。</li>
+    <li>クイズが はじまったら、なまえは かえられないよ。</li></ul></div>
+  <div><h3>2. もんだいを まつ</h3>
+    <ul><li><ruby>先生<rt>せんせい</rt></ruby>が はじめるまで まってね。</li></ul></div>
+  <div><h3>3. こたえを えらぶ</h3>
+    <ul><li>もんだいが でたら、こたえの ボタンを おしてね。</li>
+    <li>うえの バーが すこしずつ みじかく なるよ。ぜんぶ なくなるまでに こたえてね。</li></ul></div>
+  <div><h3>4. こたえを かえたいとき</h3>
+    <ul><li>べつの こたえを おすと「かえる？」と でるよ。もういちど おすと かわるよ。</li>
+    <li>かえられるのは 1かいだけだよ。</li></ul></div>
+  <div><h3>5. こたえあわせ</h3>
+    <ul><li>みんなの こたえが そろったら、<ruby>先生<rt>せんせい</rt></ruby>が こたえあわせを するよ。</li>
+    <li>○が でたら せいかいだよ。まちがえても だいじょうぶ。つぎも がんばろう。</li></ul></div>`;
+const HELP_T = `
+  <div><h3>はじめる まえに</h3>
+    <ol><li>スプレッドシートの「もんだい」タブに もんだいを かく（こたえの A〜D、せいかい、ヒント、かいせつ、がぞうの なまえ）。ふりがなは「漢字《かんじ》」と かくよ。</li>
+    <li>「めいぼ」タブに せいとの なまえを かく（キャラで えらぶときは いらないよ）。</li>
+    <li>「せってい」で、つかう セット・せいげん じかん・なまえの えらびかたを きめる。</li>
+    <li>がぞうを つかうときは、「がぞう」ボタンから いれて、なまえを スプレッドシートの がぞうの らんに かく。</li></ol></div>
+  <div><h3>せいとの iPad</h3>
+    <ul><li>この アプリの アドレスを ひらく →「参加コード」を いれる（先生の がめんの うえに でている 4けた）→ なまえ（キャラ）を えらぶ。</li>
+    <li>コードを かえたいときは「せってい」の「あたらしい コードに する」。ほかの iPadが つかえなくなるよ。</li>
+    <li>ちがう コードを つづけて いれると、1ぷん ほど まつことに なるよ。</li>
+    <li>こたえは 1かいだけ えらびなおせるよ（2かい おして きまる）。</li></ul></div>
+  <div><h3>すすめかた</h3>
+    <ol><li>「はじめる」で 1もんめを だす。</li>
+    <li>せいとが こたえる。ヒントが あれば「ヒントを だす」。</li>
+    <li>じかんが きれると じどうで しめきるよ。はやく おわるときは「しめきる」。</li>
+    <li>「こたえあわせ」で せいかいと かいせつを だす。</li>
+    <li>「つぎの もんだいへ」で すすむ。</li></ol></div>
+  <div><h3>こまったとき</h3>
+    <ul><li>なまえを まちがえて えらんだ → 「せってい」の「えらばれている なまえ」を 2かい おすと、その<ruby>人<rt>ひと</rt></ruby>だけ えらびなおしに なるよ。</li>
+    <li>「さいしょに もどる」→ セットの 1もんめから やりなおす（きろくは のこるよ）。</li>
+    <li>だれが どれを こたえたかは、スプレッドシートの「きろく：数学」のように、もんだいの タブごとの「きろく」タブに のこるよ（その場で いれた もんだいは「きろく」）。</li>
+    <li>こたえを かえた<ruby>人<rt>ひと</rt></ruby>は、「きろく」の「かえた」の らんに しるしが つくよ。</li></ul></div>`;
+function openHelp(kind) {
+  $('helpTitle').innerHTML = kind === 's' ? 'つかいかた' : 'つかいかた（<ruby>先生<rt>せんせい</rt></ruby>むけ）';
+  $('helpBody').innerHTML = kind === 's' ? HELP_S : HELP_T;
+  $('helpOv').classList.remove('hidden');
+}
+$('sHelpBtn').addEventListener('click', () => openHelp('s'));
+$('tHelpBtn').addEventListener('click', () => openHelp('t'));
+$('helpClose').addEventListener('click', () => $('helpOv').classList.add('hidden'));
+
+/* ===== 生徒の画面 ===== */
+const S = { needCode: false, code: '', codeIn: '', codeBad: false, codeWait: false, codeBusy: false, nick: '', taken: [], picking: false, state: null, mine: '', chg: false, ask: '', pending: '', myRound: -1, sending: false, timer: null, offset: 0 };
+
+/* ----- さんかコード ----- */
+const CODE_KEY = 'quizCode';
+let memCode = '';
+function loadCode() {
+  try { return localStorage.getItem(CODE_KEY) || memCode; } catch (e) { return memCode; }
+}
+function saveCode(v) {
+  memCode = v;
+  try { if (v) localStorage.setItem(CODE_KEY, v); else localStorage.removeItem(CODE_KEY); } catch (e) { /* ほぞん できなくても つづける */ }
+}
+
+function renderCode() {
+  const v = S.codeIn || '';
+  setHtml($('sCodeBoxes'), [0, 1, 2, 3].map(i =>
+    `<div class="codebox ${i === v.length ? 'on' : ''}">${v[i] || ''}</div>`).join(''));
+  $('sCodeMsg').innerHTML = S.codeBusy ? 'かくにんしているよ…'
+    : S.codeWait ? 'まちがいが つづいたよ。すこし まってから もういちど いれてね'
+    : S.codeBad ? 'コードが ちがうよ。もういちど いれてね' : '';
+  if (!$('sKeys')._init) {
+    $('sKeys')._init = true;
+    $('sKeys').innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(k => `<button data-k="${k}">${k}</button>`).join('') +
+      '<button class="fn" data-k="clear">けす</button><button data-k="0">0</button><button class="fn" data-k="back">もどす</button>';
+  }
+}
+
+$('sKeys').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b || S.codeBusy) return;
+  const k = b.dataset.k;
+  S.codeBad = false; S.codeWait = false;
+  if (k === 'clear') S.codeIn = '';
+  else if (k === 'back') S.codeIn = (S.codeIn || '').slice(0, -1);
+  else if ((S.codeIn || '').length < 4) S.codeIn = (S.codeIn || '') + k;
+  renderCode();
+  if ((S.codeIn || '').length === 4) {
+    S.codeBusy = true; renderCode();
+    S.code = S.codeIn; S.codeIn = '';
+    await studentStart();
+    S.codeBusy = false;
+    if (S.needCode) renderCode();
+  }
+});
+
+function applyStudent(r) {
+  if (r.needCode) {
+    // コードが ひつよう（はじめて・コードが かわった とき）
+    S.needCode = true; S.codeBad = !!r.bad; S.codeWait = !!r.wait; S.code = '';
+    saveCode('');
+    renderStudent();
+    return;
+  }
+  S.needCode = false;
+  if (r.now) S.offset = r.now - Date.now();
+  if (typeof r.nick === 'string') S.nick = r.nick;
+  if (r.taken) S.taken = r.taken;
+  const st = r.state;
+  if (st.round !== S.myRound) { S.myRound = st.round; S.mine = ''; S.chg = false; S.ask = ''; S.pending = ''; }
+  S.state = st;
+  renderStudent();
+}
+
+function qNo(st) { return st.source === 'sheet' && st.index > 0 ? st.index : st.round; }
+
+function renderStudent() {
+  const st = S.state;
+  $('sCode').classList.toggle('hidden', !S.needCode);
+  if (S.needCode) {
+    $('sPick').classList.add('hidden'); $('sMain').classList.add('hidden'); $('sNameBtn').classList.add('hidden');
+    renderCode(); tickStudent();
+    return;
+  }
+  // クイズの とちゅうは キャラを かえられない
+  const locked = isLive(st);
+  if (locked && S.nick) S.picking = false;
+  $('sNameBtn').innerHTML = S.nick ? `${rubyHtml(S.nick)} さん${locked ? '' : ' <small>かえる</small>'}` : '';
+  $('sNameBtn').classList.toggle('hidden', !S.nick);
+  $('sNameBtn').disabled = locked;
+
+  // キャラを えらぶ がめん
+  const pick = S.picking || (st && !S.nick);
+  $('sPick').classList.toggle('hidden', !pick);
+  $('sMain').classList.toggle('hidden', !!pick);
+  if (pick) { renderNicks(); tickStudent(); return; }
+
+  const live = isLive(st);
+  $('sRound').textContent = live ? 'もんだい ' + qNo(st) : '';
+  $('sStage').classList.toggle('hidden', !live);
+  $('sIdle').classList.toggle('hidden', live);
+  $('sMsg').classList.toggle('hidden', !live);
+
+  if (!live) {
+    $('sIdleM').innerHTML = !st ? 'つないでいるよ…' :
+      st.phase === 'end' ? 'おしまい！<br>おつかれさま' : 'せんせいが はじめるまで<br>まってね';
+  } else {
+    const withText = st.showQ && st.choices.some(c => c);
+    renderQ('s', st, st.showQ);
+    const canChange = !!S.mine && !S.chg;
+    const canTap = st.phase === 'open' && !S.sending && (!S.mine || canChange);
+    $('sOpts').classList.toggle('only', !withText);
+    setHtml($('sOpts'), optsHtml(st, { tap: canTap, mine: S.pending || S.mine, showText: withText, nodim: canChange && st.phase === 'open', ask: S.ask }));
+    renderExplain('s', st, st.showQ);
+    const [msg, cls] = studentMsg(st);
+    setHtml($('sMsg'), msg);
+    $('sMsg').classList.toggle('ok', cls === 'ok');
+  }
+  tickStudent();
+}
+
+function studentMsg(st) {
+  if (st.phase === 'open') {
+    if (S.sending) return ['おくっているよ…', ''];
+    if (S.mine && S.ask) return [`${chip(S.ask)} に かえる？ もういちど おすと きまるよ<br><small>かえられるのは 1かいだけだよ</small>`, ''];
+    if (S.mine && !S.chg) return [`${chip(S.mine)} で こたえたよ<br><small>かえたいときは 1かいだけ かえられるよ</small>`, ''];
+    if (S.mine) return [`${chip(S.mine)} に かえたよ。もう かえられないよ。みんなを まってね`, ''];
+    return ['こたえを えらんで おしてね', ''];
+  }
+  if (st.phase === 'closed') {
+    return S.mine ? [`しめきったよ。${chip(S.mine)} で こたえたよ`, ''] : ['しめきったよ。つぎの もんだいを まってね', ''];
+  }
+  if (S.mine && S.mine === st.correct) return ['<span class="maru">○</span> せいかい！', 'ok'];
+  if (S.mine) return [`おしい！ こたえは ${chip(st.correct)} だよ`, ''];
+  return [`こたえは ${chip(st.correct)} だよ`, ''];
+}
+
+const isRoster = () => !!(S.state && S.state.nameMode === 'roster');
+
+function renderNicks() {
+  const roster = isRoster();
+  $('sPickTitle').innerHTML = roster ? '<ruby>自分<rt>じぶん</rt></ruby>の なまえを えらんでね' : 'キャラを えらんでね';
+  $('sNicks').classList.toggle('roster', roster);
+  const list = roster ? S.state.roster : NICKS;
+  setHtml($('sNicks'), list.map(n => {
+    const taken = S.taken.includes(n) && n !== S.nick;
+    const busy = taken ? '<small>えらばれているよ</small>' : '';
+    if (roster) {
+      return `<button class="nick ${n === S.nick ? 'on' : ''}" data-n="${escapeHtml(n)}" ${taken ? 'disabled' : ''}>
+        <span>${rubyHtml(n)}</span>${busy}</button>`;
+    }
+    const sp = n.indexOf(' ');
+    return `<button class="nick ${n === S.nick ? 'on' : ''}" data-n="${escapeHtml(n)}" ${taken ? 'disabled' : ''}>
+      <span class="emo">${n.slice(0, sp)}</span><span>${escapeHtml(n.slice(sp + 1))}</span>${busy}</button>`;
+  }).join(''));
+  $('sPickBack').classList.toggle('hidden', !S.nick);
+}
+
+function tickStudent() {
+  paintTimer('s', S.state, S.offset);
+}
+
+async function studentStart() {
+  clearTimeout(S.timer);
+  try {
+    const r = await callS('studentHello', S.code || loadCode());
+    if (r.needCode) {
+      applyStudent(r);
+      $('sNet').textContent = '';
+      return; // コードを いれるまで まつ
+    }
+    S.myRound = r.state.round; S.mine = r.mine; S.chg = !!r.chg; S.ask = ''; S.pending = '';
+    if (S.code) saveCode(S.code);
+    applyStudent(r);
+    $('sNet').textContent = '';
+  } catch (e) {
+    $('sNet').textContent = 'つながりにくいよ。すこし まってね';
+  }
+  S.timer = setTimeout(studentPoll, 2000);
+}
+
+async function studentPoll() {
+  if (active !== 'student') return;
+  if (!S.sending) {
+    try {
+      const r = await callS('getState');
+      $('sNet').textContent = '';
+      applyStudent(r);
+      if (S.needCode) return; // コードが かわった。いれなおすまで とめる
+    } catch (e) {
+      $('sNet').textContent = 'つながりにくいよ。すこし まってね';
+    }
+  }
+  if (active === 'student') S.timer = setTimeout(studentPoll, 2000);
+}
+
+$('sOpts').addEventListener('click', async e => {
+  const btn = e.target.closest('button.opt');
+  if (!btn || S.sending || !S.state || S.state.phase !== 'open') return;
+  const c = btn.dataset.c;
+  if (S.mine) {
+    // かえるのは 1かいだけ。まちがえて おさないように 2かい おして きめる
+    if (S.chg) return;
+    if (c === S.mine) { S.ask = ''; renderStudent(); return; }
+    if (S.ask !== c) { S.ask = c; renderStudent(); return; }
+  }
+  S.ask = '';
+  S.sending = true; S.pending = c; renderStudent();
+  try {
+    const r = await callS('submitAnswer', S.state.round, c);
+    S.sending = false; S.pending = '';
+    if (r.needNick) { S.nick = ''; }
+    else if (!r.ok) $('sNet').textContent = 'しめきったあとだったよ';
+    applyStudent(r);
+    if (r.ok) { S.mine = r.choice; S.chg = !!r.chg; renderStudent(); }
+  } catch (err) {
+    S.sending = false; S.pending = '';
+    $('sNet').textContent = 'おくれなかったよ。もういちど おしてね';
+    renderStudent();
+  }
+});
+
+$('sNameBtn').addEventListener('click', () => {
+  if (S.sending || isLive(S.state)) return;
+  S.picking = true; $('sPickMsg').textContent = ''; renderStudent();
+});
+$('sPickBack').addEventListener('click', () => { S.picking = false; renderStudent(); });
+$('sNicks').addEventListener('click', async e => {
+  const b = e.target.closest('button.nick');
+  if (!b || b.disabled) return;
+  $('sNicks').querySelectorAll('button').forEach(x => x.disabled = true);
+  $('sPickMsg').textContent = '';
+  try {
+    const r = await callS('pickNick', b.dataset.n);
+    S.taken = r.taken || S.taken;
+    if (r.ok) { S.nick = r.nick; S.picking = false; }
+    else if (r.locked) { S.nick = r.nick; S.picking = false; }
+    else if (r.again) $('sPickMsg').textContent = 'もういちど えらんでね';
+    else $('sPickMsg').innerHTML = isRoster() ? 'ほかの iPadで えらばれているよ。<ruby>先生<rt>せんせい</rt></ruby>に おしえてね'
+      : 'ほかの ひとが つかっているよ。べつの キャラを えらんでね';
+  } catch (err) {
+    $('sPickMsg').textContent = 'うまく いかなかったよ。もういちど おしてね';
+  }
+  $('sNicks')._h = '';
+  renderStudent();
+});
+
+/* ===== 先生の画面 ===== */
+const T = { footKey: '', timer: null, resetArm: null, busy: false, last: null, offset: 0, autoClosed: -1 };
+const PHASE_TEXT = { open: 'こたえを うけつけているよ', closed: 'しめきったよ', reveal: 'こたえあわせ', end: 'おしまい' };
+
+function renderTeacher(r) {
+  T.last = r;
+  T.offset = r.now - Date.now();
+  const st = r.state, list = r.list, sheet = st.source === 'sheet';
+  const total = st.total || r.qCount || 0;
+
+  $('tRound').innerHTML = sheet ? `${st.index}<small> / ${total}</small>` : `${st.round}`;
+  $('tSet').textContent = r.setName || '';
+  $('tPhase').textContent = st.phase === 'wait' ? (sheet ? 'はじめる まえ' : 'もんだいを いれてね') : PHASE_TEXT[st.phase];
+  $('tFormBtn').classList.toggle('hidden', sheet);
+  $('tCount').textContent = list.length;
+  setHtml($('tNames'), list.map(a => `<span class="name">${rubyHtml(a.name)}</span>`).join(''));
+
+  const codeOn = !!(r.codeOn && r.code);
+  setHtml($('tCode'), codeOn ? `<ruby>参加<rt>さんか</rt></ruby>コード <b>${r.code}</b>` : '');
+  $('tCode').classList.toggle('hidden', !codeOn || !isLive(st));
+  setHtml($('tIdleCode'), codeOn ? `<span><ruby>参加<rt>さんか</rt></ruby>コード</span><b>${r.code}</b>` : '');
+  const live = isLive(st);
+  $('tIdleCode').classList.toggle('hidden', live || !codeOn);
+  $('tIdle').classList.toggle('hidden', live);
+  $('tStage').classList.toggle('hidden', !live);
+  if (!live) {
+    $('tIdleM1').innerHTML = st.phase === 'end' ? 'ぜんぶ おわったよ' :
+      sheet ? `「${escapeHtml(r.setName || '')}」<br>ぜんぶで ${r.qCount} もん` : '「もんだいを いれる」を おすと<br>はじまるよ';
+    $('tIdleM2').textContent = codeOn ? 'iPadで アドレスを ひらいて、この すうじを いれてね'
+      : st.showQ ? 'せいとの iPadにも もんだいが でるよ' : 'せいとの iPadは ABCDの ボタンだけ だよ';
+  } else {
+    renderQ('t', st, true);
+    const showCount = st.phase === 'closed' || st.phase === 'reveal';
+    const cnt = {};
+    list.forEach(a => { cnt[a.choice] = (cnt[a.choice] || 0) + 1; });
+    setHtml($('tOpts'), optsHtml(st, { counts: showCount ? cnt : null, showText: true }));
+    renderExplain('t', st, true);
+  }
+  renderFoot(r);
+  tickTeacher();
+}
+
+function renderFoot(r) {
+  const st = r.state, sheet = st.source === 'sheet';
+  const key = [st.phase, st.round, st.correct, st.hints.length, st.source, r.hasKey, st.index, st.total].join('|');
+  if (key === T.footKey) return;
+  T.footKey = key;
+  const btn = (act, label, cls = 'main-btn', arg = '') =>
+    `<button class="${cls}" data-act="${act}" data-arg="${arg}">${label}</button>`;
+  let h = '';
+  if (st.phase === 'wait' || st.round === 0) {
+    h = sheet ? btn('teacherNext', 'はじめる') : btn('form', 'もんだいを いれる');
+  } else if (st.phase === 'open') {
+    if (st.hints.length < st.hintTotal) h += btn('teacherHint', `ヒントを だす（${st.hints.length + 1}）`, 'sub-btn');
+    h += btn('teacherClose', 'しめきる');
+  } else if (st.phase === 'closed') {
+    if (r.hasKey) h = btn('teacherReveal', 'こたえあわせ');
+    else h = `<span class="lab">せいかいを えらんでね</span>` +
+      st.choices.map((_, i) => btn('teacherReveal', LETTERS[i], 'pickbtn ' + LETTERS[i].toLowerCase(), LETTERS[i])).join('');
+  } else if (st.phase === 'reveal') {
+    if (sheet) h = btn('teacherNext', st.index < st.total ? 'つぎの もんだいへ' : 'おわる');
+    else h = btn('form', 'つぎの もんだいを いれる');
+  } else if (st.phase === 'end') {
+    h = sheet ? btn('teacherRestart', 'さいしょから もういちど') : btn('form', 'もんだいを いれる');
+  }
+  $('tFoot').innerHTML = h;
+}
+
+function tickTeacher() {
+  const r = T.last;
+  if (!r) return;
+  const sec = paintTimer('t', r.state, T.offset);
+  if (sec === 0 && r.state.phase === 'open' && T.autoClosed !== r.state.round && !T.busy) {
+    T.autoClosed = r.state.round;
+    teacherAct('teacherClose');
+  }
+}
+
+async function teacherPoll() {
+  if (active !== 'teacher') return;
+  if (!T.busy) {
+    try {
+      const r = await call('teacherStatus');
+      $('tNet').textContent = '';
+      renderTeacher(r);
+    } catch (e) {
+      $('tNet').textContent = (e && e.message) ? e.message : 'つながりにくいよ';
+    }
+  }
+  if (active === 'teacher') T.timer = setTimeout(teacherPoll, 1500);
+}
+
+async function teacherAct(fn, arg) {
+  if (T.busy) return;
+  T.busy = true;
+  $('tFoot').querySelectorAll('button').forEach(b => b.disabled = true);
+  try {
+    if (arg === undefined) await call(fn); else await call(fn, arg);
+    const r = await call('teacherStatus');
+    T.footKey = '';
+    renderTeacher(r);
+    $('tNet').textContent = '';
+  } catch (e) {
+    $('tNet').textContent = (e && e.message) ? e.message : 'うまく いかなかったよ';
+    T.footKey = '';
+  }
+  T.busy = false;
+  $('tFoot').querySelectorAll('button').forEach(b => b.disabled = false);
+}
+
+$('tFoot').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  if (b.dataset.act === 'form') openForm();
+  else teacherAct(b.dataset.act, b.dataset.arg || undefined);
+});
+
+$('tFormBtn').addEventListener('click', () => openForm());
+
+/** 2かい おすと うごく ボタン */
+function twoTap(el, idle, armed, run) {
+  let t = null;
+  el.addEventListener('click', () => {
+    if (t) {
+      clearTimeout(t); t = null;
+      el.classList.remove('arm'); el.textContent = idle;
+      run();
+    } else {
+      el.classList.add('arm'); el.textContent = armed;
+      t = setTimeout(() => { t = null; el.classList.remove('arm'); el.textContent = idle; }, 3000);
+    }
+  });
+}
+twoTap($('tReset'), 'さいしょに もどる', 'もういちど おすと もどるよ', () => teacherAct('teacherRestart'));
+twoTap($('clearNames'), 'みんなに えらびなおしてもらう', 'もういちど おすと みんなの なまえが きえるよ',
+  async () => { await teacherAct('teacherClearNames'); loadMembers(); });
+
+/* ----- せってい ----- */
+function markSeg(id, val) {
+  $(id).querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === val));
+}
+
+async function loadSetList() {
+  const box = $('setList');
+  box.innerHTML = '<div class="note">よみこんでいるよ…</div>';
+  try {
+    const r = await call('teacherSets');
+    box.innerHTML = r.sets.length ? r.sets.map(s =>
+      `<button class="setbtn ${s.id === r.current ? 'on' : ''}" data-id="${escapeHtml(s.id)}">
+        <span>${escapeHtml(s.name)}</span><small>${s.count}もん</small></button>`).join('')
+      : '<div class="note">もんだいの タブが みつからないよ</div>';
+  } catch (e) {
+    box.innerHTML = '<div class="note">よみこめなかったよ</div>';
+  }
+}
+
+/* 制限時間（せってい）：おしおわって すこし たってから おくる */
+let limTimer = null;
+function sendLimit() {
+  clearTimeout(limTimer);
+  limTimer = setTimeout(() => {
+    if (T.busy) { sendLimit(); return; }
+    teacherAct('teacherSettings', { limit: parseInt($('sLim').value, 10) || 0 });
+  }, 600);
+}
+$('sLimUp').addEventListener('click', () => { stepNum('sLim', 5); sendLimit(); });
+$('sLimDn').addEventListener('click', () => { stepNum('sLim', -5); sendLimit(); });
+$('sLim').addEventListener('change', () => { stepNum('sLim', 0); sendLimit(); });
+
+$('makeTpl').addEventListener('click', async () => {
+  $('tplMsg').textContent = 'つくっているよ…';
+  try {
+    const name = await call('teacherMakeTemplate');
+    $('tplMsg').textContent = `「${name}」の タブを つくったよ。スプレッドシートで もんだいを かいてね`;
+    loadSetList();
+  } catch (e) {
+    $('tplMsg').textContent = 'つくれなかったよ';
+  }
+});
+
+/* ----- なまえの えらびかた ----- */
+let nameMode = 'roster';
+async function loadRoster() {
+  const box = $('rosterList');
+  box.innerHTML = '<div class="note">よみこんでいるよ…</div>';
+  $('rosterNote').textContent = '';
+  try {
+    const r = await call('teacherRoster');
+    nameMode = r.mode;
+    markSeg('segNameMode', r.mode);
+    $('rosterField').classList.toggle('hidden', r.mode !== 'roster');
+    $('makeRoster').classList.toggle('hidden', r.exists);
+    box.innerHTML = r.groups.map(g =>
+      `<button class="setbtn ${g.name === r.current ? 'on' : ''}" data-g="${escapeHtml(g.name)}">
+        <span>${escapeHtml(g.name)}</span><small>${g.count}<ruby>人<rt>にん</rt></ruby></small></button>`).join('');
+    const cur = r.groups.find(g => g.name === r.current);
+    $('rosterNote').textContent = !r.exists
+      ? '「めいぼ」タブが まだ ないよ。つくるまでは キャラで えらぶよ。'
+      : !cur || !cur.count ? 'めいぼに なまえが ないよ。なまえが はいるまでは キャラで えらぶよ。'
+      : 'スプレッドシートの「めいぼ」タブの 1ぎょうめが めいぼの なまえ、その 下に せいとの なまえを かくよ。かきかえたら この がめんを ひらきなおしてね。';
+  } catch (e) {
+    box.innerHTML = '<div class="note">よみこめなかったよ</div>';
+  }
+  loadMembers();
+}
+
+async function loadMembers() {
+  try {
+    const r = await call('teacherMembers');
+    showMembers(r);
+  } catch (e) { /* つぎに ひらいた ときに よむ */ }
+}
+function showMembers(r) {
+  $('memberList').innerHTML = r.names.length
+    ? r.names.map(n => `<button data-n="${escapeHtml(n)}">${rubyHtml(n)}</button>`).join('')
+    : '<span class="note">まだ だれも えらんでいないよ</span>';
+}
+$('memberList').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (!b.classList.contains('arm')) {
+    $('memberList').querySelectorAll('.arm').forEach(x => x.classList.remove('arm'));
+    b.classList.add('arm');
+    setTimeout(() => b.classList.remove('arm'), 3000);
+    return;
+  }
+  b.disabled = true;
+  try { showMembers(await call('teacherRelease', b.dataset.n)); } catch (err) { b.disabled = false; }
+});
+$('segNameMode').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b || b.dataset.v === nameMode) return;
+  nameMode = b.dataset.v;
+  markSeg('segNameMode', nameMode);
+  $('rosterField').classList.toggle('hidden', nameMode !== 'roster');
+  await teacherAct('teacherSettings', { nameMode });
+  loadRoster();
+});
+$('rosterList').addEventListener('click', async e => {
+  const b = e.target.closest('button.setbtn'); if (!b) return;
+  $('rosterList').querySelectorAll('.setbtn').forEach(x => x.classList.toggle('on', x === b));
+  await teacherAct('teacherSettings', { rosterGroup: b.dataset.g });
+  loadRoster();
+});
+$('makeRoster').addEventListener('click', async () => {
+  $('rosterNote').textContent = 'つくっているよ…';
+  try { await call('teacherMakeRoster'); } catch (e) { /* よみなおしで わかる */ }
+  loadRoster();
+});
+
+$('tSetBtn').addEventListener('click', () => {
+  const st = T.last ? T.last.state : { source: 'sheet', showQ: true, defLimit: 0 };
+  $('sLim').value = st.defLimit === undefined ? 60 : st.defLimit;
+  $('tplMsg').textContent = '';
+  markSeg('segTimeView', st.timeView || 'bar');
+  markSeg('segCode', st.codeOn === false ? '0' : '1');
+  markSeg('segSource', st.source);
+  markSeg('segShowQ', st.showQ ? '1' : '0');
+  $('setField').classList.toggle('hidden', st.source !== 'sheet');
+  if (st.source === 'sheet') loadSetList();
+  markSeg('segNameMode', st.nameMode === 'chara' ? 'chara' : nameMode);
+  loadRoster();
+  $('setOv').classList.remove('hidden');
+});
+$('setClose').addEventListener('click', () => $('setOv').classList.add('hidden'));
+$('segSource').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  markSeg('segSource', b.dataset.v);
+  $('tFormBtn').classList.toggle('hidden', b.dataset.v !== 'manual');
+  $('setField').classList.toggle('hidden', b.dataset.v !== 'sheet');
+  await teacherAct('teacherSettings', { source: b.dataset.v });
+  if (b.dataset.v === 'sheet') loadSetList();
+});
+$('setList').addEventListener('click', async e => {
+  const b = e.target.closest('button.setbtn'); if (!b) return;
+  $('setList').querySelectorAll('.setbtn').forEach(x => x.classList.toggle('on', x === b));
+  await teacherAct('teacherSettings', { setId: b.dataset.id });
+});
+$('segTimeView').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  markSeg('segTimeView', b.dataset.v);
+  teacherAct('teacherSettings', { timeView: b.dataset.v });
+});
+$('segCode').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  markSeg('segCode', b.dataset.v);
+  teacherAct('teacherSettings', { codeOn: b.dataset.v === '1' });
+});
+twoTap($('newCode'), 'あたらしい コードに する', 'もういちど おすと いまの コードが つかえなくなるよ',
+  () => teacherAct('teacherNewCode'));
+$('segShowQ').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  markSeg('segShowQ', b.dataset.v);
+  teacherAct('teacherSettings', { showQ: b.dataset.v === '1' });
+});
+
+/* ----- がぞう ----- */
+const newImgs = {}; // いま いれた 画像（みどりの わくで しめす）
+
+/** 画像を ちいさく する（長い ほうを 1280pxまで） */
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error('よめない ファイルだよ'));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('よめない がぞうだよ'));
+      img.onload = () => {
+        const MAX = 1280;
+        let w = img.naturalWidth || 800, h = img.naturalHeight || 600;
+        const keepPng = /png|gif|svg/.test(file.type);
+        if (w <= MAX && h <= MAX && file.size < 400 * 1024 && /^image\/(png|jpeg|gif|webp)$/.test(file.type)) {
+          resolve(fr.result); // ちいさい ときは そのまま
+          return;
+        }
+        const r = Math.min(1, MAX / Math.max(w, h));
+        w = Math.max(1, Math.round(w * r)); h = Math.max(1, Math.round(h * r));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const g = c.getContext('2d');
+        if (!keepPng) { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
+        g.drawImage(img, 0, 0, w, h);
+        let url = c.toDataURL(keepPng ? 'image/png' : 'image/jpeg', 0.85);
+        if (keepPng && url.length > 900 * 1024) {
+          // 大きすぎる PNG は しろい はいけいの JPEG にする
+          g.globalCompositeOperation = 'destination-over';
+          g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+          url = c.toDataURL('image/jpeg', 0.85);
+        }
+        resolve(url);
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/** 文字を コピーする */
+function copyText(t) {
+  let ok = false;
+  const ta = document.createElement('textarea');
+  ta.value = t;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed'; ta.style.top = '0'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { ta.setSelectionRange(0, t.length); } catch (e) { /* なにもしない */ }
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  if (!ok && navigator.clipboard) {
+    try { navigator.clipboard.writeText(t); ok = true; } catch (e) { ok = false; }
+  }
+  return ok;
+}
+
+function imgItemHtml(it) {
+  return `<div class="imgitem ${newImgs[it.id] ? 'new' : ''}">
+    <img data-img="img:${escapeHtml(it.id)}" alt="">
+    <div class="iname">${escapeHtml(it.name)}</div>
+    <button class="copybtn" data-n="${escapeHtml(it.name)}">なまえを コピー</button></div>`;
+}
+
+async function loadImgList() {
+  const box = $('imgList');
+  box.innerHTML = '<div class="note">よみこんでいるよ…</div>';
+  try {
+    const r = await call('listImages');
+    if (r.folderUrl) { $('imgFolderLink').href = r.folderUrl; $('imgFolderLink').classList.remove('hidden'); }
+    box._h = '';
+    setHtml(box, r.items.length ? r.items.map(imgItemHtml).join('') : '<div class="note">まだ がぞうが ないよ</div>');
+    hydrateImgs(box);
+  } catch (e) {
+    box.innerHTML = `<div class="note">よみこめなかったよ（${escapeHtml((e && e.message) || '')}）</div>`;
+  }
+}
+
+$('tImgBtn').addEventListener('click', () => {
+  $('upMsg').textContent = '';
+  upPending = []; $('upStep2').classList.add('hidden');
+  $('imgOv').classList.remove('hidden');
+  loadImgList();
+});
+$('imgClose').addEventListener('click', () => $('imgOv').classList.add('hidden'));
+$('imgList').addEventListener('click', e => {
+  const b = e.target.closest('button.copybtn'); if (!b) return;
+  const ok = copyText(b.dataset.n);
+  b.textContent = ok ? 'コピーしたよ' : 'コピー できなかったよ';
+  b.classList.toggle('done', ok);
+  setTimeout(() => { b.textContent = 'なまえを コピー'; b.classList.remove('done'); }, 1800);
+});
+let upPending = [];
+$('upFile').addEventListener('change', e => {
+  upPending = Array.from(e.target.files || []);
+  e.target.value = '';
+  $('upStep2').classList.toggle('hidden', !upPending.length);
+  if (!upPending.length) return;
+  $('upChosen').textContent = upPending.length === 1 ? `えらんだ がぞう：${upPending[0].name}` : `えらんだ がぞう：${upPending.length}まい`;
+  $('upName').value = '';
+  $('upName').placeholder = upPending.length > 1 ? 'れい：つき（つき_1、つき_2…に なるよ）' : 'れい：つき';
+  $('upMsg').textContent = '';
+  $('upName').focus();
+});
+$('upGo').addEventListener('click', async () => {
+  const files = upPending;
+  if (!files.length || $('upGo').disabled) return;
+  $('upGo').disabled = true;
+  const base = $('upName').value.trim();
+  const done = [];
+  for (let i = 0; i < files.length; i++) {
+    $('upMsg').textContent = `いれているよ…（${i + 1} / ${files.length}）`;
+    try {
+      const data = await shrinkImage(files[i]);
+      const nm = base ? (files.length > 1 ? `${base}_${i + 1}` : base) : files[i].name;
+      const r = await call('uploadImage', data, nm);
+      IMG.cache['img:' + r.id] = data;
+      newImgs[r.id] = true;
+      done.push(r.name);
+    } catch (err) {
+      done.push(`（${files[i].name} は いれられなかったよ）`);
+    }
+  }
+  upPending = [];
+  $('upStep2').classList.add('hidden');
+  $('upGo').disabled = false;
+  $('upMsg').textContent = `いれたよ：${done.join('、')}。なまえを コピーして、スプレッドシートの 画像の らんに はってね`;
+  $('upName').value = '';
+  loadImgList();
+});
+
+/* ----- 1もん いれる ----- */
+const FORM_KEY = 'minnaquiz_form';
+let formAns = '';
+
+function openForm() {
+  try {
+    const d = JSON.parse(localStorage.getItem(FORM_KEY) || 'null');
+    if (d) {
+      $('fText').value = d.text || '';
+      ['fA', 'fB', 'fC', 'fD'].forEach((id, i) => $(id).value = (d.choices || [])[i] || '');
+      [1, 2, 3].forEach((n, i) => {
+        const h = toItem((d.hints || [])[i]);
+        $('fH' + n).value = h.text; $('fH' + n + 'i').value = h.img;
+      });
+      const ex = toItem((d.explain || [])[0]);
+      $('fEx').value = ex.text; $('fExi').value = ex.img;
+      $('fImg').value = d.img || '';
+      $('fLim').value = (d.limit === '' || d.limit === null || d.limit === undefined) ? '' : d.limit;
+      formAns = d.answer || '';
+    }
+  } catch (e) { /* つかえない ときは そのまま */ }
+  markSeg('segAns', formAns);
+  $('formOv').classList.remove('hidden');
+}
+
+function readForm() {
+  return {
+    text: $('fText').value,
+    choices: ['fA', 'fB', 'fC', 'fD'].map(id => $(id).value),
+    answer: formAns,
+    hints: [1, 2, 3].map(n => ({ text: $('fH' + n).value.trim(), img: $('fH' + n + 'i').value.trim() })),
+    img: $('fImg').value,
+    explain: [{ text: $('fEx').value.trim(), img: $('fExi').value.trim() }],
+    limit: $('fLim').value.trim() === '' ? '' : Math.max(0, parseInt($('fLim').value, 10) || 0)
+  };
+}
+
+$('segAns').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  formAns = b.dataset.v; markSeg('segAns', formAns);
+});
+/** 数字の らん（△▽と 直接 入力） */
+function stepNum(id, d, base) {
+  const v = $(id).value.trim();
+  const cur = v === '' ? (base || 0) : (parseInt(v, 10) || 0);
+  $(id).value = Math.max(0, Math.min(600, cur + d));
+}
+const curDefLimit = () => (T.last && T.last.state.defLimit) || 0;
+$('fLimUp').addEventListener('click', () => stepNum('fLim', 5, curDefLimit()));
+$('fLimDn').addEventListener('click', () => stepNum('fLim', -5, curDefLimit()));
+$('fLim').addEventListener('change', () => { if ($('fLim').value.trim() !== '') stepNum('fLim', 0); });
+$('fCancel').addEventListener('click', () => $('formOv').classList.add('hidden'));
+$('fGo').addEventListener('click', () => {
+  const q = readForm();
+  try { localStorage.setItem(FORM_KEY, JSON.stringify(q)); } catch (e) { /* ほぞん できなくても つづける */ }
+  $('formOv').classList.add('hidden');
+  teacherAct('teacherPush', q);
+});
+
+/* ===== 時間の表示 ===== */
+function tickAll() {
+  if (active === 'student') tickStudent();
+  if (active === 'teacher') tickTeacher();
+}
+// 画面が かくれているときも しめきりが うごくように、タイマーも のこす
+setInterval(tickAll, 500);
+// バーを なめらかに へらす（時刻から 計算するので、120Hzでも 速さは かわらない）
+(function frame() { tickAll(); requestAnimationFrame(frame); })();
+
+/* ===== 画面の切りかえ ===== */
+function show(page) {
+  active = page;
+  clearTimeout(S.timer); clearTimeout(T.timer);
+  $('student').classList.toggle('hidden', page !== 'student');
+  $('teacher').classList.toggle('hidden', page !== 'teacher');
+  if (page === 'student') studentStart();
+  else { T.footKey = ''; teacherPoll(); }
+}
+
+if (RAW_PAGE === 'teacher' || RAW_PAGE === 'student') {
+  show(RAW_PAGE);
+} else {
+  $('pv').classList.remove('hidden');
+  $('pvT').addEventListener('click', () => { $('pvT').classList.add('on'); $('pvS').classList.remove('on'); show('teacher'); });
+  $('pvS').addEventListener('click', () => { $('pvS').classList.add('on'); $('pvT').classList.remove('on'); show('student'); });
+  show('teacher');
+}
+</script>
+</body>
+</html>

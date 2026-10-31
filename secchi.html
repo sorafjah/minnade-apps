@@ -47,15 +47,26 @@
   <div class="note">HTMLファイルの名前は <code>index</code> にしてください。ちがう名前だと「ファイルが見つかりません」というエラーになります。</div>
 
   <h2 id="s3">3. setup を1回だけ実行する</h2>
+  <p>コードの上に、次のようなボタンが横に並んでいます。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>見た目</th><th>なにをするもの</th></tr>
+    <tr><td><span class="ui">▷ 実行</span></td><td>選んでいる関数（プログラムのまとまり）を動かすボタン</td></tr>
+    <tr><td><span class="ui">デバッグ</span></td><td>今回は使いません</td></tr>
+    <tr><td><span class="ui">doGet ▾</span> など、関数の名前と ▾</td><td>どの関数を動かすか選ぶところ。はじめは <code>doGet</code> などが出ています</td></tr>
+  </table></div>
   <ol class="steps">
-    <li><code>コード.gs</code> を開いた状態で、上の <span class="ui">実行</span> の横にある関数の選択で <code>setup</code> を選ぶ</li>
-    <li><span class="ui">実行</span> を押す</li>
-    <li>はじめての実行のときだけ「承認が必要です」と出ます。<span class="ui">権限を確認</span> を押し、自分のアカウントを選ぶ</li>
-    <li>「Google はこのアプリを確認していません」と出たら、左下の <span class="ui">詳細</span> → <span class="ui">（プロジェクト名）（安全ではないページ）に移動</span> を押す。<br>自分で貼ったコードなので、この表示が出ます</li>
-    <li>許可の内容を確かめて <span class="ui">許可</span> を押す</li>
-    <li>下に「実行完了」と出たら、スプレッドシートに戻ります。アプリに必要なタブ（「めいぼ」など）ができています</li>
+    <li>左のファイルの一覧で <code>コード.gs</code> を押して開く（<code>index.html</code> を開いていると、関数の名前が出てきません）</li>
+    <li>関数の名前が出ているところの <strong>▾</strong> を押すと、関数の一覧が出ます。その中から <code>setup</code> を選ぶ</li>
+    <li><span class="ui">▷ 実行</span> を押す</li>
+    <li>はじめての実行のときだけ、<strong>「承認が必要です」</strong>という小さな画面が出ます。<span class="ui">権限を確認</span> を押す</li>
+    <li>アカウントを選ぶ画面が出たら、このスプレッドシートを作ったアカウントを選ぶ</li>
+    <li><strong>「Google はこのアプリを確認していません」</strong>と出たら、左下の小さな <span class="ui">詳細</span> を押し、いちばん下の <span class="ui">（プロジェクト名）（安全ではないページ）に移動</span> を押す。<br>自分で貼ったコードなので、だれでもこの表示が出ます</li>
+    <li>許可の内容が出たら、いちばん下の <span class="ui">許可</span>（または <span class="ui">続行</span>）を押す。チェックをつける欄があるときは、すべてにチェックをつけてから押します</li>
+    <li>画面の下に「実行ログ」が出て、<strong>「実行完了」</strong>と出たら終わりです。スプレッドシートに戻ると、アプリに必要なタブ（「めいぼ」など）ができています</li>
   </ol>
-  <div class="note">許可の画面では「このスプレッドシートを見る・編集する」などの権限が出ます。アプリが記録を書きこむために必要なものです。</div>
+  <div class="note">許可の画面に出るのは「このスプレッドシートを見る・編集する」などの権限です。アプリが記録を書きこむために必要なもので、ドライブのほかのファイルにはさわりません。<br>
+    承認はアカウントごとに1回だけです。2回目からは <span class="ui">▷ 実行</span> を押すだけで動きます。</div>
+  <div class="caution">ポップアップがブロックされて承認の画面が出ないときは、ブラウザのアドレスバーの右はしに出るマークから「ポップアップを許可」してから、もう一度 <span class="ui">▷ 実行</span> を押してください。</div>
 
   <h2 id="s4">4. ウェブアプリとして公開する</h2>
   <ol class="steps">
@@ -69,7 +80,7 @@
         <tr><td>アクセスできるユーザー</td><td><strong>全員</strong>：ログインしていない端末からも開けます<br><strong>（学校名）内の全員</strong>：学校のアカウントでログインしている人だけ開けます</td></tr>
       </table></div>
     </li>
-    <li><span class="ui">デプロイ</span> を押す</li>
+    <li><span class="ui">デプロイ</span> を押す。<br>ここでも「アクセスを承認」と出ることがあります。そのときは、3の承認と同じように進めてください</li>
     <li>「ウェブアプリ」の下に出てくるURLを <span class="ui">コピー</span> する。これが<strong>生徒用のURL</strong>です</li>
   </ol>
   <div class="caution">

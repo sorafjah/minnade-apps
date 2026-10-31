@@ -1,0 +1,633 @@
+/**
+ * みんなでマッチング
+ * スプレッドシートの「拡張機能 → Apps Script」に貼って使う
+ * ファイルはこの「コード.gs」と「index」（HTML）の2つだけ
+ *
+ * はじめに一度だけ setup を実行する（名簿の例・れいのペア・絵のフォルダを作り、許可をとる）
+ * 生徒用URL : デプロイしたURL（…/exec）
+ * 先生用URL : 末尾に ?page=teacher をつける（?p=teacher でもよい。スプレッドシートの持ち主のアカウントでだけ開ける）
+ *
+ * 授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+ *
+ * スプレッドシートのタブ
+ *  ・ペアのタブ（「しごと」「くだもの」など）：1行目は Aのえ｜Aのもじ｜Bのえ｜Bのもじ。1行＝1ペア
+ *  ・めいぼ：1行目にグループ名（数学・理科など）、その下に名前
+ *  ・タブのせってい：タブごとの「わける／わけない」とAとBのなまえ（アプリの画面から変えられる）
+ *  ・きろく：○○：自動で作られる記録
+ */
+
+const APP = 'みんなでマッチング';
+const SH_ROSTER = 'めいぼ';
+const SH_TABSET = 'タブのせってい';
+const REC = 'きろく：';
+const HEAD = ['Aのえ', 'Aのもじ', 'Bのえ', 'Bのもじ'];
+const TABSET_HEAD = ['タブ', 'わけかた', 'Aのなまえ', 'Bのなまえ'];
+const FOLDER = 'みんなでマッチング_がぞう';
+const CHARAS = ['🐶 いぬ', '🐱 ねこ', '🐰 うさぎ', '🐻 くま', '🐼 パンダ', '🦊 きつね', '🐸 かえる', '🐧 ペンギン',
+  '🐨 コアラ', '🐯 とら', '🦁 ライオン', '🐵 さる', '🐷 ぶた', '🐮 うし', '🐔 にわとり', '🐳 くじら'];
+const DEF_SET = {
+  tab: '', count: 10, nChoices: 2, pace: 'together', dir: 'ab', imgQ: true, imgC: true, textQ: true, textC: true,
+  limit: 0, nameMode: 'roster', rosterGroup: '', codeOn: true, sound: true
+};
+
+function doGet(e) {
+  const t = HtmlService.createTemplateFromFile('index');
+  const p = (e && e.parameter) || {};
+  const want = p.page || p.p || '';   // ?page=teacher でも ?p=teacher でも先生画面
+  t.page = (want === 'teacher' && isTeacher_()) ? 'teacher' : 'student';
+  t.url = ScriptApp.getService().getUrl();
+  return t.evaluate()
+    .setTitle(APP)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ---------- はじめに一度だけ実行 ---------- */
+
+/**
+ * エディタで setup を えらんで「実行」する
+ *  ・「めいぼ」タブ（なければ れいの 名前を 入れる）
+ *  ・れいの ペアの タブ「れい」（文字だけの ペア。すぐに ためせる）
+ *  ・絵の フォルダ（ドライブを つかう 許可も ここで とる）
+ *  ・はじめから ある からっぽの「シート1」は けす（ペアの タブと まちがえないように）
+ */
+function setup() {
+  const ss = ss_();
+  if (!ss.getSheetByName(SH_ROSTER)) {
+    const r = ss.insertSheet(SH_ROSTER);
+    r.getRange(1, 1, 5, 2).setValues([['1組', '2組'], ['あおい', 'さくら'], ['たろう', 'けんた'], ['はなこ', 'みさき'], ['ゆうと', '']]);
+    r.getRange(1, 1, 1, 2).setFontWeight('bold');
+    r.setFrozenRows(1);
+  }
+  if (!ss.getSheetByName('れい')) {
+    const sh = pairSheet_('れい');
+    sh.getRange(2, 1, 5, 4).setValues([
+      ['', 'りんご', '', 'あか'], ['', 'バナナ', '', 'きいろ'], ['', 'ぶどう', '', 'むらさき'],
+      ['', 'みかん', '', 'オレンジ'], ['', 'メロン', '', 'みどり']
+    ]);
+    const info = tabInfo_();
+    if (!info['れい']) {
+      let ts = ss.getSheetByName(SH_TABSET);
+      if (!ts) {
+        ts = ss.insertSheet(SH_TABSET);
+        ts.getRange(1, 1, 1, 4).setValues([TABSET_HEAD]);
+        ts.setFrozenRows(1);
+      }
+      ts.appendRow(['れい', 'わける', 'くだもの', 'いろ']);
+    }
+  }
+  ['シート1', 'Sheet1'].forEach(n => {
+    const sh = ss.getSheetByName(n);
+    if (sh && ss.getSheets().length > 1 && sh.getLastRow() === 0 && sh.getLastColumn() === 0) ss.deleteSheet(sh);
+  });
+  const f = folder_();
+  Logger.log('じゅんびが できました。絵の フォルダ：' + f.getUrl());
+}
+
+/* ---------- 先生かどうか ---------- */
+
+function isTeacher_() {
+  try {
+    const owner = Session.getEffectiveUser().getEmail();
+    const user = Session.getActiveUser().getEmail();
+    return !!user && user === owner;
+  } catch (e) { return false; }
+}
+function checkTeacher_() {
+  if (!isTeacher_()) throw new Error('せんせいの アカウントで ひらいてね');
+}
+
+/* ---------- 保存（プロパティ＋キャッシュ） ---------- */
+
+function props_() { return PropertiesService.getScriptProperties(); }
+function cache_() { return CacheService.getScriptCache(); }
+
+function load_(key, def) {
+  const c = cache_().get('k_' + key);
+  if (c) return JSON.parse(c);
+  const p = props_().getProperty(key);
+  if (p) {
+    try { cache_().put('k_' + key, p, 21600); } catch (e) {}
+    return JSON.parse(p);
+  }
+  return def;
+}
+function save_(key, obj) {
+  const s = JSON.stringify(obj);
+  props_().setProperty(key, s);
+  try { cache_().put('k_' + key, s, 21600); } catch (e) {}
+}
+function drop_(key) {
+  props_().deleteProperty(key);
+  cache_().remove('k_' + key);
+}
+// 大きいデータ（問題の一覧）は分けて保存する
+function saveBig_(key, obj) {
+  const s = JSON.stringify(obj);
+  const size = 2500;
+  const n = Math.max(1, Math.ceil(s.length / size));
+  const o = {};
+  for (let i = 0; i < n; i++) o[key + '_' + i] = s.slice(i * size, (i + 1) * size);
+  o[key + '_n'] = String(n);
+  props_().setProperties(o);
+  try { cache_().put('k_' + key, s, 21600); } catch (e) {}
+}
+function loadBig_(key, def) {
+  const c = cache_().get('k_' + key);
+  if (c) return JSON.parse(c);
+  const n = parseInt(props_().getProperty(key + '_n') || '0', 10);
+  if (!n) return def;
+  let s = '';
+  for (let i = 0; i < n; i++) s += props_().getProperty(key + '_' + i) || '';
+  try { cache_().put('k_' + key, s, 21600); } catch (e) {}
+  return JSON.parse(s);
+}
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+/* こたえは 一人ずつ べつの場所に しまう（ロックで 待たせないため） */
+function ansKey_(st, i, cid) { return 'ans:' + st.round + ':' + i + ':' + cid; }
+function ansMap_(st, people, sure) {
+  const cids = Object.keys(people);
+  const m = {};
+  let all = null;
+  for (let j = 0; j < cids.length; j += 100) {
+    const part = cids.slice(j, j + 100);
+    const keys = part.map(c => 'k_' + ansKey_(st, st.index, c));
+    const got = cache_().getAll(keys);
+    part.forEach((c, k) => {
+      let v = got[keys[k]];
+      if (!v && sure) { if (!all) all = props_().getProperties(); v = all[ansKey_(st, st.index, c)]; }
+      if (v) { try { m[c] = JSON.parse(v); } catch (e) {} }
+    });
+  }
+  return m;
+}
+
+function settings_() { return Object.assign({}, DEF_SET, load_('set', {})); }
+function state_() { return load_('state', { round: 0, phase: 'idle', index: 0, total: 0, imgs: [] }); }
+
+/* ---------- さんかコード（4けた） ---------- */
+
+function code_() { return props_().getProperty('code') || newCode_(); }
+function newCode_() {
+  const c = String(Math.floor(1000 + Math.random() * 9000));
+  props_().setProperty('code', c);
+  return c;
+}
+function okCode_(set, code) { return !set.codeOn || String(code || '') === code_(); }
+
+/* ---------- スプレッドシート ---------- */
+
+function ss_() { return SpreadsheetApp.getActive(); }
+function cell_(v) { return String(v == null ? '' : v).trim(); }
+function has_(it) { return !!(it && (it.img || it.text)); }
+function isPairTab_(name) {
+  return !!name && name !== SH_ROSTER && name !== SH_TABSET && name.indexOf('きろく') !== 0;
+}
+function pairTabs_() { return ss_().getSheets().map(s => s.getName()).filter(isPairTab_); }
+
+function readPairs_(tab) {
+  const sh = ss_().getSheetByName(tab);
+  if (!sh) throw new Error('タブ「' + tab + '」が ないよ');
+  const v = sh.getDataRange().getValues();
+  const out = [];
+  for (let r = 1; r < v.length; r++) {
+    const a = { img: cell_(v[r][0]), text: cell_(v[r][1]) };
+    const b = { img: cell_(v[r][2]), text: cell_(v[r][3]) };
+    if (!has_(a) && !has_(b)) continue;
+    out.push({ row: r + 1, a: a, b: b });
+  }
+  return out;
+}
+function pairSheet_(tab) {
+  tab = cell_(tab);
+  if (!isPairTab_(tab)) throw new Error('その タブの なまえは つかえないよ');
+  let sh = ss_().getSheetByName(tab);
+  if (!sh) {
+    sh = ss_().insertSheet(tab);
+    sh.getRange(1, 1, 1, 4).setValues([HEAD]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function tabInfo_() {
+  const sh = ss_().getSheetByName(SH_TABSET);
+  const map = {};
+  if (!sh) return map;
+  const v = sh.getDataRange().getValues();
+  for (let r = 1; r < v.length; r++) {
+    const n = cell_(v[r][0]);
+    if (!n) continue;
+    map[n] = { split: cell_(v[r][1]) !== 'わけない', la: cell_(v[r][2]) || 'A', lb: cell_(v[r][3]) || 'B' };
+  }
+  return map;
+}
+function infoOf_(map, tab) { return map[tab] || { split: true, la: 'A', lb: 'B' }; }
+
+function roster_() {
+  const sh = ss_().getSheetByName(SH_ROSTER);
+  if (!sh) return {};
+  const v = sh.getDataRange().getValues();
+  const out = {};
+  if (!v.length) return out;
+  v[0].forEach((h, c) => {
+    const g = cell_(h);
+    if (!g) return;
+    out[g] = [];
+    for (let r = 1; r < v.length; r++) { const n = cell_(v[r][c]); if (n) out[g].push(n); }
+  });
+  return out;
+}
+function namesFor_(set) {
+  if (set.nameMode === 'chara') return CHARAS.slice();
+  const ro = roster_();
+  const g = ro[set.rosterGroup] ? set.rosterGroup : Object.keys(ro)[0];
+  return g ? ro[g] : [];
+}
+
+/* ---------- 問題をつくる ---------- */
+
+function shuffle_(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function buildQs_(tab, info, set) {
+  const rows = readPairs_(tab);
+  const full = shuffle_(rows.filter(r => has_(r.a) && has_(r.b)));
+  const key = it => it.img + '|' + it.text;
+  const qs = [];
+  const want = Math.max(1, parseInt(set.count, 10) || 10);
+  const nC = Math.max(2, Math.min(4, parseInt(set.nChoices, 10) || 4));
+  for (let i = 0; i < full.length && qs.length < want; i++) {
+    const p = full[i];
+    let qSide;
+    if (info.split && set.dir === 'ab') qSide = 'a';
+    else if (info.split && set.dir === 'ba') qSide = 'b';
+    else qSide = Math.random() < 0.5 ? 'a' : 'b';
+    const oSide = qSide === 'a' ? 'b' : 'a';
+    const ans = p[oSide];
+    let pool = [];
+    rows.forEach(r => {
+      if (r.row === p.row) return;
+      if (info.split) { if (has_(r[oSide])) pool.push(r[oSide]); }
+      else { if (has_(r.a)) pool.push(r.a); if (has_(r.b)) pool.push(r.b); }
+    });
+    const seen = {};
+    seen[key(ans)] = 1; seen[key(p[qSide])] = 1;
+    pool = shuffle_(pool).filter(it => { const k = key(it); if (seen[k]) return false; seen[k] = 1; return true; });
+    const wrong = pool.slice(0, nC - 1);
+    if (!wrong.length) continue;
+    const choices = shuffle_([ans].concat(wrong).map(it => ({ img: it.img, text: it.text })));
+    const correct = choices.findIndex(it => key(it) === key(ans));
+    qs.push({ q: { img: p[qSide].img, text: p[qSide].text }, qs: qSide, choices: choices, correct: correct });
+  }
+  return qs;
+}
+// 絵・文字を出すかどうか。絵を出さないのに文字がないときは絵を、どちらも出さないときは文字を出す
+function pub_(it, showImg, showText) {
+  let img = (showImg !== false || !it.text) ? it.img : '';
+  let text = (showText || !img) ? it.text : '';
+  if (!img && !text) img = it.img;
+  return { img: img, text: text };
+}
+
+/* ---------- 生徒 ---------- */
+
+function sPoll(cid, code) {
+  const set = settings_();
+  const st = state_();
+  const o = { round: st.round, phase: st.phase, index: st.index, total: st.total, sound: st.sound !== false, now: Date.now() };
+  if (!okCode_(set, code)) { o.needCode = true; return o; }
+  const people = load_('people', {});
+  o.myName = people[cid] || '';
+  if (!o.myName) {
+    const taken = {};
+    Object.keys(people).forEach(k => { if (k !== cid) taken[people[k]] = 1; });
+    o.names = load_('names', []).map(n => ({ n: n, t: !!taken[n] }));
+  }
+  if (o.myName && (st.phase === 'q' || st.phase === 'reveal')) {
+    const q = loadBig_('qs', [])[st.index];
+    if (q) {
+      o.q = {
+        item: pub_(q.q, st.imgQ, st.textQ), choices: q.choices.map(c => pub_(c, st.imgC, st.textC)),
+        openedAt: st.openedAt, limit: st.limit, split: st.split, la: st.la, lb: st.lb, side: q.qs
+      };
+      const a = load_(ansKey_(st, st.index, cid), null);
+      o.mine = a ? a.c : -1;
+      o.changed = a ? a.n : 0;
+      if (st.phase === 'reveal') o.correct = q.correct;
+    }
+  }
+  if (o.myName && st.phase !== 'idle') o.imgs = st.imgs || [];
+  if (o.myName && st.phase === 'end') {
+    const sc = load_('scores', {})[cid];
+    o.score = sc ? sc.ok : 0;
+  }
+  return o;
+}
+
+function sName(cid, code, name) {
+  const set = settings_();
+  if (!okCode_(set, code)) throw new Error('さんかコードが ちがうよ');
+  if (load_('names', []).indexOf(name) < 0) throw new Error('その なまえは ないよ');
+  return withLock_(() => {
+    const p = load_('people', {});
+    for (const k in p) if (k !== cid && p[k] === name) throw new Error('その なまえは もう つかわれているよ');
+    p[cid] = name;
+    save_('people', p);
+    return name;
+  });
+}
+
+function sAnswer(cid, code, choice) {
+  const set = settings_();
+  if (!okCode_(set, code)) throw new Error('さんかコードが ちがうよ');
+  const st = state_();
+  if (st.phase !== 'q') throw new Error('いまは こたえられないよ');
+  if (st.limit > 0 && Date.now() > st.openedAt + st.limit * 1000 + 1500) throw new Error('じかんが おわったよ');
+  if (!load_('people', {})[cid]) throw new Error('なまえを えらんでね');
+  const key = ansKey_(st, st.index, cid);
+  const old = load_(key, null);
+  if (old && old.c === choice) return { mine: old.c, changed: old.n };
+  if (old && old.n >= 1) throw new Error('もう かえられないよ');
+  const a = { c: choice, n: old ? 1 : 0 };
+  save_(key, a);
+  return { mine: choice, changed: a.n };
+}
+
+/* ---------- 画像 ---------- */
+
+function folder_() {
+  const id = props_().getProperty('folderId');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  let parent;
+  try { parent = DriveApp.getFileById(ss_().getId()).getParents().next(); }
+  catch (e) { parent = DriveApp.getRootFolder(); }
+  const it = parent.getFoldersByName(FOLDER);
+  const f = it.hasNext() ? it.next() : parent.createFolder(FOLDER);
+  props_().setProperty('folderId', f.getId());
+  return f;
+}
+function imgId_(name) {
+  const k = 'img_id_' + name;
+  let id = cache_().get(k);
+  if (id) return id;
+  const it = folder_().getFilesByName(name);
+  if (!it.hasNext()) return '';
+  id = it.next().getId();
+  cache_().put(k, id, 21600);
+  return id;
+}
+function getImages(names, code) {
+  names = (names || []).slice(0, 8);
+  if (!isTeacher_()) {
+    const set = settings_();
+    if (!okCode_(set, code)) throw new Error('さんかコードが ちがうよ');
+    const allow = state_().imgs || [];
+    names = names.filter(n => allow.indexOf(n) >= 0);
+  }
+  const out = {};
+  names.forEach(n => {
+    const ck = 'img_d_' + n;
+    let d = cache_().get(ck);
+    if (!d) {
+      const id = imgId_(n);
+      if (!id) { out[n] = ''; return; }
+      const b = DriveApp.getFileById(id).getBlob();
+      d = 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes());
+      try { cache_().put(ck, d, 21600); } catch (e) {}
+    }
+    out[n] = d;
+  });
+  return out;
+}
+
+/* ---------- 先生：準備 ---------- */
+
+function tInit() {
+  checkTeacher_();
+  const info = tabInfo_();
+  const tabs = pairTabs_().map(n => {
+    const ps = readPairs_(n);
+    const i = infoOf_(info, n);
+    return {
+      name: n, split: i.split, la: i.la, lb: i.lb,
+      pairs: ps.filter(p => has_(p.a) && has_(p.b)).length,
+      dummy: ps.filter(p => has_(p.a) !== has_(p.b)).length
+    };
+  });
+  return { set: settings_(), tabs: tabs, groups: Object.keys(roster_()), code: code_(), url: ScriptApp.getService().getUrl(), view: view_() };
+}
+
+function tSaveSettings(set) {
+  checkTeacher_();
+  const s = Object.assign(settings_(), set || {});
+  save_('set', s);
+  save_('names', namesFor_(s));
+  return true;
+}
+function tNewCode() { checkTeacher_(); return newCode_(); }
+function tResetPeople() { checkTeacher_(); save_('people', {}); return view_(); }
+
+function tSaveTabs(list) {
+  checkTeacher_();
+  let sh = ss_().getSheetByName(SH_TABSET);
+  if (!sh) sh = ss_().insertSheet(SH_TABSET);
+  sh.clearContents();
+  const rows = [TABSET_HEAD].concat((list || []).map(t => [t.name, t.split ? 'わける' : 'わけない', t.la || 'A', t.lb || 'B']));
+  sh.getRange(1, 1, rows.length, 4).setValues(rows);
+  sh.setFrozenRows(1);
+  return tInit();
+}
+
+/* ---------- 先生：ペア ---------- */
+
+function tPairs(tab) { checkTeacher_(); return readPairs_(tab); }
+function tNewTab(tab) { checkTeacher_(); pairSheet_(tab); return tInit(); }
+
+function tUpload(dataUrl) {
+  checkTeacher_();
+  const m = String(dataUrl).match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+  if (!m) throw new Error('え が よめなかったよ');
+  const ext = m[1] === 'image/png' ? 'png' : 'jpg';
+  const name = 'm' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyMMdd_HHmmss') + '_' + Math.floor(1000 + Math.random() * 9000) + '.' + ext;
+  const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], name);
+  const f = folder_().createFile(blob);
+  cache_().put('img_id_' + name, f.getId(), 21600);
+  return name;
+}
+
+// まとめて とうろく：絵をいくつか まとめて ドライブに入れる（空の ものは '' を返す）
+function tUploadMany(list) {
+  checkTeacher_();
+  return (list || []).slice(0, 4).map(d => d ? tUpload(d) : '');
+}
+function tAddPairs(tab, list) {
+  checkTeacher_();
+  const sh = pairSheet_(tab);
+  const rows = (list || []).map(p => [cell_(p.a && p.a.img), cell_(p.a && p.a.text), cell_(p.b && p.b.img), cell_(p.b && p.b.text)])
+    .filter(r => r.some(x => x));
+  if (!rows.length) throw new Error('ペアが ないよ');
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 4).setValues(rows);
+  return rows.length;
+}
+
+function tAddPair(tab, a, b) {
+  checkTeacher_();
+  const sh = pairSheet_(tab);
+  const row = [cell_(a && a.img), cell_(a && a.text), cell_(b && b.img), cell_(b && b.text)];
+  if (!row.some(x => x)) throw new Error('え か もじを いれてね');
+  sh.appendRow(row);
+  return readPairs_(tab).length;
+}
+
+function tDelPair(tab, row, check) {
+  checkTeacher_();
+  const sh = ss_().getSheetByName(tab);
+  if (!sh) throw new Error('タブが ないよ');
+  const v = sh.getRange(row, 1, 1, 4).getValues()[0].map(cell_);
+  if (v.join('|') !== check) throw new Error('スプレッドシートが かわっているよ。もういちど ひらいてね');
+  sh.deleteRow(row);
+  return readPairs_(tab);
+}
+
+/* ---------- 先生：すすめる ---------- */
+
+function view_() {
+  const st = state_();
+  const people = load_('people', {});
+  const v = { st: st, now: Date.now(), code: code_(), people: Object.keys(people).map(k => people[k]) };
+  if (st.phase === 'q' || st.phase === 'reveal') {
+    const q = loadBig_('qs', [])[st.index];
+    const ans = ansMap_(st, people, false);
+    const done = {};
+    Object.keys(ans).forEach(cid => { if (people[cid]) done[people[cid]] = 1; });
+    v.q = { item: pub_(q.q, st.imgQ, st.textQ), choices: q.choices.map(c => pub_(c, st.imgC, st.textC)), side: q.qs };
+    v.answered = Object.keys(done);
+    if (st.phase === 'reveal') {
+      v.correct = q.correct;
+      v.counts = q.choices.map(() => 0);
+      Object.keys(ans).forEach(cid => { if (people[cid]) v.counts[ans[cid].c]++; });
+    }
+  }
+  if (st.phase === 'end') {
+    const sc = load_('scores', {});
+    v.scores = Object.keys(sc).map(k => sc[k]);
+  }
+  return v;
+}
+function tView() { checkTeacher_(); return view_(); }
+
+function tStart(set) {
+  checkTeacher_();
+  const s = Object.assign(settings_(), set || {});
+  save_('set', s);
+  const info = infoOf_(tabInfo_(), s.tab);
+  const qs = buildQs_(s.tab, info, s);
+  if (!qs.length) throw new Error('ペアが たりないよ（2くみ いじょう いるよ）');
+  save_('names', namesFor_(s));
+  return withLock_(() => {
+    const old = state_();
+    const pr = props_();
+    pr.getKeys().forEach(k => { if (k.indexOf('ans:') === 0 || k.indexOf('ans_') === 0) pr.deleteProperty(k); });
+    saveBig_('qs', qs);
+    save_('scores', {});
+    const imgs = [];
+    const seen = {};
+    qs.forEach(q => [pub_(q.q, s.imgQ, s.textQ)].concat(q.choices.map(c => pub_(c, s.imgC, s.textC))).forEach(it => {
+      if (it.img && !seen[it.img]) { seen[it.img] = 1; imgs.push(it.img); }
+    }));
+    save_('state', {
+      round: (old.round || 0) + 1, phase: 'wait', index: 0, total: qs.length, openedAt: 0,
+      limit: s.limit, imgQ: s.imgQ, imgC: s.imgC, textQ: s.textQ, textC: s.textC, sound: s.sound, tab: s.tab,
+      split: info.split, la: info.la, lb: info.lb, imgs: imgs
+    });
+    return view_();
+  });
+}
+
+function open_(st, i) {
+  st.phase = 'q';
+  st.index = i;
+  st.openedAt = Date.now();
+  save_('state', st);
+}
+function tOpen() {
+  checkTeacher_();
+  return withLock_(() => {
+    const st = state_();
+    if (st.phase === 'wait') open_(st, 0);
+    return view_();
+  });
+}
+function tNext() {
+  checkTeacher_();
+  return withLock_(() => {
+    const st = state_();
+    if (st.phase !== 'reveal') return view_();
+    if (st.index + 1 < st.total) open_(st, st.index + 1);
+    else { st.phase = 'end'; save_('state', st); }
+    return view_();
+  });
+}
+function tFinish() {
+  checkTeacher_();
+  return withLock_(() => { const st = state_(); st.phase = 'end'; save_('state', st); return view_(); });
+}
+function tStop() {
+  checkTeacher_();
+  return withLock_(() => { const st = state_(); st.phase = 'idle'; save_('state', st); return view_(); });
+}
+
+function tReveal() {
+  checkTeacher_();
+  let rows = [], tab = '';
+  const v = withLock_(() => {
+    const st = state_();
+    if (st.phase !== 'q') return view_();
+    const q = loadBig_('qs', [])[st.index];
+    const people = load_('people', {});
+    const ans = ansMap_(st, people, true);
+    const sc = load_('scores', {});
+    const lab = it => it.text || it.img;
+    const now = new Date();
+    tab = st.tab;
+    Object.keys(people).forEach(cid => {
+      const a = ans[cid];
+      const ok = !!a && a.c === q.correct;
+      const s = sc[cid] || { name: people[cid], ok: 0, ans: 0 };
+      s.name = people[cid];
+      if (a) s.ans++;
+      if (ok) s.ok++;
+      sc[cid] = s;
+      rows.push([now, st.round, st.index + 1, people[cid], lab(q.q), lab(q.choices[q.correct]),
+        a ? lab(q.choices[a.c]) : '', a ? (ok ? '○' : '×') : '−']);
+    });
+    save_('scores', sc);
+    st.phase = 'reveal';
+    save_('state', st);
+    return view_();
+  });
+  try { writeRec_(tab, rows); } catch (e) {}  /* 記録は ロックの外で書く */
+  return v;
+}
+
+function writeRec_(tab, rows) {
+  if (!rows.length) return;
+  const name = REC + tab;
+  let sh = ss_().getSheetByName(name);
+  if (!sh) {
+    sh = ss_().insertSheet(name);
+    sh.appendRow(['にちじ', 'かい', 'もんだい', 'なまえ', 'もんだいの え', 'せいかい', 'えらんだ', 'けっか']);
+    sh.setFrozenRows(1);
+  }
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+}
