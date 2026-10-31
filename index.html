@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>トップ</title>
+<meta name="description" content="みんなで答える授業アプリ：先生が問題を出し、生徒は自分のタブレットで一斉回答。Googleスプレッドシートで動く、授業向けの無料アプリ集。ドリル・クイズ・マッチング・アンケート。GAS（Google Apps Script）を触ったことがない先生向けの手順つき。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body data-root="" data-page="top">
+<main>
+  <h1>生徒のiPadで使える授業アプリを、<br>自分の学校のGoogleアカウントで。</h1>
+  <p class="lead">ドリル、みんなで答えるクイズ、マッチング、アンケートなどのアプリを無料で配っています。どれも、Googleスプレッドシートにコードを貼りつけて設置すると使えます。</p>
+
+  <div class="card">
+    <h3 style="margin-top:0;">このサイトのアプリでできること</h3>
+    <ul>
+      <li>生徒はQRコードやURLから開くだけ。アプリのインストールはいりません。</li>
+      <li>答えた記録は、先生自身のスプレッドシートに残ります。このサイトにデータが送られることはありません。</li>
+      <li>問題や質問を、先生がスプレッドシートで自由に作れるアプリもあります。</li>
+    </ul>
+    <p>はじめての方は、まず <a href="hajimete.html">はじめての方へ</a> をお読みください。設置は、ひとつのアプリにつき15分ほどです。</p>
+  </div>
+
+  <h2>アプリ</h2>
+  <div class="apps" id="app-list"></div>
+
+  <h2>使うまでの流れ</h2>
+  <ol class="steps">
+    <li>使いたいアプリのページを開き、何ができるかを確かめる</li>
+    <li><a href="secchi.html">設置の手順</a>にそって、スプレッドシートにコードを貼り、公開する</li>
+    <li>先生用の画面で設定をして、生徒にQRコードやURLを配る</li>
+  </ol>
+</main>
+<script src="assets/apps.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

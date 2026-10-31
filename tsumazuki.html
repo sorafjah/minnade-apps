@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>うまくいかないとき</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body data-root="" data-page="tsumazuki">
+<main>
+  <h1>うまくいかないとき</h1>
+  <p class="lead">よくあるつまずきと、その直し方です。アプリごとのことは、各アプリのページの「よくある質問」もご覧ください。</p>
+
+  <h2>設置のとき</h2>
+
+  <h3>setup を実行したら「承認が必要です」と出た</h3>
+  <p>はじめての実行のときは必ず出ます。<a href="secchi.html#s3">設置の手順の3</a>のとおりに進んでください。</p>
+
+  <h3>「Google はこのアプリを確認していません」と出て、先に進めない</h3>
+  <p>左下の小さな <span class="ui">詳細</span> を押すと、<span class="ui">（プロジェクト名）（安全ではないページ）に移動</span> が出てきます。学校のアカウントでこの文字が出てこないときは、管理者が制限している可能性があります。情報担当の先生にご相談ください。</p>
+
+  <h3>「関数 setup が見つかりません」「構文エラー」と出る</h3>
+  <ul>
+    <li>コードが途中までしか貼れていない可能性があります。<span class="ui">コードをすべてコピーする</span> でコピーし直し、Ctrl＋A で全部選んでから貼り直してください。</li>
+    <li>はじめから書いてあった <code>function myFunction() { }</code> が残っていないか確かめてください。</li>
+    <li>貼りつけたあと、保存したか確かめてください。</li>
+  </ul>
+
+  <h3>URLを開くと「ファイルが見つかりません」「index が見つかりません」と出る</h3>
+  <p>HTMLファイルの名前が <code>index</code> になっているか確かめてください。<code>Index</code> や <code>index.html.html</code> では動きません。直したら、<a href="secchi.html#s6">新バージョンでデプロイ</a>してください。</p>
+
+  <h2>開くとき</h2>
+
+  <h3>「申し訳ございません。現在ファイルを開くことができません」と出る</h3>
+  <p>ブラウザで、いくつかのGoogleアカウントに同時にログインしているときによく出ます。次のどれかを試してください。</p>
+  <ul>
+    <li>シークレットウィンドウ（プライベートブラウズ）で開く</li>
+    <li>アプリを作ったアカウントだけでログインし直す</li>
+    <li>Chromeなら、アプリを作ったアカウントのプロフィールで開く</li>
+  </ul>
+
+  <h3>生徒の端末で開けない</h3>
+  <ul>
+    <li>公開のときの「アクセスできるユーザー」を確かめてください。「（学校名）内の全員」のときは、生徒の端末が学校のアカウントでログインしている必要があります。</li>
+    <li>「全員」を選べない学校もあります。情報担当の先生にご相談ください。</li>
+  </ul>
+
+  <h3>コードを直したのに、画面が前のまま</h3>
+  <p>保存しただけでは、公開中のアプリは変わりません。<a href="secchi.html#s6">デプロイを管理 → 鉛筆 → 新バージョン</a> でデプロイしてください。生徒の端末では、ページを読みこみ直すと新しくなります。</p>
+
+  <h3>URLが変わってしまった</h3>
+  <p>「新しいデプロイ」を押すと、新しいURLができます。前のURLもそのまま残るので、どちらを使うか決めてください。<span class="ui">デプロイを管理</span> で、使わないほうを <span class="ui">アーカイブ</span> すると、まちがえて開くことがなくなります。</p>
+
+  <h2>使っているとき</h2>
+
+  <h3>たくさんの生徒が一度に開くと、エラーが出ることがある</h3>
+  <p>Googleの決まりで、同時に処理できる数や、1日に使える回数に上限があります。ふつうの授業（1クラス）ではまず問題になりませんが、学年全体で一斉に使うときは、少し時間をずらして開いてもらうと安定します。</p>
+
+  <h3>スプレッドシートのタブの名前を変えたら動かなくなった</h3>
+  <p>アプリは、タブの名前でデータを探しています。タブの名前は、setup で作られたままにしてください。間違えて消したときは、setup をもう一度実行すると作り直されます（ほかのタブの中身は消えません）。</p>
+
+  <h3>記録をほかの形で使いたい</h3>
+  <p>記録はスプレッドシートに残っているので、そのまま並べかえたり、グラフにしたりできます。<span class="ui">ファイル</span> → <span class="ui">ダウンロード</span> から、Excel や CSV でも保存できます。</p>
+
+  <h3>やめたいとき・消したいとき</h3>
+  <p><span class="ui">デプロイを管理</span> で公開中のデプロイを <span class="ui">アーカイブ</span> すると、URLから開けなくなります。記録もいらないときは、スプレッドシートごと削除してください。</p>
+</main>
+<script src="assets/site.js"></script>
+</body>
+</html>

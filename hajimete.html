@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>はじめての方へ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body data-root="" data-page="hajimete">
+<main>
+  <h1>はじめての方へ</h1>
+  <p class="lead">プログラミングの知識はいりません。コードをコピーして貼りつけ、いくつかボタンを押すだけで設置できます。</p>
+
+  <h2>しくみ</h2>
+  <p>このサイトのアプリは、<strong>GAS（Google Apps Script：グーグル アップス スクリプト）</strong>という、Googleスプレッドシートについている機能で動きます。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>どこに</th><th>なにがある</th></tr>
+    <tr><td>このサイト</td><td>アプリのコードと説明だけ。データは何も届きません</td></tr>
+    <tr><td>先生のスプレッドシート</td><td>アプリ本体（コード）、名簿、問題、答えた記録</td></tr>
+    <tr><td>生徒の端末</td><td>ブラウザ（Safariなど）で開くだけ。インストール不要</td></tr>
+  </table></div>
+  <p>つまり、アプリは<strong>先生ひとりひとりのGoogleアカウントの中で</strong>動きます。ほかの学校や、このサイトの作者に、生徒の名前や記録が見られることはありません。</p>
+
+  <h2>用意するもの</h2>
+  <ul>
+    <li><strong>Googleアカウント</strong>（学校のGoogle Workspaceのアカウント、または個人のアカウント）</li>
+    <li><strong>パソコン</strong>（設置の作業はパソコンが楽です）</li>
+    <li><strong>生徒の端末</strong>（iPadで使うことを考えて作っています。Chromebookやパソコンでも動きます）</li>
+  </ul>
+
+  <div class="caution">
+    <strong>学校のアカウントで使う前に</strong><br>
+    学校によっては、Google Apps Script の利用や、アプリの公開（だれでも開けるようにする設定）が、管理者によって制限されていることがあります。うまくいかないときは、情報担当の先生に確かめてください。<br>
+    名簿に生徒の名前を入れるときは、学校の個人情報のきまりにそって扱ってください。名前のかわりに、出席番号やニックネーム、アプリの「キャラで参加」を使うこともできます。
+  </div>
+
+  <h2>設置の全体の流れ</h2>
+  <ol class="steps">
+    <li>新しいスプレッドシートを作る</li>
+    <li>スプレッドシートから「Apps Script」の画面を開く</li>
+    <li>このサイトのコードを、2つのファイルに貼りつける</li>
+    <li><code>setup</code> を1回だけ実行する（必要なタブが自動でできます）</li>
+    <li>「ウェブアプリ」として公開（デプロイ）する</li>
+    <li>出てきたURLが生徒用、最後に <code>?page=teacher</code> をつけたURLが先生用</li>
+  </ol>
+  <p>くわしくは <a href="secchi.html">設置の手順</a> をご覧ください。</p>
+
+  <h2>ことばの説明</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>ことば</th><th>意味</th></tr>
+    <tr><td>GAS（Apps Script）</td><td>スプレッドシートなどのGoogleのサービスで動く、小さなプログラムのしくみ</td></tr>
+    <tr><td>デプロイ</td><td>作ったアプリを、URLで開けるように公開すること</td></tr>
+    <tr><td>ウェブアプリ</td><td>ブラウザで開いて使うアプリ。デプロイの種類として選びます</td></tr>
+    <tr><td>タブ（シート）</td><td>スプレッドシートの下に並んでいる「シート1」などのこと</td></tr>
+    <tr><td>新バージョン</td><td>コードを直したあと、同じURLのまま中身を新しくするときに選ぶもの</td></tr>
+  </table></div>
+</main>
+<script src="assets/site.js"></script>
+</body>
+</html>

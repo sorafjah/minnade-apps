@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設置の手順</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body data-root="" data-page="secchi">
+<main>
+  <h1>設置の手順</h1>
+  <p class="lead">どのアプリも、この手順で設置します。コードは各アプリのページにあります。</p>
+  <ul class="toc">
+    <li><a href="#s1">1. スプレッドシートを作る</a></li>
+    <li><a href="#s2">2. コードを貼る</a></li>
+    <li><a href="#s3">3. setup を実行する</a></li>
+    <li><a href="#s4">4. 公開する</a></li>
+    <li><a href="#s5">5. URLを配る</a></li>
+    <li><a href="#s6">コードを新しくするとき</a></li>
+  </ul>
+  <div class="note">GoogleのApps Scriptの画面は、ときどき見た目やボタンの名前が変わります。この手順と少しちがっていたら、近い名前のボタンをさがしてください。<span class="ui">四角で囲んだ文字</span>は、画面に出ているボタンや項目の名前です。</div>
+
+  <h2 id="s1">1. スプレッドシートを作る</h2>
+  <ol class="steps">
+    <li>パソコンで Googleドライブ を開き、左上の <span class="ui">＋ 新規</span> → <span class="ui">Google スプレッドシート</span> で、新しいスプレッドシートを作る</li>
+    <li>左上の「無題のスプレッドシート」をクリックして、名前をつける（例：じぶんのドリル）</li>
+    <li>上のメニューの <span class="ui">拡張機能</span> → <span class="ui">Apps Script</span> を選ぶ。新しいタブで、コードを書く画面が開きます</li>
+    <li>左上の「無題のプロジェクト」をクリックして、名前をつける（スプレッドシートと同じ名前でかまいません）</li>
+  </ol>
+  <div class="caution">アプリ1つにつき、スプレッドシートを1つ作ってください。1つのスプレッドシートに2つのアプリを入れると、うまく動きません。</div>
+
+  <h2 id="s2">2. コードを貼る（ファイルは2つ）</h2>
+  <p>Apps Scriptの画面の左側に「ファイル」の一覧があります。ここに次の2つを用意します。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>ファイル名</th><th>種類</th><th>作り方</th></tr>
+    <tr><td><code>コード.gs</code></td><td>スクリプト</td><td>はじめからあります。中に書いてある数行を全部消して、アプリのページの「Code.gs」を貼る</td></tr>
+    <tr><td><code>index</code></td><td>HTML</td><td>ファイルの横の <span class="ui">＋</span> → <span class="ui">HTML</span> を選び、名前に <code>index</code> と入れる（「.html」は自動でつきます）。中身を全部消して、アプリのページの「index.html」を貼る</td></tr>
+  </table></div>
+  <ol class="steps">
+    <li>アプリのページで <span class="ui">コードをすべてコピーする</span> を押す</li>
+    <li>Apps Scriptの画面で、ファイルの中をクリック → <strong>Ctrl＋A</strong>（Macは ⌘＋A）で全部選ぶ → <strong>Ctrl＋V</strong>（⌘＋V）で貼る</li>
+    <li>2つとも貼れたら、上の保存のマーク（フロッピーディスクの絵）を押す。<strong>Ctrl＋S</strong>（⌘＋S）でも保存できます</li>
+  </ol>
+  <div class="note">HTMLファイルの名前は <code>index</code> にしてください。ちがう名前だと「ファイルが見つかりません」というエラーになります。</div>
+
+  <h2 id="s3">3. setup を1回だけ実行する</h2>
+  <ol class="steps">
+    <li><code>コード.gs</code> を開いた状態で、上の <span class="ui">実行</span> の横にある関数の選択で <code>setup</code> を選ぶ</li>
+    <li><span class="ui">実行</span> を押す</li>
+    <li>はじめての実行のときだけ「承認が必要です」と出ます。<span class="ui">権限を確認</span> を押し、自分のアカウントを選ぶ</li>
+    <li>「Google はこのアプリを確認していません」と出たら、左下の <span class="ui">詳細</span> → <span class="ui">（プロジェクト名）（安全ではないページ）に移動</span> を押す。<br>自分で貼ったコードなので、この表示が出ます</li>
+    <li>許可の内容を確かめて <span class="ui">許可</span> を押す</li>
+    <li>下に「実行完了」と出たら、スプレッドシートに戻ります。アプリに必要なタブ（「めいぼ」など）ができています</li>
+  </ol>
+  <div class="note">許可の画面では「このスプレッドシートを見る・編集する」などの権限が出ます。アプリが記録を書きこむために必要なものです。</div>
+
+  <h2 id="s4">4. ウェブアプリとして公開する</h2>
+  <ol class="steps">
+    <li>Apps Scriptの画面の右上の <span class="ui">デプロイ</span> → <span class="ui">新しいデプロイ</span> を押す</li>
+    <li>「種類の選択」の歯車のマークを押し、<span class="ui">ウェブアプリ</span> を選ぶ</li>
+    <li>次のように設定する
+      <div class="tbl-wrap"><table>
+        <tr><th>項目</th><th>選ぶもの</th></tr>
+        <tr><td>説明</td><td>空でもかまいません（例：はじめての公開）</td></tr>
+        <tr><td>次のユーザーとして実行</td><td><strong>自分</strong></td></tr>
+        <tr><td>アクセスできるユーザー</td><td><strong>全員</strong>：ログインしていない端末からも開けます<br><strong>（学校名）内の全員</strong>：学校のアカウントでログインしている人だけ開けます</td></tr>
+      </table></div>
+    </li>
+    <li><span class="ui">デプロイ</span> を押す</li>
+    <li>「ウェブアプリ」の下に出てくるURLを <span class="ui">コピー</span> する。これが<strong>生徒用のURL</strong>です</li>
+  </ol>
+  <div class="caution">
+    <strong>どちらを選ぶか</strong><br>
+    生徒のiPadが学校のGoogleアカウントでログインしているなら「（学校名）内の全員」が安心です。ログインしていない端末で使うときは「全員」にします。<br>
+    「全員」にすると、URLを知っている人はだれでも開けます。URLは長くて推測されにくいものですが、学校の外には広めないでください。学校によっては「全員」を選べないように設定されています。
+  </div>
+
+  <h2 id="s5">5. URLを配る</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>だれ用</th><th>URL</th></tr>
+    <tr><td>生徒用</td><td>コピーしたURL（<code>…/exec</code> で終わります）</td></tr>
+    <tr><td>先生用</td><td>生徒用のURLの最後に <code>?page=teacher</code> をつけたもの<br>例：<code>https://script.google.com/macros/s/（長い文字）/exec?page=teacher</code></td></tr>
+  </table></div>
+  <p>先生用のURLは、ブラウザのブックマークに入れておくと便利です。生徒には、先生画面に出るQRコードを読み取ってもらうのがかんたんです。</p>
+
+  <h2 id="s6">コードを新しくするとき（URLを変えない方法）</h2>
+  <p>このサイトでアプリが新しくなったときや、自分でコードを直したときは、次の手順で入れかえます。<strong>この方法なら、生徒用のURLは変わりません。</strong></p>
+  <ol class="steps">
+    <li>新しいコードを、<code>コード.gs</code> と <code>index</code> に貼りかえて保存する</li>
+    <li>右上の <span class="ui">デプロイ</span> → <span class="ui">デプロイを管理</span> を押す</li>
+    <li>右上の鉛筆のマーク（編集）を押す</li>
+    <li>「バージョン」で <span class="ui">新バージョン</span> を選ぶ</li>
+    <li><span class="ui">デプロイ</span> を押す</li>
+  </ol>
+  <div class="caution">ここで「新しいデプロイ」を選ぶと、<strong>URLが新しくなります</strong>。前のURLやQRコードはそのまま古い中身で動き続けるので、まちがえやすくなります。</div>
+  <p>コードを新しくしても、スプレッドシートの名簿や記録はそのまま残ります。新しいタブや見出しが必要なときは、アプリが自動で足します。</p>
+</main>
+<script src="assets/site.js"></script>
+</body>
+</html>
