@@ -1,0 +1,1035 @@
+/**
+ * みんなでクイズ
+ * スプレッドシートの「拡張機能 → Apps Script」に貼って使う
+ * ファイルはこの「コード.gs」と「index」（HTML）の2つだけ
+ *
+ * はじめに一度だけ setup を実行する（タブ・名簿の例・画像のフォルダを作り、許可をとる）
+ * 生徒用URL : デプロイしたURL（…/exec）
+ * 先生用URL : 末尾に ?page=teacher をつける（?p=teacher でもよい。作った人のアカウントでだけ開ける）
+ *
+ * 授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+ *
+ * 配布版：setup を足した。?page=teacher でも先生画面を開けるようにした
+ * 第7版：先生画面の「がぞう」から 画像を いれる（ドライブの 専用フォルダに 保存）。
+ *        スプレッドシートの 画像の 列には、画像の なまえを 書くだけで よい。
+ *        生徒には アプリが 画像を 中継して わたす（共有の 設定は いらない）
+ * 第6版：のこり時間の バー表示（びょうの 文字も えらべる）、制限時間の 初期値は 60びょう
+ * 第5版：制限時間の せってい、問題文・ヒント・解説に 文章と画像
+ *   見出しの れい：問題文｜問題の画像｜A｜B｜C｜D｜正解｜ヒント1｜ヒント1の画像｜…｜解説｜解説の画像｜制限時間（秒）｜セット
+ *
+ * シート
+ *  問題のタブ : 1行めの左はし（A1）が「問題文」のタブは、ぜんぶ問題として読む
+ *               タブ1つが1セット。「セット」の列があると、その値ごとに別のセットになる
+ *               （セットの欄が空の行は、上の行と同じセットになる）
+ *  きろく     : 生徒の回答の記録（自動で作る）
+ */
+
+const SHEET_LOG = 'きろく';
+const SHEET_ROSTER = 'めいぼ';
+const SKIP_TABS = ['きろく', 'かいとう', 'なまえ', 'めいぼ'];
+const LETTERS = 'ABCD';
+const SEP = '｜';
+const TTL = 21600;
+const NICKS = ['🐰 うさぎ', '🐶 いぬ', '🐱 ねこ', '🐻 くま', '🐼 パンダ', '🦁 ライオン', '🐯 とら', '🐘 ぞう',
+  '🦒 きりん', '🐵 さる', '🐧 ペンギン', '🐸 かえる', '🐢 かめ', '🐬 いるか', '🦊 きつね', '🐹 ハムスター'];
+const Q_HEADER = ['問題文', '問題の画像', 'A', 'B', 'C', 'D', '正解',
+  'ヒント1', 'ヒント1の画像', 'ヒント2', 'ヒント2の画像', 'ヒント3', 'ヒント3の画像',
+  '解説', '解説の画像', '制限時間（秒）', 'セット'];
+const LOG_HEADER = ['にちじ', 'セット', 'なんもんめ', 'ばんごう', 'たんまつ', 'なまえ', 'こたえ', 'せいかい', 'もんだいぶん', 'かえた'];
+const DEF_STATE = { round: 0, phase: 'wait', index: 0, total: 0, hintShown: 0, openedAt: 0, correct: '', setName: '', logTab: '' };
+const DEF_LIMIT = 60;   // せっていで かえていないときの 制限時間（びょう）
+const PUB_VER = 9;      // 生徒に わたす データの 形の ばんごう（かえたら 古い きおくを すてる）
+const DEF_SET = { source: 'sheet', showQ: true, setId: '', limit: 0, limitSet: false, timeView: 'bar', nameMode: 'roster', rosterGroup: '', codeOn: true, code: '' };
+
+/** せっていの 制限時間（かえていなければ 60びょう） */
+function effLimit_(set) {
+  return set.limitSet ? (parseInt(set.limit, 10) || 0) : DEF_LIMIT;
+}
+const MANUAL_NAME = 'その場の もんだい';
+
+function doGet(e) {
+  const t = HtmlService.createTemplateFromFile('index');
+  const p = (e && e.parameter) || {};
+  const want = p.page || p.p || '';   // ?page=teacher でも ?p=teacher でも先生画面
+  t.page = (want === 'teacher' && isTeacher_()) ? 'teacher' : 'student';
+  return t.evaluate()
+    .setTitle('みんなでクイズ')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ---------- はじめに一度だけ実行 ---------- */
+
+/**
+ * エディタで setup を えらんで「実行」する
+ *  ・問題の タブ（なければ れいの 問題が 入った「もんだい」タブ）
+ *  ・「めいぼ」タブ（なければ れいの 名前を 入れる）
+ *  ・画像の フォルダ（ドライブを つかう 許可も ここで とる）
+ */
+function setup() {
+  qSheets_();
+  makeRosterSheet_();
+  const url = setupImages();
+  Logger.log('じゅんびが できました。がぞうの フォルダ：' + url);
+}
+
+/* ---------- 共通 ---------- */
+
+function isTeacher_() {
+  const owner = Session.getEffectiveUser().getEmail();
+  const user = Session.getActiveUser().getEmail();
+  return !!user && user === owner;
+}
+
+function checkTeacher_() {
+  if (!isTeacher_()) throw new Error('せんせいの アカウントで ひらいてね');
+}
+
+function myEmail_() { return Session.getActiveUser().getEmail() || ''; }
+
+/** 生徒を 見分ける 番号（たんまつごとに 画面が つくる）。ない ときだけ アカウントで 見分ける */
+function who_(cid) {
+  const s = String(cid || '');
+  if (/^[A-Za-z0-9_-]{8,48}$/.test(s)) return 'id:' + s;
+  return myEmail_() || 'anon';
+}
+
+/* ---------- さんかコード（4けた） ---------- */
+
+const CID_RE = /^[A-Za-z0-9_-]{8,48}$/;
+const CODE_FAIL_MAX = 30; // 1分に まちがえて よい 回数（ぜんぶの iPadで）
+
+function newCodeStr_(old) {
+  let c;
+  do { c = String(Math.floor(Math.random() * 10000)).padStart(4, '0'); } while (c === old);
+  return c;
+}
+
+/** いまの コード（まだ なければ つくる） */
+function joinCode_() {
+  const set = prop_('settings', DEF_SET);
+  if (/^\d{4}$/.test(set.code || '')) return set.code;
+  return withLock_(() => {
+    const s = prop_('settings', DEF_SET);
+    if (!/^\d{4}$/.test(s.code || '')) { s.code = newCodeStr_(''); setProp_('settings', s); }
+    return s.code;
+  });
+}
+
+/** コードを いれて さんかできた iPadの 番号 */
+function okCids_() {
+  let a = cget_('okcids');
+  if (!a) {
+    a = prop_('okcids', null);
+    if (!Array.isArray(a)) a = [];
+    cput_('okcids', a);
+  }
+  return a;
+}
+
+function passed_(cid) { return CID_RE.test(String(cid || '')) && okCids_().indexOf(String(cid)) >= 0; }
+
+/** 生徒の iPadを とおして よいか（コードを つかわない ときは だれでも よい） */
+function guard_(cid, pub) { return !pub.codeOn || passed_(cid); }
+
+/** 'ok' / 'bad'（コードが ちがう・まだ いれていない） / 'wait'（まちがいが おおいので すこし まつ） */
+function tryJoin_(cid, code) {
+  cid = String(cid || ''); code = String(code || '');
+  if (!CID_RE.test(cid)) return 'bad';
+  if (passed_(cid)) return 'ok';
+  if (!/^\d{4}$/.test(code)) return 'bad';
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('codefail') || 0);
+  if (fails >= CODE_FAIL_MAX) return 'wait';
+  if (code !== joinCode_()) { cache.put('codefail', String(fails + 1), 60); return 'bad'; }
+  withLock_(() => {
+    const a = okCids_().filter(x => x !== cid);
+    a.push(cid);
+    while (a.length > 800) a.shift();
+    setProp_('okcids', a);
+    cput_('okcids', a);
+  });
+  return 'ok';
+}
+
+function prop_(key, def) {
+  const v = PropertiesService.getScriptProperties().getProperty(key);
+  const base = def ? JSON.parse(JSON.stringify(def)) : null;
+  if (!v) return base;
+  const o = JSON.parse(v);
+  return (base && o && typeof o === 'object') ? Object.assign(base, o) : o;
+}
+
+function setProp_(key, val) {
+  PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(val));
+}
+
+function cget_(k) {
+  const c = CacheService.getScriptCache().get(k);
+  return c ? JSON.parse(c) : null;
+}
+
+function cput_(k, v, ttl) {
+  CacheService.getScriptCache().put(k, JSON.stringify(v), ttl || TTL);
+}
+
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+/** 生徒にも見せてよい情報だけをまとめる（正解はこたえあわせまで入れない） */
+function buildPublic_() {
+  const st = prop_('state', DEF_STATE);
+  const set = prop_('settings', DEF_SET);
+  const q = prop_('cur', null);
+  const pub = {
+    round: st.round, phase: st.phase, index: st.index, total: st.total, logTab: st.logTab || '',
+    correct: st.phase === 'reveal' ? st.correct : '',
+    v: PUB_VER, timeView: set.timeView || 'bar',
+    showQ: set.showQ, source: set.source, openedAt: st.openedAt, setName: st.setName, defLimit: effLimit_(set),
+    nameMode: 'chara', roster: [], codeOn: set.codeOn !== false,
+    text: '', choices: [], img: '', hints: [], hintTotal: 0, limit: 0, explain: []
+  };
+  if (q && st.round > 0) {
+    pub.text = q.text;
+    pub.choices = q.choices;
+    pub.img = q.img;
+    pub.limit = q.limit;
+    pub.hints = q.hints.slice(0, st.hintShown);
+    pub.hintTotal = q.hints.length;
+    // 解説は こたえあわせの ときだけ 見せる
+    if (st.phase === 'reveal') pub.explain = q.explain || [];
+  }
+  // 名簿で えらぶ ときは 名前の 一覧も わたす（名簿が からっぽなら キャラに する）
+  if (set.nameMode !== 'chara') {
+    let names = prop_('rosterNames', null);
+    if (!Array.isArray(names)) names = refreshRoster_(set).names;
+    if (names.length) { pub.nameMode = 'roster'; pub.roster = names; }
+  }
+  return pub;
+}
+
+function getPublic_() {
+  let pub = cget_('pub');
+  if (!pub || pub.v !== PUB_VER) { pub = buildPublic_(); cput_('pub', pub); }
+  return pub;
+}
+
+function save_(st, q) {
+  setProp_('state', st);
+  if (q !== undefined) setProp_('cur', q);
+  const pub = buildPublic_();
+  cput_('pub', pub);
+  return pub;
+}
+
+/* ---------- 名前（ニックネーム） ---------- */
+
+function getMembers_() {
+  let m = cget_('members');
+  if (!m) { m = prop_('members', {}); cput_('members', m); }
+  return m;
+}
+
+function setMembers_(m) {
+  setProp_('members', m);
+  cput_('members', m);
+}
+
+/** いま えらべる 名前（名簿 または キャラ） */
+function choices_(pub) { return pub.nameMode === 'roster' ? pub.roster : NICKS; }
+
+/** えらべない 名前（名簿が かわった など）は「まだ えらんでいない」と おなじに する */
+function myNick_(m, who, pub) {
+  const n = m[who] || '';
+  return n && choices_(pub).indexOf(n) >= 0 ? n : '';
+}
+
+function takenBy_(m, email) {
+  return Object.keys(m).filter(e => e !== email).map(e => m[e]);
+}
+
+/* ---------- きろく ---------- */
+
+/** きろくの タブの なまえ（問題の タブごとに「きろく：数学」のように わける） */
+function logName_(tab) {
+  const t = String(tab || '').replace(/[\[\]*?\/\\:]/g, '').trim().slice(0, 60);
+  return t ? SHEET_LOG + '：' + t : SHEET_LOG;
+}
+
+function logSheet_(tab) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const name = logName_(tab);
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.appendRow(LOG_HEADER);
+    sh.setFrozenRows(1);
+  } else if (!cget_('logcols_' + name)) {
+    // まえの 版で つくった きろくには「かえた」の らんが ないので たす
+    const need = LOG_HEADER.length;
+    if (sh.getMaxColumns() < need) sh.insertColumnsAfter(sh.getMaxColumns(), need - sh.getMaxColumns());
+    if (!sh.getRange(1, need).getValue()) sh.getRange(1, need).setValue(LOG_HEADER[need - 1]);
+    cput_('logcols_' + name, 1);
+  }
+  return sh;
+}
+
+/** その ばんごうの 回答を 下から さがす（回答は じゅんに たまるので 下の方だけ 見ればよい） */
+function tailRows_(round, tab) {
+  const sh = logSheet_(tab);
+  const last = sh.getLastRow();
+  if (last < 2) return { sh: sh, start: 0, rows: [] };
+  const n = Math.min(last - 1, 400);
+  const top = last - n + 1;
+  const v = sh.getRange(top, 1, n, LOG_HEADER.length).getValues();
+  let i = v.length - 1;
+  while (i >= 0 && Number(v[i][3]) === round) i--;
+  return { sh: sh, start: top + i + 1, rows: v.slice(i + 1) };
+}
+
+function getAnswers_(round, tab) {
+  if (!round || round <= 0) return [];
+  const k = 'ans_' + round;
+  let a = cget_(k);
+  if (!a) {
+    a = tailRows_(round, tab).rows.map(r => ({ e: String(r[4]), n: String(r[5]), c: String(r[6]), x: String(r[9] || '') ? 1 : 0 }));
+    cput_(k, a);
+  }
+  return a;
+}
+
+/* ---------- 問題のタブとセット ---------- */
+
+function isQSheet_(sh) {
+  if (SKIP_TABS.indexOf(sh.getName()) >= 0) return false;
+  const a1 = String(sh.getRange(1, 1).getDisplayValue()).replace(/\s/g, '');
+  return /^(問題|もんだい)/.test(a1);
+}
+
+function qSheets_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let list = ss.getSheets().filter(isQSheet_);
+  if (!list.length) {
+    list = [makeTemplate_('もんだい', 0)];
+  }
+  return list;
+}
+
+/** 見出しと れいの 問題が 入った タブを つくる */
+function makeTemplate_(name, pos) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = pos === undefined ? ss.insertSheet(name) : ss.insertSheet(name, pos);
+  sh.appendRow(Q_HEADER);
+  sh.setFrozenRows(1);
+  const add = o => sh.appendRow(Q_HEADER.map(h => (h in o) ? o[h] : ''));
+  add({
+    '問題文': '日本《にほん》で いちばん 高《たか》い 山《やま》は？', 'A': '富士山《ふじさん》', 'B': '北岳《きただけ》',
+    'C': '阿蘇山《あそさん》', 'D': '高尾山《たかおさん》', '正解': 'A',
+    'ヒント1': '静岡県《しずおかけん》と 山梨県《やまなしけん》に あるよ', '解説': '高《たか》さは 3776メートルだよ', 'セット': 'れい'
+  });
+  add({ '問題文': 'りんごの いろは どれかな？', 'A': 'あか', 'B': 'あお', '正解': 'A', '制限時間（秒）': '20' });
+  sh.setColumnWidth(1, 320);
+  sh.getRange(1, 1, 1, Q_HEADER.length).setFontWeight('bold').setBackground('#e6f0fa');
+  return sh;
+}
+
+function normLetter_(s) {
+  s = String(s || '').trim().toUpperCase()
+    .replace(/[Ａ-Ｄ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[１-４]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  if (/^[1-4]$/.test(s)) s = LETTERS[Number(s) - 1];
+  return (s.length === 1 && LETTERS.indexOf(s) >= 0) ? s : '';
+}
+
+/**
+ * 画像の しるしに かえる
+ *  画像の なまえ・ドライブの リンク → 「img:ファイルID」（アプリが 中継して わたす）
+ *  ほかの URL → そのまま
+ *  見つからない → 「nf:メッセージ」（先生の 画面にだけ 出す）
+ */
+function imgUrl_(s) {
+  s = String(s || '').trim();
+  if (!s) return '';
+  if (/^(img|nf):/.test(s)) return s;
+  if (/^https?:\/\//.test(s)) {
+    if (/(drive|docs)\.google\.com/.test(s)) {
+      const m = s.match(/\/d\/([\w-]{20,})/) || s.match(/[?&]id=([\w-]{20,})/);
+      if (m) return 'img:' + m[1];
+    }
+    return s;
+  }
+  const map = imgMapSafe_();
+  if (map[s]) return 'img:' + map[s];
+  if (/^[\w-]{25,}$/.test(s)) return 'img:' + s;
+  return 'nf:がぞう「' + s + '」が みつからないよ';
+}
+
+/** ヒント・解説の 1こぶん（ことば と 画像） */
+function item_(v) {
+  if (v && typeof v === 'object') return { text: String(v.text || '').trim(), img: imgUrl_(v.img) };
+  const s = String(v || '').trim();
+  if (/^https?:\/\//.test(s)) return { text: '', img: imgUrl_(s) };
+  return { text: s, img: '' };
+}
+
+function items_(list, max) {
+  return (list || []).map(item_).filter(x => x.text || x.img).slice(0, max);
+}
+
+/** セルの中身（セルの中に 入れた 画像は 生徒に 見せられないので、先生に しらせる） */
+function cellItem_(disp, vals, i, col) {
+  if (col < 0 || col >= disp[i].length) return { text: '', img: '' };
+  const raw = vals[i][col];
+  if (raw && typeof raw === 'object' && typeof raw.getContentUrl === 'function') {
+    return { text: '', img: 'nf:セルの なかの がぞうは つかえないよ。「がぞう」ボタンから いれて、なまえを かいてね' };
+  }
+  return item_(disp[i][col]);
+}
+
+function normQ_(o) {
+  const raw = (o.choices || []).slice(0, 4).map(s => String(s || '').trim());
+  let n = 0;
+  raw.forEach((s, i) => { if (s) n = i + 1; });
+  const choices = n === 0 ? ['', '', '', ''] : raw.slice(0, Math.max(n, 2));
+  while (choices.length < 2) choices.push('');
+  let answer = normLetter_(o.answer);
+  if (answer && LETTERS.indexOf(answer) >= choices.length) answer = '';
+  return {
+    text: String(o.text || '').trim(),
+    choices: choices,
+    answer: answer,
+    hints: items_(o.hints, 5),
+    explain: items_(o.explain, 4),
+    img: imgUrl_(o.img),
+    limit: normLimit_(o.limit)
+  };
+}
+
+/** 制限時間：からっぽなら null（せっていの 時間を つかう） */
+function normLimit_(v) {
+  if (v === null || v === undefined || String(v).trim() === '') return null;
+  const n = parseInt(String(v).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)), 10);
+  return isNaN(n) ? null : Math.max(0, Math.min(600, n));
+}
+
+/** 問題に 書いていない ときは せっていの 制限時間を つかう */
+function withLimit_(q) {
+  if (!q) return q;
+  const out = JSON.parse(JSON.stringify(q));
+  if (out.limit === null || out.limit === undefined) out.limit = effLimit_(prop_('settings', DEF_SET));
+  return out;
+}
+
+/**
+ * 1行めの見出しから、どの列に何があるかをさがす（列の順番や数がちがっても読める）
+ * 「ヒント1」と「ヒント1の画像」のように、文章の列と 画像の列を ペアにできる
+ */
+function findCols_(head) {
+  const h = head.map(s => String(s).replace(/\s/g, '')
+    .replace(/[Ａ-Ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)));
+  const isImg = s => /(画像|がぞう|写真|しゃしん)/.test(s);
+  const isHint = s => /^(ヒント|ひんと)/.test(s);
+  const isEx = s => /^(解説|かいせつ|説明|せつめい|こたえの説明|答えの説明)/.test(s);
+  const find = (fn, def) => { const i = h.findIndex(fn); return i >= 0 ? i : def; };
+
+  // ヒント：番号ごとに 文章と 画像を まとめる
+  const hintMap = {}, hintOrder = [];
+  let lastKey = null, auto = 0;
+  h.forEach((s, i) => {
+    if (!isHint(s)) return;
+    const m = s.match(/\d+/);
+    let key;
+    if (m) key = 'n' + m[0];
+    else if (isImg(s) && lastKey) key = lastKey;
+    else key = 'a' + (auto++);
+    if (!hintMap[key]) { hintMap[key] = { t: -1, i: -1 }; hintOrder.push(key); }
+    if (isImg(s)) hintMap[key].i = i; else hintMap[key].t = i;
+    lastKey = key;
+  });
+  hintOrder.sort((a, b) => {
+    const na = a[0] === 'n' ? Number(a.slice(1)) : 1000, nb = b[0] === 'n' ? Number(b.slice(1)) : 1000;
+    return na - nb;
+  });
+
+  const exText = [], exImg = [];
+  h.forEach((s, i) => { if (isEx(s)) (isImg(s) ? exImg : exText).push(i); });
+
+  return {
+    text: find(s => /^(問題|もんだい)/.test(s) && !isImg(s), 0),
+    img: find(s => isImg(s) && !isHint(s) && !isEx(s), -1),
+    choices: LETTERS.split('').map((L, k) => find(s => s === L, 1 + k)),
+    answer: find(s => /^(正解|せいかい)/.test(s) || s === '答え' || s === 'こたえ', 5),
+    hints: hintOrder.map(k => hintMap[k]),
+    exText: exText,
+    exImg: exImg,
+    limit: find(s => /^(制限|せいげん|時間|じかん)/.test(s), -1),
+    set: find(s => /^(セット|せっと)/.test(s), -1)
+  };
+}
+
+/** 文章の セルと 画像の セルを 1こに まとめる */
+function pairItem_(disp, vals, i, tCol, iCol) {
+  const t = cellItem_(disp, vals, i, tCol);
+  const g = cellItem_(disp, vals, i, iCol);
+  return { text: t.text, img: g.img || imgUrl_(g.text) || t.img };
+}
+
+/** タブを読んで [{set, q}] にする */
+function readSheet_(sh) {
+  const range = sh.getDataRange();
+  const disp = range.getDisplayValues();
+  const vals = range.getValues();
+  const c = findCols_(disp[0] || []);
+  const cell = (r, i) => (i >= 0 && i < r.length) ? r[i] : '';
+  const out = [];
+  let curSet = '';
+  for (let i = 1; i < disp.length; i++) {
+    const r = disp[i];
+    if (c.set >= 0) {
+      const v = String(cell(r, c.set)).trim();
+      if (v) curSet = v;
+    }
+    const qItem = pairItem_(disp, vals, i, c.text, c.img);
+    const choices = c.choices.map(k => cell(r, k));
+    if (!qItem.text && !qItem.img && !choices.join('').trim()) continue;
+    const q = normQ_({
+      text: qItem.text, choices: choices, answer: cell(r, c.answer),
+      hints: c.hints.map(p => pairItem_(disp, vals, i, p.t, p.i)),
+      explain: c.exText.map(k => cellItem_(disp, vals, i, k)).concat(c.exImg.map(k => {
+        const g = cellItem_(disp, vals, i, k);
+        return { text: '', img: g.img || imgUrl_(g.text) };
+      })),
+      img: qItem.img, limit: cell(r, c.limit)
+    });
+    out.push({ set: c.set >= 0 ? curSet : '', q: q });
+  }
+  return out;
+}
+
+function setLabel_(tab, grp) { return grp ? tab + '：' + grp : tab; }
+
+function listSets_() {
+  const out = [];
+  qSheets_().forEach(sh => {
+    const tab = sh.getName();
+    const groups = [], cnt = {};
+    readSheet_(sh).forEach(r => {
+      if (!(r.set in cnt)) { cnt[r.set] = 0; groups.push(r.set); }
+      cnt[r.set]++;
+    });
+    groups.forEach(g => out.push({ id: tab + SEP + g, name: setLabel_(tab, g), count: cnt[g] }));
+  });
+  return out;
+}
+
+function loadSet_(id) {
+  if (id) {
+    const k = id.indexOf(SEP);
+    const tab = k >= 0 ? id.slice(0, k) : id;
+    const grp = k >= 0 ? id.slice(k + 1) : '';
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab);
+    if (sh && isQSheet_(sh)) {
+      const rows = readSheet_(sh).filter(r => r.set === grp).map(r => r.q);
+      if (rows.length) return { id: tab + SEP + grp, name: setLabel_(tab, grp), tab: tab, rows: rows };
+    }
+  }
+  const sets = listSets_();
+  if (!sets.length || sets[0].id === id) return { id: '', name: '', tab: '', rows: [] };
+  return loadSet_(sets[0].id);
+}
+
+/** いま えらんでいる セット（見つからないときは さいしょの セットにする） */
+function currentSet_() {
+  const set = prop_('settings', DEF_SET);
+  const s = loadSet_(set.setId);
+  if (s.id !== set.setId) { set.setId = s.id; setProp_('settings', set); }
+  return s;
+}
+
+/* ---------- 生徒用 ---------- */
+
+function studentHello(cid, code) {
+  const pub = getPublic_();
+  if (pub.codeOn) {
+    const j = tryJoin_(cid, code);
+    if (j !== 'ok') return { needCode: true, wait: j === 'wait', bad: j === 'bad' && /^\d{4}$/.test(String(code || '')) };
+  }
+  const email = who_(cid);
+  const m = getMembers_();
+  const had = getAnswers_(pub.round, pub.logTab).find(a => a.e === email);
+  return { state: pub, now: Date.now(), nick: myNick_(m, email, pub), taken: takenBy_(m, email), mine: had ? had.c : '', chg: !!(had && had.x) };
+}
+
+function getState(cid) {
+  const pub = getPublic_();
+  if (!guard_(cid, pub)) return { needCode: true };
+  const email = who_(cid);
+  const m = getMembers_();
+  return { state: pub, now: Date.now(), nick: myNick_(m, email, pub), taken: takenBy_(m, email) };
+}
+
+function pickNick(cid, nick) {
+  return withLock_(() => {
+    const pub = getPublic_();
+    if (!guard_(cid, pub)) return { ok: false, needCode: true };
+    const email = who_(cid);
+    const m = getMembers_();
+    if (choices_(pub).indexOf(nick) < 0) return { ok: false, again: true, nick: myNick_(m, email, pub), taken: takenBy_(m, email) };
+    // クイズの とちゅうは かえられない（まだ えらんでいない人は えらべる）
+    const live = pub.round > 0 && ['open', 'closed', 'reveal'].indexOf(pub.phase) >= 0;
+    const now = myNick_(m, email, pub);
+    if (live && now) return { ok: false, locked: true, nick: now, taken: takenBy_(m, email) };
+    if (takenBy_(m, email).indexOf(nick) >= 0) return { ok: false, nick: now, taken: takenBy_(m, email) };
+    m[email] = nick;
+    setMembers_(m);
+    return { ok: true, nick: nick, taken: takenBy_(m, email) };
+  });
+}
+
+function submitAnswer(cid, round, choice) {
+  return withLock_(() => {
+    const pub = getPublic_();
+    if (!guard_(cid, pub)) return { ok: false, needCode: true };
+    const now = Date.now();
+    const ok = pub.phase === 'open' && pub.round === round &&
+      LETTERS.indexOf(choice) >= 0 && LETTERS.indexOf(choice) < pub.choices.length;
+    const late = pub.limit > 0 && now > pub.openedAt + pub.limit * 1000 + 2000;
+    if (!ok || late) return { ok: false, state: pub, now: now };
+    const email = who_(cid);
+    const nick = myNick_(getMembers_(), email, pub);
+    if (!nick) return { ok: false, needNick: true, state: pub, now: now };
+    const list = getAnswers_(round, pub.logTab);
+    const had = list.find(a => a.e === email);
+    if (had) {
+      if (had.c === choice || had.x) return { ok: true, choice: had.c, chg: !!had.x, state: pub, now: now };
+      // こたえを かえられるのは 1かいだけ
+      had.c = choice; had.x = 1;
+      cput_('ans_' + round, list);
+      const t = tailRows_(round, pub.logTab);
+      const i = t.rows.findIndex(r => String(r[4]) === email);
+      if (i >= 0) {
+        t.sh.getRange(t.start + i, 7).setValue(choice);
+        t.sh.getRange(t.start + i, LOG_HEADER.length).setValue('かえた');
+      }
+      return { ok: true, choice: choice, chg: true, state: pub, now: now };
+    }
+    logSheet_(pub.logTab).appendRow([new Date(), pub.setName, pub.index || '', round, email, plain_(nick), choice, '', pub.text, '']);
+    list.push({ e: email, n: nick, c: choice, x: 0 });
+    cput_('ans_' + round, list);
+    return { ok: true, choice: choice, chg: false, state: pub, now: now };
+  });
+}
+
+/* ---------- 先生用 ---------- */
+
+function teacherStatus() {
+  checkTeacher_();
+  const pub = getPublic_();
+  const cur = prop_('cur', null);
+  const live = ['open', 'closed', 'reveal'].indexOf(pub.phase) >= 0;
+  const list = live ? getAnswers_(pub.round, pub.logTab).map(a => ({ name: a.n, choice: a.c })) : [];
+  let qCount = pub.total, setName = pub.setName;
+  if (pub.source === 'sheet' && (pub.phase === 'wait' || pub.phase === 'end')) {
+    const s = currentSet_();
+    qCount = s.rows.length;
+    setName = s.name;
+  }
+  if (pub.source === 'manual') setName = MANUAL_NAME;
+  return { state: pub, now: Date.now(), list: list, hasKey: !!(cur && cur.answer), qCount: qCount, setName: setName,
+    codeOn: pub.codeOn, code: pub.codeOn ? joinCode_() : '' };
+}
+
+/** セットの 次の問題を出す */
+function teacherNext() {
+  checkTeacher_();
+  const st = prop_('state', DEF_STATE);
+  const s = currentSet_();
+  const idx = st.index + 1;
+  if (idx > s.rows.length) {
+    st.phase = 'end';
+    st.total = s.rows.length;
+    return save_(st);
+  }
+  const q = withLimit_(s.rows[idx - 1]);
+  warmImgs_(q);
+  return save_({ round: st.round + 1, phase: 'open', index: idx, total: s.rows.length, hintShown: 0,
+    openedAt: Date.now(), correct: '', setName: s.name, logTab: s.tab || '' }, q);
+}
+
+/** 先生画面で入れた1問を出す */
+function teacherPush(o) {
+  checkTeacher_();
+  const st = prop_('state', DEF_STATE);
+  const q = withLimit_(normQ_(o || {}));
+  warmImgs_(q);
+  return save_({ round: st.round + 1, phase: 'open', index: 0, total: 0, hintShown: 0,
+    openedAt: Date.now(), correct: '', setName: MANUAL_NAME, logTab: '' }, q);
+}
+
+/**
+ * セル内の画像の URL は 時間がたつと 使えなくなるので、
+ * ヒントや こたえあわせの ときに スプレッドシートから 読みなおす
+ */
+function refreshCur_(st) {
+  const set = prop_('settings', DEF_SET);
+  if (set.source !== 'sheet' || !st.index) return;
+  try {
+    const s = loadSet_(set.setId);
+    const q = s.rows[st.index - 1];
+    const cur = prop_('cur', null);
+    if (q && cur && q.text === cur.text) {
+      const fresh = JSON.parse(JSON.stringify(q));
+      fresh.limit = cur.limit; // 時間は 出したときの まま
+      setProp_('cur', fresh);
+    }
+  } catch (e) { /* 読めなくても そのまま つづける */ }
+}
+
+function teacherHint() {
+  checkTeacher_();
+  const st = prop_('state', DEF_STATE);
+  refreshCur_(st);
+  const q = prop_('cur', null);
+  if (q) st.hintShown = Math.min(st.hintShown + 1, q.hints.length);
+  return save_(st);
+}
+
+function teacherClose() {
+  checkTeacher_();
+  const st = prop_('state', DEF_STATE);
+  if (st.phase === 'open') st.phase = 'closed';
+  return save_(st);
+}
+
+function teacherReveal(choice) {
+  checkTeacher_();
+  const st = prop_('state', DEF_STATE);
+  refreshCur_(st);
+  const q = prop_('cur', null);
+  const c = normLetter_(choice) || (q && q.answer) || '';
+  if (!c) throw new Error('せいかいを えらんでね');
+  st.phase = 'reveal';
+  st.correct = c;
+  // きろくに ○× を書く
+  const t = tailRows_(st.round, st.logTab);
+  if (t.rows.length) t.sh.getRange(t.start, 8, t.rows.length, 1).setValues(t.rows.map(r => [String(r[6]) === c ? '○' : '×']));
+  return save_(st);
+}
+
+/** セットの さいしょに もどる（きろくは 消さない） */
+function teacherRestart() {
+  checkTeacher_();
+  const st = prop_('state', DEF_STATE);
+  const set = prop_('settings', DEF_SET);
+  if (set.nameMode !== 'chara') refreshRoster_(set);
+  const s = currentSet_();
+  return save_(Object.assign({}, DEF_STATE, {
+    round: st.round, total: s.rows.length, setName: set.source === 'sheet' ? s.name : MANUAL_NAME
+  }), null);
+}
+
+/** セットの 一覧 */
+function teacherSets() {
+  checkTeacher_();
+  const s = currentSet_();
+  return { sets: listSets_(), current: s.id };
+}
+
+function teacherSettings(o) {
+  checkTeacher_();
+  const set = prop_('settings', DEF_SET);
+  let reset = false;
+  if (o && (o.source === 'sheet' || o.source === 'manual') && o.source !== set.source) { set.source = o.source; reset = true; }
+  if (o && typeof o.showQ === 'boolean') set.showQ = o.showQ;
+  if (o && typeof o.setId === 'string' && o.setId !== set.setId) { set.setId = o.setId; reset = true; }
+  if (o && o.limit !== undefined) { set.limit = normLimit_(o.limit) || 0; set.limitSet = true; }
+  if (o && ['bar', 'both', 'text'].indexOf(o.timeView) >= 0) set.timeView = o.timeView;
+  if (o && typeof o.codeOn === 'boolean') set.codeOn = o.codeOn;
+  let names = false;
+  if (o && (o.nameMode === 'roster' || o.nameMode === 'chara') && o.nameMode !== set.nameMode) { set.nameMode = o.nameMode; names = true; }
+  if (o && typeof o.rosterGroup === 'string' && o.rosterGroup !== set.rosterGroup) { set.rosterGroup = o.rosterGroup; names = true; }
+  setProp_('settings', set);
+  if (names) {
+    // えらびかたが かわったら みんなに えらびなおしてもらう
+    refreshRoster_(set);
+    withLock_(() => setMembers_({}));
+  }
+  if (reset) return teacherRestart();
+  return save_(prop_('state', DEF_STATE));
+}
+
+/** 見出しの 入った 新しい 問題の タブを つくる */
+function teacherMakeTemplate() {
+  checkTeacher_();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let name = 'あたらしい もんだい', n = 1;
+  while (ss.getSheetByName(name)) name = 'あたらしい もんだい' + (++n);
+  makeTemplate_(name);
+  return name;
+}
+
+/* ---------- 名簿 ---------- */
+
+/** 「漢字《かんじ》」の ふりがなを とった 文字 */
+function plain_(s) { return String(s || '').replace(/[｜|]/g, '').replace(/《[^》]*》/g, ''); }
+
+/** 名簿の タブを 読む（1ぎょうめが グループの なまえ、その 下に 名前） */
+function readRoster_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ROSTER);
+  if (!sh || sh.getLastRow() < 1 || sh.getLastColumn() < 1) return { exists: !!sh, groups: [] };
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  const groups = [];
+  for (let c = 0; c < v[0].length; c++) {
+    const name = String(v[0][c]).trim();
+    if (!name) continue;
+    const names = [];
+    for (let r = 1; r < v.length; r++) {
+      const n = String(v[r][c]).trim().replace(/\s+/g, ' ');
+      if (n && names.indexOf(n) < 0) names.push(n);
+    }
+    groups.push({ name: name, names: names });
+  }
+  return { exists: true, groups: groups };
+}
+
+/** 名簿を 読みなおして おぼえる */
+function refreshRoster_(set) {
+  const r = readRoster_();
+  let g = r.groups.find(x => x.name === set.rosterGroup);
+  if (!g && r.groups.length) {
+    g = r.groups[0];
+    set.rosterGroup = g.name;
+    setProp_('settings', set);
+  }
+  const names = g ? g.names : [];
+  setProp_('rosterNames', names);
+  return { exists: r.exists, groups: r.groups, names: names };
+}
+
+/** せっていの 名簿の らん（スプレッドシートを 読みなおす） */
+function teacherRoster() {
+  checkTeacher_();
+  const set = prop_('settings', DEF_SET);
+  const r = refreshRoster_(set);
+  save_(prop_('state', DEF_STATE));
+  return {
+    exists: r.exists, mode: set.nameMode === 'chara' ? 'chara' : 'roster', current: set.rosterGroup,
+    groups: r.groups.map(g => ({ name: g.name, count: g.names.length }))
+  };
+}
+
+/** れいの 入った 名簿の タブを つくる */
+function teacherMakeRoster() {
+  checkTeacher_();
+  makeRosterSheet_();
+  return teacherRoster();
+}
+
+/** 「めいぼ」タブが なければ、れいの 名前を 入れて つくる */
+function makeRosterSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName(SHEET_ROSTER)) {
+    const sh = ss.insertSheet(SHEET_ROSTER);
+    sh.getRange(1, 1, 4, 2).setValues([
+      ['1ねん', '2ねん'],
+      ['山田《やまだ》 花子《はなこ》', 'さとう ゆうと'],
+      ['すずき あおい', '田中《たなか》 はると'],
+      ['たかはし けんた', '']
+    ]);
+    sh.getRange(1, 1, 1, 2).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+}
+
+/** いま えらばれている 名前 */
+function teacherMembers() {
+  checkTeacher_();
+  const m = getMembers_(), pub = getPublic_();
+  const list = choices_(pub).filter(n => Object.keys(m).some(k => m[k] === n));
+  return { names: list, mode: pub.nameMode };
+}
+
+/** 1人だけ えらびなおしてもらう */
+function teacherRelease(name) {
+  checkTeacher_();
+  withLock_(() => {
+    const m = getMembers_();
+    Object.keys(m).forEach(k => { if (m[k] === name) delete m[k]; });
+    setMembers_(m);
+  });
+  return teacherMembers();
+}
+
+/** あたらしい コードに する（いま さんかしている iPadは コードを いれなおし） */
+function teacherNewCode() {
+  checkTeacher_();
+  withLock_(() => {
+    const set = prop_('settings', DEF_SET);
+    set.code = newCodeStr_(set.code);
+    setProp_('settings', set);
+    setProp_('okcids', []);
+    cput_('okcids', []);
+  });
+  CacheService.getScriptCache().remove('codefail');
+  save_(prop_('state', DEF_STATE));
+  return joinCode_();
+}
+
+/** みんなに キャラを えらびなおしてもらう */
+function teacherClearNames() {
+  checkTeacher_();
+  withLock_(() => setMembers_({}));
+  return true;
+}
+
+/* ---------- 画像 ---------- */
+
+const IMG_FOLDER = 'みんなでクイズの がぞう';
+const IMG_MAX = 6 * 1024 * 1024; // これより 大きい 画像は わたさない
+let IMGMAP_ = null;
+
+/**
+ * 画像の フォルダを つくる（setup の 中で よぶ。これだけ 実行しても よい）
+ * （ドライブを つかう 許可を とり、画像の フォルダを つくる）
+ */
+function setupImages() {
+  const f = imgFolder_();
+  Logger.log('がぞうの フォルダ：' + f.getName() + '  ' + f.getUrl());
+  return f.getUrl();
+}
+
+/** 画像の フォルダ（なければ スプレッドシートと おなじ 場所に つくる） */
+function imgFolder_() {
+  const p = PropertiesService.getScriptProperties();
+  const id = p.getProperty('imgFolder');
+  if (id) {
+    try {
+      const f = DriveApp.getFolderById(id);
+      if (!f.isTrashed()) return f;
+    } catch (e) { /* なくなっていたら つくりなおす */ }
+  }
+  let parent;
+  try {
+    const it = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId()).getParents();
+    parent = it.hasNext() ? it.next() : DriveApp.getRootFolder();
+  } catch (e) {
+    parent = DriveApp.getRootFolder();
+  }
+  const same = parent.getFoldersByName(IMG_FOLDER);
+  const f = same.hasNext() ? same.next() : parent.createFolder(IMG_FOLDER);
+  p.setProperty('imgFolder', f.getId());
+  return f;
+}
+
+/** 画像の なまえ → ファイルID（「つき.jpg」でも「つき」でも さがせる） */
+function imgMap_(fresh) {
+  if (IMGMAP_ && !fresh) return IMGMAP_;
+  if (!fresh) {
+    const c = cget_('imgmap');
+    if (c) return (IMGMAP_ = c);
+  }
+  const map = {}, base = {};
+  const it = imgFolder_().getFiles();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (!/^image\//.test(f.getMimeType())) continue;
+    const n = f.getName();
+    map[n] = f.getId();
+    const b = n.replace(/\.[^.]+$/, '');
+    base[b] = (b in base) ? '' : f.getId(); // おなじ なまえが 2つ あるときは つかわない
+  }
+  Object.keys(base).forEach(b => { if (base[b] && !(b in map)) map[b] = base[b]; });
+  IMGMAP_ = map;
+  try { cput_('imgmap', map, 120); } catch (e) { /* 大きすぎるときは きおくしない */ }
+  return map;
+}
+
+function imgMapSafe_() {
+  try { return imgMap_(); } catch (e) { return {}; }
+}
+
+/** 先生画面から 画像を いれる（画面の 方で 小さくしてから おくられてくる） */
+function uploadImage(dataUrl, baseName) {
+  checkTeacher_();
+  const m = String(dataUrl || '').match(/^data:(image\/[\w.+-]+);base64,(.+)$/);
+  if (!m) throw new Error('がぞうでは ないよ');
+  const mime = m[1];
+  const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg' }[mime] || 'png';
+  let base = String(baseName || '').replace(/\.[^.]*$/, '')
+    .replace(/[\\\/:*?"<>|#%]/g, '').replace(/\s+/g, '_').trim().slice(0, 40) || 'がぞう';
+  return withLock_(() => {
+    const map = imgMap_(true);
+    let name = base + '.' + ext, n = 1;
+    while (map[name] || map[name.replace(/\.[^.]+$/, '')]) name = base + '_' + (++n) + '.' + ext;
+    const file = imgFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), mime, name));
+    CacheService.getScriptCache().remove('imgmap');
+    IMGMAP_ = null;
+    return { name: name, id: file.getId() };
+  });
+}
+
+/** フォルダの 画像の 一覧（あたらしい じゅん） */
+function listImages() {
+  checkTeacher_();
+  const folder = imgFolder_();
+  const out = [];
+  const it = folder.getFiles();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (!/^image\//.test(f.getMimeType())) continue;
+    out.push({ id: f.getId(), name: f.getName(), t: f.getLastUpdated().getTime(), size: f.getSize() });
+  }
+  out.sort((a, b) => b.t - a.t);
+  return { folderUrl: folder.getUrl(), items: out.slice(0, 80), total: out.length };
+}
+
+/**
+ * 画像を わたす（data URL）
+ * 生徒は いま 画面に 出ている 画像だけ もらえる（まだ 出していない ヒントや 解説の 画像は もらえない）
+ */
+function getImage(id, cid) {
+  id = String(id || '');
+  if (!/^[\w-]{10,}$/.test(id)) throw new Error('がぞうが ないよ');
+  if (!isTeacher_()) {
+    const pub = getPublic_();
+    if (!guard_(cid, pub)) throw new Error('コードを いれてね');
+    if (JSON.stringify(pub).indexOf('img:' + id) < 0) throw new Error('いまは みられないよ');
+  }
+  return imgData_(id);
+}
+
+/** 画像を 読んで data URL にする（キャッシュに 分けて 入れておく） */
+function imgData_(id) {
+  const cache = CacheService.getScriptCache();
+  const head = cache.get('im_' + id);
+  if (head) {
+    const keys = [];
+    for (let i = 0; i < Number(head); i++) keys.push('im_' + id + '_' + i);
+    const got = cache.getAll(keys);
+    if (keys.every(k => got[k])) return keys.map(k => got[k]).join('');
+  }
+  const f = DriveApp.getFileById(id);
+  const mime = f.getMimeType();
+  if (!/^image\//.test(mime)) throw new Error('がぞうでは ないよ');
+  if (f.getSize() > IMG_MAX) throw new Error('がぞうが おおきすぎるよ');
+  const data = 'data:' + mime + ';base64,' + Utilities.base64Encode(f.getBlob().getBytes());
+  const CH = 90000, parts = {};
+  let n = 0;
+  for (let i = 0; i < data.length; i += CH) parts['im_' + id + '_' + (n++)] = data.slice(i, i + CH);
+  try {
+    cache.putAll(parts, TTL);
+    cache.put('im_' + id, String(n), TTL);
+  } catch (e) { /* きおくできなくても わたせる */ }
+  return data;
+}
+
+/** 問題を 出す ときに 画像を 先に 読んでおく（生徒が いっせいに もらっても はやい） */
+function warmImgs_(q) {
+  const ids = (JSON.stringify(q || {}).match(/img:[\w-]+/g) || []).map(s => s.slice(4));
+  ids.filter((v, i) => ids.indexOf(v) === i).forEach(id => {
+    try { imgData_(id); } catch (e) { /* 読めない 画像は とばす */ }
+  });
+}

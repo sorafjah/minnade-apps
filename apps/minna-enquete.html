@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>みんなでアンケート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body data-root="../" data-page="app">
+<main>
+  <h1>みんなでアンケート</h1>
+  <p class="lead">授業のふりかえりや行事の感想を、その場で集めて、すぐに結果を見られます。生徒向け（やさしい言葉・ふりがなつき）と、大人向け（保護者や職員の研修など）を選べます。</p>
+  <ul class="toc">
+    <li><a href="#a1">何ができるか</a></li>
+    <li><a href="#a2">設置する</a></li>
+    <li><a href="#a3">質問の作り方</a></li>
+    <li><a href="#a4">先生の使いかた</a></li>
+    <li><a href="#a5">答える人の使いかた</a></li>
+    <li><a href="#a6">記録と結果</a></li>
+    <li><a href="#a7">先生画面にあいことば</a></li>
+    <li><a href="#a8">よくある質問</a></li>
+  </ul>
+
+  <h2 id="a1">何ができるか</h2>
+  <ul>
+    <li>質問の種類は3つ：<strong>自由に書く</strong>、<strong>選ぶ</strong>（1つ・いくつでも）、<strong>評価ゲージ</strong>（ゲージを押して気持ちの度合いを答える。0〜100で記録）。</li>
+    <li>1問ずつ答え、最後に確認画面で見直してから送ります。</li>
+    <li>名前の集め方を選べます：集めない（無記名）／書いてもらう／名簿から選ぶ／キャラで参加。</li>
+    <li>1台のiPadを順番に使う形にもできます（送ったあとに「つぎの人が答える」ボタンが出ます）。</li>
+    <li>結果の画面で、ゲージの平均や分布、選んだ人数、書かれた感想、一人ひとりの回答を見られます。</li>
+    <li>通信が切れても答えは端末にためておき、つながったときに送ります。</li>
+  </ul>
+
+  <h2 id="a2">設置する</h2>
+  <p><a href="../secchi.html">設置の手順</a>にそって、次の2つのファイルを貼ってください。</p>
+  <div class="code-box" data-src="../code/minna-enquete/Code.gs.txt" data-name="Code.gs"></div>
+  <div class="code-box" data-src="../code/minna-enquete/index.html.txt" data-name="index.html"></div>
+  <p>setup を実行すると、次のタブができます。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>タブ</th><th>中身</th></tr>
+    <tr><td>しつもん</td><td>アンケートの質問（例のアンケートが1つ入っています）</td></tr>
+    <tr><td>めいぼ</td><td>名簿（例が入っています）。1行目が名簿の名前、その下に名前。列ごとに別の名簿</td></tr>
+    <tr><td>かいとう</td><td>1問ごとの回答（ゲージは「数値」の列に0〜100）</td></tr>
+    <tr><td>まとめ</td><td>1人の回答を1行にまとめたもの</td></tr>
+    <tr><td>回のきろく</td><td>受付1回ごとの記録（回答数、ゲージの平均、質問の内容）</td></tr>
+  </table></div>
+  <div class="note">このアプリは、許可の画面で求められるのが「このスプレッドシートだけ」の権限です。ドライブのほかのファイルにはさわりません。</div>
+
+  <h2 id="a3">質問の作り方</h2>
+  <p>先生の画面の <span class="ui">質問をつくる</span> タブで作るか、スプレッドシートの「しつもん」タブに書きます。</p>
+  <h3>先生の画面で作る</h3>
+  <ol class="steps">
+    <li><span class="ui">質問をつくる</span> タブで、アンケート名を入れる</li>
+    <li><span class="ui">＋ 評価ゲージ</span>、<span class="ui">＋ 選ぶ</span>、<span class="ui">＋ 自由に書く</span> で質問を足し、質問文などを書く</li>
+    <li><span class="ui">シートの「しつもん」タブに保存する</span> を押す（<span class="ui">下書きとして保存する</span> もできます）</li>
+  </ol>
+  <h3>スプレッドシートに書く（「しつもん」タブ）</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>列</th><th>書き方</th></tr>
+    <tr><td>アンケート名</td><td>同じ名前の行が、1つのアンケートになります</td></tr>
+    <tr><td>番号</td><td>出す順番（1, 2, 3…）</td></tr>
+    <tr><td>種類</td><td><code>自由</code>／<code>選択</code>／<code>ゲージ</code></td></tr>
+    <tr><td>質問文</td><td>ふりがなは <code>漢字《かんじ》</code>。区切りたいときは <code>｜お弁当《おべんとう》</code></td></tr>
+    <tr><td>選択肢</td><td>選択のとき。<code>/</code> で区切る（例：<code>水族館《すいぞくかん》/バス/公園</code>）</td></tr>
+    <tr><td>複数選択</td><td><code>○</code> でいくつでも選べる</td></tr>
+    <tr><td>ゲージ左・ゲージ右</td><td>ゲージの両はしの言葉（空なら「よくなかった」「よかった」）</td></tr>
+    <tr><td>必須</td><td><code>○</code> 答えないと次へ進めない／<code>×</code> 答えなくてよい／空なら、自由は×・ほかは○</td></tr>
+  </table></div>
+  <h3>書き方の例</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>アンケート名</th><th>番号</th><th>種類</th><th>質問文</th><th>選択肢</th><th>複数選択</th><th>ゲージ左</th><th>ゲージ右</th><th>必須</th></tr>
+    <tr><td>校外学習のふりかえり</td><td>1</td><td>ゲージ</td><td>校外学習《こうがいがくしゅう》は どうだった？</td><td></td><td></td><td>たのしくなかった</td><td>たのしかった</td><td>○</td></tr>
+    <tr><td>校外学習のふりかえり</td><td>2</td><td>選択</td><td>いちばん よかった ところは どこ？</td><td>水族館《すいぞくかん》/お弁当《べんとう》/バス</td><td></td><td></td><td></td><td>○</td></tr>
+    <tr><td>校外学習のふりかえり</td><td>3</td><td>自由</td><td>感想《かんそう》を 書《か》いてね</td><td></td><td></td><td></td><td></td><td>×</td></tr>
+  </table></div>
+  <p>大人向けで使うときは、《》の部分は表示されません。同じ質問を、生徒向けにも大人向けにも使えます。</p>
+
+  <h2 id="a4">先生の使いかた</h2>
+  <p>先生用のURL（回答用のURLの最後に <code>?page=teacher</code>）を開きます。</p>
+  <h3><span class="ui">受付</span> タブの設定</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>項目</th><th>内容</th></tr>
+    <tr><td>どの質問を使うか</td><td>「しつもん」タブのアンケート／「質問をつくる」タブで作った質問</td></tr>
+    <tr><td>回答する人</td><td>大人向け（ふつうの文章）／生徒向け（やさしい言葉・ふりがな）</td></tr>
+    <tr><td>名前の集め方</td><td>集めない／書いてもらう／名簿から選ぶ／キャラで参加</td></tr>
+    <tr><td>参加コード</td><td>使う／使わない。使うときもQRコードにはコードが入っているので、QRから開けば入力はいりません</td></tr>
+    <tr><td>評価ゲージの数字</td><td>回答者に見せない／見せる</td></tr>
+    <tr><td>端末の使い方</td><td>1人1台／1台を順番に使う</td></tr>
+  </table></div>
+  <h3>授業の流れ</h3>
+  <ol class="steps">
+    <li><span class="ui">この設定で受付を始める</span> を押すと、参加コードとQRコードが出ます</li>
+    <li><span class="ui">コードとQRを大きく出す</span> で、テレビなどに映せます</li>
+    <li>答えている人・送った人が、画面の上に出ます</li>
+    <li><span class="ui">結果を見る</span> タブで結果を見る（受付中は自動で新しくなります）</li>
+    <li>終わったら <span class="ui">受付を終える</span></li>
+  </ol>
+  <p>次の回を始めると、前の回に答えて待っている人は、自動で次の回に入れます。</p>
+
+  <h2 id="a5">答える人の使いかた</h2>
+  <ol class="steps">
+    <li>QRコードかURLを開く（受付前に開いた人は、受付が始まると自動で進みます）</li>
+    <li>（必要なとき）参加コードを入れる、名前を書く・選ぶ</li>
+    <li>1問ずつ答えて <span class="ui">つぎへ</span></li>
+    <li>確認画面で見直し、直したいところは <span class="ui">なおす</span>。よければ <span class="ui">送る</span></li>
+  </ol>
+
+  <h2 id="a6">記録と結果</h2>
+  <ul>
+    <li>「かいとう」タブに1問1行、「まとめ」タブに1人1行で残ります。</li>
+    <li>「回のきろく」タブに、受付ごとの回答数とゲージの平均が残ります。</li>
+    <li>先生の画面の <span class="ui">結果を見る</span> では、前の回の結果も選んで見られます。</li>
+  </ul>
+
+  <h2 id="a7">先生画面にあいことばをつける（おすすめ）</h2>
+  <p>このアプリの先生画面は、URLを知っていればだれでも開けます。回答の名前や内容が見えるので、あいことばをつけておくと安心です。</p>
+  <ol class="steps">
+    <li>Apps Scriptの画面の左の歯車 <span class="ui">プロジェクトの設定</span> を押す</li>
+    <li>いちばん下の「スクリプト プロパティ」で <span class="ui">スクリプト プロパティを追加</span></li>
+    <li>プロパティに <code>TEACHER_PASS</code>、値に好きなあいことばを入れて <span class="ui">スクリプト プロパティを保存</span></li>
+    <li>先生画面を開くと、あいことばを聞かれます（その端末では次から入力はいりません）</li>
+  </ol>
+
+  <h2 id="a8">よくある質問</h2>
+  <h3>アンケートの一覧に出てこない</h3>
+  <p>「しつもん」タブで、アンケート名と質問文が入っているか確かめてください。選択の質問は、選択肢が2つ以上いります。<span class="ui">シートを読み直す</span> を押すと新しくなります。</p>
+  <h3>同じ人が2回答えられる？</h3>
+  <p>1人1台のときは、送った端末ではその回にもう答えられません。「1台を順番に使う」にすると、続けて答えられます。</p>
+  <h3>QRコードが出ない</h3>
+  <p>QRコードは外部のライブラリ（cdn.jsdelivr.net）を使って作っています。学校のネットワークでこのサイトが止められていると出ません。そのときは <span class="ui">回答用のURLをコピーする</span> で配ってください。</p>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

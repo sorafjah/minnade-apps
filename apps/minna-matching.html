@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>みんなでマッチング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body data-root="../" data-page="app">
+<main>
+  <h1>みんなでマッチング</h1>
+  <p class="lead">「仕事をする人」と「使う道具」、「くだものの絵」と「名前」のように、ペアになるものを選ぶ活動です。先生が出した問題に、生徒が自分のiPadで一斉に答えます。</p>
+  <ul class="toc">
+    <li><a href="#a1">何ができるか</a></li>
+    <li><a href="#a2">設置する</a></li>
+    <li><a href="#a3">ペアの作り方</a></li>
+    <li><a href="#a4">先生の使いかた</a></li>
+    <li><a href="#a5">生徒の使いかた</a></li>
+    <li><a href="#a6">記録</a></li>
+    <li><a href="#a7">よくある質問</a></li>
+  </ul>
+
+  <h2 id="a1">何ができるか</h2>
+  <ul>
+    <li>上に出た絵（または文字）とペアになるものを、2〜4つの選択肢から選びます。</li>
+    <li>まちがいの選択肢は、同じタブのほかのペアから自動で選ばれます。問題を作るのは「ペア」だけです。</li>
+    <li>絵と絵、絵と文字、文字と文字の組み合わせにできます。たとえば問題を絵、選択肢を文字にすると「絵を見て名前を選ぶ」活動になります。</li>
+    <li>ペアの絵は、先生の画面からiPadで撮った写真や画像を選んで登録できます。まとめて登録もできます。</li>
+    <li>こたえを出すと、正解のカードに印がつき、選んだ人数が出ます。最後に一人ひとりの正解数が出ます。</li>
+    <li>生徒は答えを1回だけ変えられます。制限時間、効果音（あり・なし）も選べます。</li>
+  </ul>
+
+  <h2 id="a2">設置する</h2>
+  <p><a href="../secchi.html">設置の手順</a>にそって、次の2つのファイルを貼ってください。</p>
+  <div class="code-box" data-src="../code/minna-matching/Code.gs.txt" data-name="Code.gs"></div>
+  <div class="code-box" data-src="../code/minna-matching/index.html.txt" data-name="index.html"></div>
+  <div class="caution">
+    <strong>このアプリの許可について</strong><br>
+    絵をGoogleドライブに保存するため、setup の許可の画面で「Google ドライブのファイルの表示・作成」などの権限が出ます。絵は、スプレッドシートと同じ場所にできる「みんなでマッチング_がぞう」フォルダにだけ入れます。
+  </div>
+  <p>setup を実行すると、次のタブとフォルダができます。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>できるもの</th><th>中身</th></tr>
+    <tr><td>めいぼ（タブ）</td><td>生徒の名前（例が入っています）</td></tr>
+    <tr><td>れい（タブ）</td><td>文字だけの例のペア（りんご→あか など5組）。設置してすぐ試せます。いらなくなったら消してかまいません</td></tr>
+    <tr><td>タブのせってい（タブ）</td><td>ペアのタブごとの「分ける・分けない」とAとBの名前</td></tr>
+    <tr><td>みんなでマッチング_がぞう（ドライブのフォルダ）</td><td>先生の画面から入れた絵</td></tr>
+  </table></div>
+  <p>はじめからある、からっぽの「シート1」は、ペアのタブとまちがえないように setup が消します。ペアのタブ（「しごと」など）は、先生の画面の <span class="ui">ペアを作る</span> で作ります。記録のタブは、使うと自動でできます。</p>
+  <div class="caution">このアプリは、「めいぼ」「タブのせってい」「きろく：○○」以外の<strong>すべてのタブをペアのタブとして読みます</strong>。同じスプレッドシートに、ほかの表を作らないでください。</div>
+  <div class="note">先生の画面は、<strong>スプレッドシートを作ったアカウントでログインしているとき</strong>だけ開けます。ほかのアカウントで先生用のURLを開くと、生徒の画面になります。</div>
+
+  <h2 id="a3">ペアの作り方</h2>
+  <h3>先生の画面で作る（おすすめ）</h3>
+  <ol class="steps">
+    <li>先生の画面の <span class="ui">ペアを作る</span> を押す</li>
+    <li>「新しいタブ」に名前（例：しごと）を入れて <span class="ui">作る</span></li>
+    <li>AとBに、絵を選ぶか、文字を入れる（どちらか片方だけでもよい）</li>
+    <li><span class="ui">登録</span> を押す。これをペアの数だけくり返す</li>
+  </ol>
+  <ul>
+    <li>Aだけ、Bだけ入れたものは「ダミー」になり、まちがいの選択肢にだけ使われます。</li>
+    <li>文字のふりがなは <code>漢字《かんじ》</code> と書きます。</li>
+  </ul>
+  <h3>まとめて登録する</h3>
+  <ol class="steps">
+    <li><span class="ui">まとめて登録</span> → <span class="ui">絵をまとめて選ぶ</span> で、絵をいくつも選ぶ</li>
+    <li>選んだ順に A・B・A・B… と並びます。ファイル名が「うんてんしゅ_1」「うんてんしゅ_2」のように1と2で終わるときは、名前でペアにします</li>
+    <li>まちがっているところは、絵を2つ順に押すと入れかわります</li>
+    <li><span class="ui">全部登録</span> を押す</li>
+  </ol>
+  <h3>タブの設定（分ける・分けない）</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>設定</th><th>どうなるか</th><th>例</th></tr>
+    <tr><td>分ける</td><td>Aが問題なら、選択肢はBの中から出ます。AとBに名前をつけると、生徒の画面に「ペアに なる『どうぐ』は どれかな？」と出ます</td><td>A＝しごとをする人、B＝どうぐ・ばしょ</td></tr>
+    <tr><td>分けない</td><td>AとBに区別がありません</td><td>同じくだものの2枚の写真</td></tr>
+  </table></div>
+  <h3>スプレッドシートで直す</h3>
+  <p>ペアのタブは、1行目が <code>Aのえ</code>｜<code>Aのもじ</code>｜<code>Bのえ</code>｜<code>Bのもじ</code> で、1行が1組です。「え」の列には、ドライブの「みんなでマッチング_がぞう」フォルダにある絵のファイル名が入ります。文字を直すときはスプレッドシートで直してかまいません。</p>
+
+  <h2 id="a4">先生の使いかた</h2>
+  <p>先生用のURL（生徒用のURLの最後に <code>?page=teacher</code>）を開きます。</p>
+  <h3>はじめる前の設定</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>項目</th><th>内容</th></tr>
+    <tr><td>タブ</td><td>どのペアのタブを使うか</td></tr>
+    <tr><td>問題の数</td><td>何問出すか（ペアの数より多いときは、ペアの数まで）</td></tr>
+    <tr><td>選択肢の数</td><td>2・3・4（4つにするには、ペアとダミーが合わせて4つ以上いります）</td></tr>
+    <tr><td>向き</td><td>「分ける」タブのとき：A→B／B→A／まぜる</td></tr>
+    <tr><td>問題の絵・文字、選択肢の絵・文字</td><td>それぞれ出す／出さない</td></tr>
+    <tr><td>制限時間</td><td>秒で。0は時間なし</td></tr>
+    <tr><td>名前の選び方</td><td>名簿（どの名簿か選ぶ）／キャラ</td></tr>
+    <tr><td>参加コード</td><td>使う／使わない。<span class="ui">変更</span> で新しいコードに</td></tr>
+    <tr><td>効果音</td><td>あり／なし</td></tr>
+  </table></div>
+  <h3>授業の流れ</h3>
+  <ol class="steps">
+    <li><span class="ui">はじめる</span> を押すと、参加コードとQRコードが出ます</li>
+    <li>生徒がそろったら（参加している人の名前が出ます）<span class="ui">1もんめを だす</span></li>
+    <li>答えた生徒の名前に ✓ がつきます。<span class="ui">こたえ</span> で正解と人数を出す</li>
+    <li><span class="ui">つぎへ</span> で次の問題へ。最後は <span class="ui">けっかを みる</span> で一人ひとりの正解数が出ます</li>
+  </ol>
+
+  <h2 id="a5">生徒の使いかた</h2>
+  <ol class="steps">
+    <li>URLかQRコードを開く</li>
+    <li>（参加コードを使うとき）4けたの数字を入れる</li>
+    <li>自分の名前（またはキャラ）を選ぶ</li>
+    <li>上の絵とペアになるものを、下から選んで押す。変えるのは1回だけ</li>
+    <li>先生がこたえを出すと、正解に「○ せいかい」と出ます</li>
+  </ol>
+
+  <h2 id="a6">記録</h2>
+  <p>ペアのタブごとに「きろく：タブ名」のタブができ、先生が <span class="ui">こたえ</span> を押したときに、1人1問1行で残ります。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>列</th><th>中身</th></tr>
+    <tr><td>にちじ・かい・もんだい</td><td>いつ、何回めの何問めか</td></tr>
+    <tr><td>なまえ</td><td>だれが</td></tr>
+    <tr><td>もんだいの え・せいかい・えらんだ</td><td>問題、正解、選んだもの（文字があれば文字、なければ絵の名前）</td></tr>
+    <tr><td>けっか</td><td>○・×（答えていない人は −）</td></tr>
+  </table></div>
+
+  <h2 id="a7">よくある質問</h2>
+  <h3>「はじめる」が押せない</h3>
+  <p>そのタブに、AとBがそろったペアが2組以上あるか確かめてください。</p>
+  <h3>絵が出ない（「え が みつからないよ」と出る）</h3>
+  <p>スプレッドシートの「え」の列の名前と、ドライブのフォルダにあるファイル名が同じか確かめてください。</p>
+  <h3>生徒が名前をまちがえて選んだ</h3>
+  <p>参加を待っている画面の <span class="ui">なまえを リセット</span> で、みんなに選び直してもらえます。</p>
+  <h3>画面が白いまま、または「うまく ひらけなかったよ」と出る</h3>
+  <p>index の中身が最後（<code>&lt;/html&gt;</code>）まで貼られているか、<a href="../secchi.html#s6">新バージョンでデプロイ</a>したかを確かめてください。</p>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

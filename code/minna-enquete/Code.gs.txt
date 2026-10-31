@@ -1,0 +1,587 @@
+/**
+ * みんなでアンケート  Code.gs
+ * 回答者用: ウェブアプリのURL
+ * 先生用  : ウェブアプリのURL?page=teacher
+ * ファイルは Code.gs と index.html の2つだけ
+ * はじめに一度だけ setup を実行する（タブと、例のアンケート・名簿を作る）
+ * 授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+ * @OnlyCurrentDoc  （このスプレッドシートだけを使う。ほかのファイルには触れない）
+ */
+
+const SH = { Q: 'しつもん', ROSTER: 'めいぼ', ANS: 'かいとう', SUM: 'まとめ', ROUND: '回のきろく' };
+
+const HEADERS = {
+  'しつもん':   ['アンケート名', '番号', '種類', '質問文', '選択肢', '複数選択', 'ゲージ左', 'ゲージ右', '必須'],
+  'かいとう':   ['日時', '回ID', 'アンケート名', '送信ID', '名前', '番号', '種類', '質問', '回答', '数値'],
+  'まとめ':     ['日時', '回ID', 'アンケート名', '送信ID', '名前', '端末', '回答の一覧'],
+  '回のきろく': ['回ID', 'アンケート名', '始めた日時', '終えた日時', '対象', '名前の集め方', '参加コード', '回答数', 'ゲージの平均', '質問の内容']
+};
+
+const TYPE_JA = { free: '自由', choice: '選択', gauge: 'ゲージ' };
+const AUDIENCE_JA = { adult: '大人向け', student: '生徒向け' };
+const NAME_MODE_JA = { none: '集めない', input: '書いてもらう', roster: '名簿から選ぶ', chara: 'キャラで参加' };
+const TZ = 'Asia/Tokyo';
+const YES = ['○', '◯', 'はい', 'TRUE', 'true', '1', 'する', 'あり', 'y', 'yes'];
+const NO = ['×', '✕', 'いいえ', 'FALSE', 'false', '0', 'しない', 'なし', 'n', 'no'];
+
+/* ========== 画面 ========== */
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  const page = p.page === 'teacher' ? 'teacher' : 'index';
+  const t = HtmlService.createTemplateFromFile('index');
+  t.params = JSON.stringify(p).replace(/</g, '\\u003c');
+  return t.evaluate()
+    .setTitle(page === 'teacher' ? 'アンケート（先生用）' : 'アンケート')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ========== はじめに一度だけ実行 ========== */
+
+function setup() {
+  ensureAll_();
+  const q = sheet_(SH.Q);
+  if (q.getLastRow() < 2) {
+    const rows = [
+      ['校外学習のふりかえり', 1, 'ゲージ', '校外学習《こうがいがくしゅう》は どうだった？', '', '', 'たのしくなかった', 'たのしかった', '○'],
+      ['校外学習のふりかえり', 2, '選択', 'いちばん よかった ところは どこ？', '水族館《すいぞくかん》/お弁当《べんとう》/バス/買《か》い物《もの》', '', '', '', '○'],
+      ['校外学習のふりかえり', 3, '選択', 'また 行《い》きたい ところは？（いくつでも）', '水族館《すいぞくかん》/公園《こうえん》/動物園《どうぶつえん》', '○', '', '', '×'],
+      ['校外学習のふりかえり', 4, 'ゲージ', 'お弁当《べんとう》は おいしかった？', '', '', 'おいしくなかった', 'おいしかった', '○'],
+      ['校外学習のふりかえり', 5, '自由', '感想《かんそう》を 書《か》いてね', '', '', '', '', '×']
+    ];
+    appendObjs_(q, rows.map(r => {
+      const o = {}; HEADERS[SH.Q].forEach((h, i) => o[h] = r[i]); return o;
+    }));
+  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const r = ss.getSheetByName(SH.ROSTER);
+  if (r.getLastRow() < 1) {
+    r.getRange(1, 1, 5, 2).setValues([
+      ['1組', '2組'], ['あおい', 'さくら'], ['たろう', 'けんた'], ['はなこ', 'みさき'], ['ゆうと', '']
+    ]);
+    r.getRange(1, 1, 1, 2).setFontWeight('bold');
+    r.setFrozenRows(1);
+  }
+}
+
+/* ========== シートの共通処理 ========== */
+
+function ensureAll_() {
+  Object.keys(HEADERS).forEach(sheet_);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName(SH.ROSTER)) ss.insertSheet(SH.ROSTER);
+}
+
+// タブがなければ作る。見出しがなければ足す（前の版のシートでも動くように）
+function sheet_(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  const h = HEADERS[name];
+  if (h) {
+    const lc = sh.getLastColumn();
+    const cur = lc ? sh.getRange(1, 1, 1, lc).getValues()[0].map(v => String(v).trim()) : [];
+    if (!cur.some(v => v)) {
+      sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold');
+      sh.setFrozenRows(1);
+    } else {
+      const miss = h.filter(x => cur.indexOf(x) < 0);
+      if (miss.length) sh.getRange(1, lc + 1, 1, miss.length).setValues([miss]).setFontWeight('bold');
+    }
+  }
+  return sh;
+}
+
+function headerMap_(sh) {
+  const lc = sh.getLastColumn();
+  const h = lc ? sh.getRange(1, 1, 1, lc).getValues()[0] : [];
+  const map = {};
+  h.forEach((v, i) => { v = String(v).trim(); if (v && !(v in map)) map[v] = i; });
+  return { map: map, width: lc };
+}
+
+function appendObjs_(sh, objs) {
+  if (!objs.length) return;
+  const hm = headerMap_(sh);
+  const rows = objs.map(o => {
+    const r = new Array(hm.width).fill('');
+    Object.keys(o).forEach(k => { if (k in hm.map) r[hm.map[k]] = o[k]; });
+    return r;
+  });
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, hm.width).setValues(rows);
+}
+
+function readObjs_(sh) {
+  const lr = sh.getLastRow();
+  if (lr < 2) return [];
+  const hm = headerMap_(sh);
+  const keys = Object.keys(hm.map);
+  return sh.getRange(2, 1, lr - 1, hm.width).getValues().map((r, i) => {
+    const o = { _row: i + 2 };
+    keys.forEach(k => o[k] = r[hm.map[k]]);
+    return o;
+  });
+}
+
+// =や+で始まる文字が式にならないようにする
+function safe_(v) {
+  v = String(v == null ? '' : v);
+  return /^[=+\-@]/.test(v) ? "'" + v : v;
+}
+
+function plain_(s) {
+  return String(s || '').replace(/｜/g, '').replace(/《[^》]*》/g, '');
+}
+
+function ms_(d) {
+  return d instanceof Date ? d.getTime() : (d ? new Date(d).getTime() || 0 : 0);
+}
+
+function flag_(v, def) {
+  if (v === true || v === false) return v;
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return def;
+  if (YES.indexOf(s) >= 0) return true;
+  if (NO.indexOf(s) >= 0) return false;
+  return def;
+}
+
+/* ========== 大きな値の保存（プロパティは1つ9KBまでなので分けて入れる） ========== */
+
+function setBig_(key, str) {
+  const n = Math.max(1, Math.ceil(str.length / 2000));
+  const obj = {};
+  for (let i = 0; i < n; i++) obj[key + '_' + i] = str.slice(i * 2000, (i + 1) * 2000);
+  obj[key + '_n'] = String(n);
+  PropertiesService.getScriptProperties().setProperties(obj);
+}
+
+function getBig_(key) {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  const n = Number(all[key + '_n']) || 0;
+  let s = '';
+  for (let i = 0; i < n; i++) s += all[key + '_' + i] || '';
+  return s;
+}
+
+function getState_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('STATE') || '{}'); }
+  catch (e) { return {}; }
+}
+
+function setState_(s) {
+  PropertiesService.getScriptProperties().setProperty('STATE', JSON.stringify(s));
+  CacheService.getScriptCache().remove('pub');
+}
+
+function getSurvey_() {
+  try { return JSON.parse(getBig_('SURVEY') || '[]'); } catch (e) { return []; }
+}
+
+function knownRounds_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('ROUNDS') || '[]'); }
+  catch (e) { return []; }
+}
+
+/* ========== 質問 ========== */
+
+function typeFromJa_(v) {
+  const s = String(v || '').trim();
+  if (/ゲージ|gauge|評価/.test(s)) return 'gauge';
+  if (/選|choice/.test(s)) return 'choice';
+  return 'free';
+}
+
+function splitOptions_(v) {
+  return String(v || '').split(/\n|／|\//).map(x => x.trim()).filter(x => x);
+}
+
+function normalizeQs_(arr) {
+  const out = [];
+  (arr || []).forEach((q, i) => {
+    const type = TYPE_JA[q.type] ? q.type : typeFromJa_(q.type);
+    const text = String(q.text || '').trim().slice(0, 500);
+    if (!text) throw new Error('質問' + (i + 1) + 'の質問文が空です。');
+    const o = { type: type, text: text, required: flag_(q.required, type !== 'free') };
+    if (type === 'choice') {
+      o.options = (Array.isArray(q.options) ? q.options : splitOptions_(q.options))
+        .map(x => String(x).trim().replace(/\//g, '／')).filter(x => x).slice(0, 30);
+      if (o.options.length < 2) throw new Error('質問' + (i + 1) + '（選ぶ）は、選択肢を2つ以上入れてください。');
+      o.multi = flag_(q.multi, false);
+    }
+    if (type === 'gauge') {
+      o.left = String(q.left || '').trim() || 'よくなかった';
+      o.right = String(q.right || '').trim() || 'よかった';
+    }
+    out.push(o);
+  });
+  return out;
+}
+
+function readSurvey_(name) {
+  const rows = readObjs_(sheet_(SH.Q)).filter(r => String(r['アンケート名']).trim() === String(name).trim());
+  rows.sort((a, b) => (Number(a['番号']) || 0) - (Number(b['番号']) || 0));
+  return normalizeQs_(rows.filter(r => String(r['質問文']).trim()).map(r => ({
+    type: typeFromJa_(r['種類']),
+    text: r['質問文'],
+    options: splitOptions_(r['選択肢']),
+    multi: r['複数選択'],
+    left: r['ゲージ左'],
+    right: r['ゲージ右'],
+    required: r['必須']
+  })));
+}
+
+function listSurveys_() {
+  const map = {}, order = [];
+  readObjs_(sheet_(SH.Q)).forEach(r => {
+    const n = String(r['アンケート名']).trim();
+    if (!n || !String(r['質問文']).trim()) return;
+    if (!(n in map)) { map[n] = 0; order.push(n); }
+    map[n]++;
+  });
+  return order.map(n => ({ name: n, count: map[n] }));
+}
+
+/* ========== 名簿 ========== */
+
+function listRosters_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH.ROSTER);
+  if (!sh || sh.getLastColumn() < 1) return [];
+  return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(v => String(v).trim()).filter(v => v);
+}
+
+function getRoster_(col) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SH.ROSTER);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(v => String(v).trim());
+  const c = head.indexOf(String(col).trim());
+  if (c < 0) return [];
+  return sh.getRange(2, c + 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim()).filter(v => v);
+}
+
+/* ========== 回答者用 ========== */
+
+function getPublicState() {
+  const cache = CacheService.getScriptCache();
+  const c = cache.get('pub');
+  if (c) return JSON.parse(c);
+  const s = getState_();
+  const p = { open: !!s.open, roundId: s.roundId || '', needCode: !!s.needCode, title: s.title || '', audience: s.audience === 'student' ? 'student' : 'adult' };
+  cache.put('pub', JSON.stringify(p), 30);
+  return p;
+}
+
+/**
+ * 参加する。コードが合うか、前の回に答えた人（prevRoundId）なら入れる
+ */
+function join(code, prevRoundId) {
+  const s = getState_();
+  if (!s.open) return { ok: false, reason: 'closed' };
+  if (s.needCode) {
+    const okCode = String(code || '').trim() === String(s.code);
+    const okPrev = prevRoundId && prevRoundId !== s.roundId && knownRounds_().indexOf(prevRoundId) >= 0;
+    if (!okCode && !okPrev) return { ok: false, reason: 'code' };
+  }
+  const cache = CacheService.getScriptCache();
+  let survey = null;
+  const c = cache.get('survey_' + s.roundId);
+  if (c) survey = JSON.parse(c);
+  else {
+    survey = getSurvey_();
+    const str = JSON.stringify(survey);
+    if (str.length < 90000) cache.put('survey_' + s.roundId, str, 21600);
+  }
+  const res = {
+    ok: true, roundId: s.roundId, title: s.title, audience: s.audience === 'student' ? 'student' : 'adult', nameMode: s.nameMode || 'none',
+    showNumber: !!s.showNumber, shared: !!s.shared, survey: survey
+  };
+  if (res.nameMode === 'roster') res.names = getRoster_(s.roster);
+  return res;
+}
+
+function setStatus(roundId, key, name, status) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return false;
+  try { updateStatus_(roundId, key, name, status); }
+  finally { lock.releaseLock(); }
+  return true;
+}
+
+// 「回答中・送った」をキャッシュに持つ（回ごとに1つの表にまとめる）
+function updateStatus_(roundId, key, name, status) {
+  const cache = CacheService.getScriptCache();
+  const ck = 'st_' + encodeURIComponent(String(roundId));
+  let map = {};
+  try { map = JSON.parse(cache.get(ck) || '{}'); } catch (e) { map = {}; }
+  map[String(key).slice(0, 80)] = { n: String(name || '').slice(0, 40), s: status, t: Date.now() };
+  cache.put(ck, JSON.stringify(map), 21600);
+}
+
+function submit(p) {
+  if (!p || !p.sendId || !/^\d{8}-\d{6}$/.test(String(p.roundId || ''))) throw new Error('送る内容が正しくありません。');
+  const sendId = String(p.sendId).slice(0, 60);
+  const cache = CacheService.getScriptCache();
+  if (cache.get('sent_' + encodeURIComponent(sendId))) return { ok: true, dup: true };
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    if (cache.get('sent_' + encodeURIComponent(sendId))) return { ok: true, dup: true };
+    const sum = sheet_(SH.SUM);
+    if (sum.createTextFinder(sendId).matchEntireCell(true).findNext()) {
+      cache.put('sent_' + encodeURIComponent(sendId), '1', 21600);
+      return { ok: true, dup: true };
+    }
+    const now = new Date();
+    const name = String(p.name || '').trim().slice(0, 40) || '（名前なし）';
+    const title = String(p.title || '').slice(0, 100);
+    const ans = (p.answers || []).slice(0, 100);
+
+    appendObjs_(sheet_(SH.ANS), ans.map(a => {
+      const v = Number(a.value);
+      const isNum = a.type === 'gauge' && a.value !== null && a.value !== '' && isFinite(v);
+      return {
+        '日時': now, '回ID': p.roundId, 'アンケート名': safe_(title), '送信ID': sendId,
+        '名前': safe_(name), '番号': Number(a.no) || '', '種類': TYPE_JA[a.type] || '',
+        '質問': safe_(plain_(a.text).slice(0, 500)),
+        '回答': safe_(String(a.answer == null ? '' : a.answer).slice(0, 2000)),
+        '数値': isNum ? Math.max(0, Math.min(100, Math.round(v))) : ''
+      };
+    }));
+
+    const list = ans.map(a => a.no + ') ' + String(a.answer == null || a.answer === '' ? '（なし）' : a.answer).slice(0, 300)).join('\n');
+    appendObjs_(sum, [{
+      '日時': now, '回ID': p.roundId, 'アンケート名': safe_(title), '送信ID': sendId,
+      '名前': safe_(name), '端末': safe_(String(p.device || '').slice(0, 20)), '回答の一覧': safe_(list)
+    }]);
+    cache.put('sent_' + encodeURIComponent(sendId), '1', 21600);
+    if (p.statusKey) updateStatus_(p.roundId, p.statusKey, name, 'done');
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true };
+}
+
+/* ========== 先生用 ========== */
+
+// スクリプトプロパティ TEACHER_PASS を入れたときだけ、あいことばを確かめる
+function checkPass_(pass) {
+  const tp = PropertiesService.getScriptProperties().getProperty('TEACHER_PASS');
+  if (tp && String(pass || '') !== tp) throw new Error('NEED_PASS');
+}
+
+function teacherState_() {
+  const s = getState_();
+  return {
+    open: !!s.open, roundId: s.roundId || '', code: s.code || '', needCode: !!s.needCode,
+    audience: s.audience === 'student' ? 'student' : 'adult',
+    nameMode: s.nameMode || 'none', roster: s.roster || '', showNumber: !!s.showNumber,
+    shared: !!s.shared, title: s.title || '', startedAt: s.startedAt || 0, qCount: s.qCount || 0
+  };
+}
+
+function getDraft_() {
+  try { return JSON.parse(getBig_('DRAFT') || 'null'); } catch (e) { return null; }
+}
+
+function tInit(pass) {
+  checkPass_(pass);
+  ensureAll_();
+  return {
+    url: ScriptApp.getService().getUrl(),
+    surveys: listSurveys_(),
+    rosters: listRosters_(),
+    state: teacherState_(),
+    draft: getDraft_(),
+    rounds: listRounds_()
+  };
+}
+
+function tGetSurvey(pass, name) {
+  checkPass_(pass);
+  return readSurvey_(name);
+}
+
+function tStart(pass, cfg) {
+  checkPass_(pass);
+  ensureAll_();
+  cfg = cfg || {};
+  let questions, title;
+  if (cfg.source === 'sheet') {
+    if (!cfg.sheetName) throw new Error('使うアンケートを選んでください。');
+    questions = readSurvey_(cfg.sheetName);
+    title = cfg.sheetName;
+  } else {
+    questions = normalizeQs_(cfg.questions || []);
+    title = String(cfg.title || '').trim() || 'アンケート';
+  }
+  if (!questions.length) throw new Error('質問が1つもありません。');
+  const nameMode = NAME_MODE_JA[cfg.nameMode] ? cfg.nameMode : 'none';
+  if (nameMode === 'roster' && !getRoster_(cfg.roster).length) throw new Error('名簿「' + (cfg.roster || '') + '」に名前がありません。');
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const prev = getState_();
+    if (prev.open) finishRound_(prev);
+    const now = new Date();
+    let roundId = Utilities.formatDate(now, TZ, 'yyyyMMdd-HHmmss');
+    if (roundId === prev.roundId) { Utilities.sleep(1100); roundId = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd-HHmmss'); }
+    let code;
+    do { code = String(1000 + Math.floor(Math.random() * 9000)); } while (code === prev.code);
+    const s = {
+      open: true, roundId: roundId, code: code, needCode: !!cfg.needCode, nameMode: nameMode,
+      audience: cfg.audience === 'student' ? 'student' : 'adult',
+      roster: nameMode === 'roster' ? String(cfg.roster || '') : '', showNumber: !!cfg.showNumber,
+      shared: !!cfg.shared, title: title, startedAt: now.getTime(), qCount: questions.length
+    };
+    const qStr = JSON.stringify(questions);
+    setBig_('SURVEY', qStr);
+    setState_(s);
+    const rounds = knownRounds_();
+    rounds.push(roundId);
+    PropertiesService.getScriptProperties().setProperty('ROUNDS', JSON.stringify(rounds.slice(-30)));
+    appendObjs_(sheet_(SH.ROUND), [{
+      '回ID': roundId, 'アンケート名': safe_(title), '始めた日時': now,
+      '対象': AUDIENCE_JA[s.audience],
+      '名前の集め方': NAME_MODE_JA[nameMode] + (s.roster ? '（' + s.roster + '）' : ''),
+      '参加コード': s.needCode ? "'" + code : 'なし', '回答数': 0,
+      '質問の内容': qStr.length < 45000 ? qStr : ''
+    }]);
+  } finally {
+    lock.releaseLock();
+  }
+  return tStatus(pass);
+}
+
+function tStop(pass) {
+  checkPass_(pass);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const s = getState_();
+    if (s.open) finishRound_(s);
+    s.open = false;
+    setState_(s);
+  } finally {
+    lock.releaseLock();
+  }
+  return tStatus(pass);
+}
+
+// 回を閉じるときに、回答数とゲージの平均を「回のきろく」に書く
+function finishRound_(s) {
+  const rows = answersOf_(s.roundId);
+  const ids = {}, g = {};
+  rows.forEach(r => {
+    ids[r.sendId] = 1;
+    if (r.type === 'gauge' && r.value !== '' && r.value !== null) {
+      (g[r.no] = g[r.no] || []).push(Number(r.value));
+    }
+  });
+  const avg = Object.keys(g).sort((a, b) => a - b).map(no => {
+    const a = g[no]; return no + '番: ' + (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1);
+  }).join(' / ');
+  const sh = sheet_(SH.ROUND);
+  const hm = headerMap_(sh);
+  const f = sh.createTextFinder(s.roundId).matchEntireCell(true).findNext();
+  if (f) {
+    const row = f.getRow();
+    sh.getRange(row, hm.map['終えた日時'] + 1).setValue(new Date());
+    sh.getRange(row, hm.map['回答数'] + 1).setValue(Object.keys(ids).length);
+    sh.getRange(row, hm.map['ゲージの平均'] + 1).setValue(avg);
+  }
+}
+
+function tStatus(pass) {
+  checkPass_(pass);
+  const st = teacherState_();
+  let people = [];
+  let count = 0;
+  if (st.roundId) {
+    try {
+      const map = JSON.parse(CacheService.getScriptCache().get('st_' + encodeURIComponent(st.roundId)) || '{}');
+      people = Object.keys(map).map(k => ({ name: map[k].n, status: map[k].s, t: map[k].t }));
+      people.sort((a, b) => a.t - b.t);
+    } catch (e) { people = []; }
+    count = sheet_(SH.SUM).createTextFinder(st.roundId).matchEntireCell(true).findAll().length;
+  }
+  return { state: st, people: people, count: count };
+}
+
+function answersOf_(roundId) {
+  const sh = sheet_(SH.ANS);
+  const lr = sh.getLastRow();
+  if (lr < 2) return [];
+  const hm = headerMap_(sh);
+  const m = hm.map;
+  const rev = { '自由': 'free', '選択': 'choice', 'ゲージ': 'gauge' };
+  return sh.getRange(2, 1, lr - 1, hm.width).getValues()
+    .filter(r => String(r[m['回ID']]) === String(roundId))
+    .map(r => ({
+      sendId: String(r[m['送信ID']]), name: String(r[m['名前']]), no: Number(r[m['番号']]) || 0,
+      type: rev[String(r[m['種類']])] || 'free', q: String(r[m['質問']]),
+      answer: String(r[m['回答']]), value: r[m['数値']] === '' ? null : Number(r[m['数値']]),
+      time: ms_(r[m['日時']])
+    }));
+}
+
+function listRounds_() {
+  return readObjs_(sheet_(SH.ROUND)).filter(r => String(r['回ID'])).map(r => ({
+    id: String(r['回ID']), title: String(r['アンケート名']),
+    started: ms_(r['始めた日時']), count: Number(r['回答数']) || 0
+  })).reverse().slice(0, 40);
+}
+
+function tResults(pass, roundId) {
+  checkPass_(pass);
+  const st = getState_();
+  const rid = roundId || st.roundId;
+  if (!rid) return { roundId: '', answers: [], questions: [] };
+  let questions = null, title = '', started = 0;
+  const info = readObjs_(sheet_(SH.ROUND)).filter(r => String(r['回ID']) === rid)[0];
+  if (info) {
+    title = String(info['アンケート名']);
+    started = ms_(info['始めた日時']);
+    try { questions = JSON.parse(info['質問の内容'] || 'null'); } catch (e) { questions = null; }
+  }
+  if (!questions && rid === st.roundId) questions = getSurvey_();
+  return {
+    roundId: rid, title: title || st.title || '', started: started,
+    open: !!st.open && rid === st.roundId,
+    questions: questions || [], answers: answersOf_(rid), rounds: listRounds_()
+  };
+}
+
+function tSaveDraft(pass, draft) {
+  checkPass_(pass);
+  const d = { title: String((draft && draft.title) || '').slice(0, 100), questions: (draft && draft.questions) || [] };
+  setBig_('DRAFT', JSON.stringify(d));
+  return true;
+}
+
+function tSaveSurveyToSheet(pass, name, questions) {
+  checkPass_(pass);
+  name = String(name || '').trim();
+  if (!name) throw new Error('アンケート名を入れてください。');
+  const qs = normalizeQs_(questions);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = sheet_(SH.Q);
+    const rows = readObjs_(sh).filter(r => String(r['アンケート名']).trim() === name).map(r => r._row);
+    rows.sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+    appendObjs_(sh, qs.map((q, i) => ({
+      'アンケート名': safe_(name), '番号': i + 1, '種類': TYPE_JA[q.type], '質問文': safe_(q.text),
+      '選択肢': q.type === 'choice' ? safe_(q.options.join('/')) : '',
+      '複数選択': q.type === 'choice' ? (q.multi ? '○' : '×') : '',
+      'ゲージ左': q.type === 'gauge' ? safe_(q.left) : '', 'ゲージ右': q.type === 'gauge' ? safe_(q.right) : '',
+      '必須': q.required ? '○' : '×'
+    })));
+  } finally {
+    lock.releaseLock();
+  }
+  return listSurveys_();
+}

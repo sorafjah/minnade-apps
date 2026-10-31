@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>みんなでクイズ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body data-root="../" data-page="app">
+<main>
+  <h1>みんなでクイズ</h1>
+  <p class="lead">先生が1問ずつ出し、生徒は自分のiPadで一斉に答えます。答えた人数、選んだ答えの割合、こたえあわせを、先生の画面（テレビなどに映す画面）で見せられます。</p>
+  <ul class="toc">
+    <li><a href="#a1">何ができるか</a></li>
+    <li><a href="#a2">設置する</a></li>
+    <li><a href="#a3">問題の作り方</a></li>
+    <li><a href="#a4">画像を入れる</a></li>
+    <li><a href="#a5">先生の使いかた</a></li>
+    <li><a href="#a6">生徒の使いかた</a></li>
+    <li><a href="#a7">記録</a></li>
+    <li><a href="#a8">よくある質問</a></li>
+  </ul>
+
+  <h2 id="a1">何ができるか</h2>
+  <ul>
+    <li>2択〜4択（A〜D）のクイズを、1問ずつ出します。</li>
+    <li>問題文・選択肢・ヒント（3つまで）・解説に、文字と画像を入れられます。漢字にはふりがなをつけられます。</li>
+    <li>制限時間をつけられます（はじめは60秒）。時間になると自動でしめきります。</li>
+    <li>しめきると、選んだ人数がグラフで出ます。こたえあわせで正解と解説が出ます。</li>
+    <li>生徒は答えを1回だけ変えられます（まちがえて押さないよう、2回押して決めます）。</li>
+    <li>問題はスプレッドシートで前もって作るほか、その場で先生の画面から1問ずつ入れることもできます。</li>
+    <li>生徒のiPadに問題文を出さず、A〜Dのボタンだけにすることもできます（問題は先生の画面だけで見せる）。</li>
+  </ul>
+
+  <h2 id="a2">設置する</h2>
+  <p><a href="../secchi.html">設置の手順</a>にそって、次の2つのファイルを貼ってください。</p>
+  <div class="code-box" data-src="../code/minna-quiz/Code.gs.txt" data-name="Code.gs"></div>
+  <div class="code-box" data-src="../code/minna-quiz/index.html.txt" data-name="index.html"></div>
+  <div class="caution">
+    <strong>このアプリの許可について</strong><br>
+    画像をGoogleドライブに保存するため、setup の許可の画面で「Google ドライブのファイルの表示・作成」などの権限が出ます。画像は、スプレッドシートと同じ場所にできる「みんなでクイズの がぞう」フォルダにだけ入れます。
+  </div>
+  <p>setup を実行すると、次のタブとフォルダができます。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>できるもの</th><th>中身</th></tr>
+    <tr><td>もんだい（タブ）</td><td>見出しと、例の問題が2問入っています</td></tr>
+    <tr><td>めいぼ（タブ）</td><td>生徒の名前（例が入っています）</td></tr>
+    <tr><td>きろく（タブ）</td><td>答えた記録。問題のタブごとに「きろく：もんだい」のように自動でできます</td></tr>
+    <tr><td>みんなでクイズの がぞう（ドライブのフォルダ）</td><td>先生の画面から入れた画像</td></tr>
+  </table></div>
+  <div class="note">先生の画面は、<strong>スプレッドシートを作ったアカウントでログインしているとき</strong>だけ開けます。ほかのアカウントで先生用のURLを開くと、生徒の画面になります。</div>
+
+  <h2 id="a3">問題の作り方</h2>
+  <p>スプレッドシートの1行が1問です。<strong>A1のセルが「問題文」で始まるタブ</strong>は、すべて問題のタブとして読みこみます。タブを分けると、別の問題セットになります（例：「数学」「理科」）。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>列の見出し</th><th>書くこと</th><th>なくてもよいか</th></tr>
+    <tr><td>問題文</td><td>問題の文。ふりがなは <code>漢字《かんじ》</code> と書きます</td><td>画像だけの問題なら空でもよい</td></tr>
+    <tr><td>問題の画像</td><td>画像の名前（下の「画像を入れる」）</td><td>○</td></tr>
+    <tr><td>A・B・C・D</td><td>選択肢。2つ以上。3択ならDを空に</td><td>Cから先は○</td></tr>
+    <tr><td>正解</td><td><code>A</code>〜<code>D</code>（<code>1</code>〜<code>4</code>でもよい）</td><td>○（空なら、しめきったあと先生が選ぶ）</td></tr>
+    <tr><td>ヒント1〜3、ヒント1の画像〜</td><td>先生が「ヒントを出す」を押すと、1つずつ出ます</td><td>○</td></tr>
+    <tr><td>解説、解説の画像</td><td>こたえあわせのときに出ます</td><td>○</td></tr>
+    <tr><td>制限時間（秒）</td><td>その問題だけの制限時間。0は時間なし</td><td>○（空なら設定の時間）</td></tr>
+    <tr><td>セット</td><td>1つのタブを、さらにセットに分けたいとき</td><td>○</td></tr>
+  </table></div>
+  <h3>書き方の例</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>問題文</th><th>A</th><th>B</th><th>C</th><th>D</th><th>正解</th><th>ヒント1</th><th>解説</th><th>セット</th></tr>
+    <tr><td>日本《にほん》で いちばん 高《たか》い 山《やま》は？</td><td>富士山《ふじさん》</td><td>北岳《きただけ》</td><td>阿蘇山《あそさん》</td><td>高尾山《たかおさん》</td><td>A</td><td>静岡県《しずおかけん》と 山梨県《やまなしけん》に あるよ</td><td>高《たか》さは 3776メートルだよ</td><td>山</td></tr>
+    <tr><td>りんごの いろは どれかな？</td><td>あか</td><td>あお</td><td></td><td></td><td>A</td><td></td><td></td><td></td></tr>
+  </table></div>
+  <ul>
+    <li>列の順番は自由です。見出しの名前で読みとります。</li>
+    <li>「セット」の欄が空の行は、上の行と同じセットになります。</li>
+    <li>先生の画面の「せってい」→「みだしの はいった あたらしい タブを つくる」で、見出しだけのタブを作れます。</li>
+    <li>送りがなを含むときは <code>｜行《い》きたい</code> のように、ふりがなをつける部分の前に <code>｜</code> を書くと区切れます。</li>
+  </ul>
+
+  <h2 id="a4">画像を入れる</h2>
+  <ol class="steps">
+    <li>先生の画面の上の <span class="ui">がぞう</span> を押す</li>
+    <li><span class="ui">1. がぞうを えらぶ</span> で画像を選ぶ（いくつでも。大きい画像は自動で小さくします）</li>
+    <li>名前をつけて <span class="ui">3. いれる</span> を押す（例：「つき」）</li>
+    <li><span class="ui">なまえを コピー</span> を押して、スプレッドシートの「問題の画像」などの列に貼る</li>
+  </ol>
+  <ul>
+    <li>ドライブの画像のリンクを書いてもかまいません。</li>
+    <li>セルの中に直接貼った画像（「セル内に画像を挿入」）は使えません。</li>
+    <li>名前がまちがっているときは、先生の画面に「がぞう「○○」が みつからないよ」と出ます（生徒の画面には出ません）。</li>
+  </ul>
+
+  <h2 id="a5">先生の使いかた</h2>
+  <p>先生用のURL（生徒用のURLの最後に <code>?page=teacher</code>）を開きます。</p>
+  <h3>はじめる前に（<span class="ui">せってい</span>）</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>項目</th><th>内容</th></tr>
+    <tr><td>もんだいの だしかた</td><td>スプレッドシートのセットから／この画面で1問ずつ入れる</td></tr>
+    <tr><td>つかう セット</td><td>どの問題セットを使うか。選ぶと1問めにもどります</td></tr>
+    <tr><td>生徒のiPadに問題文と選択肢を</td><td>出す／出さない（A〜Dのボタンだけ）</td></tr>
+    <tr><td>制限時間</td><td>秒で。0は時間なし。はじめは60秒</td></tr>
+    <tr><td>残り時間の見せかた</td><td>バー／バーと秒／秒だけ</td></tr>
+    <tr><td>参加コード</td><td>使う／使わない。<span class="ui">あたらしい コードに する</span> で変えられます</td></tr>
+    <tr><td>生徒の名前の選び方</td><td>名簿から自分の名前／動物のキャラ（16種類）</td></tr>
+  </table></div>
+  <h3>授業の流れ</h3>
+  <ol class="steps">
+    <li>生徒にURL（またはQRコード）を開いてもらう。参加コードを使うときは、先生の画面に出ている4けたを入れてもらう</li>
+    <li><span class="ui">はじめる</span> で1問めを出す</li>
+    <li>ヒントがある問題は、<span class="ui">ヒントを だす</span> で1つずつ出す</li>
+    <li>時間になると自動でしめきります。早く終わるときは <span class="ui">しめきる</span></li>
+    <li><span class="ui">こたえあわせ</span> で正解と解説を出す（正解を書いていない問題は、ここでA〜Dを選ぶ）</li>
+    <li><span class="ui">つぎの もんだいへ</span> で次へ。最後まで行くと終わり</li>
+  </ol>
+  <p><span class="ui">さいしょに もどる</span>（2回押す）で、セットの1問めからやり直せます。記録は消えません。</p>
+
+  <h2 id="a6">生徒の使いかた</h2>
+  <ol class="steps">
+    <li>URLかQRコードを開く</li>
+    <li>（参加コードを使うとき）4けたの数字を入れる。1回入れたら、次からは入れなくてよい</li>
+    <li>自分の名前（またはキャラ）を選ぶ</li>
+    <li>問題が出たら、答えのボタンを押す。変えたいときは、別の答えを2回押す（1回だけ）</li>
+    <li>こたえあわせで、○が出たら正解</li>
+  </ol>
+
+  <h2 id="a7">記録</h2>
+  <p>問題のタブごとに「きろく：タブ名」のタブができ、1人1問1行で残ります。その場で入れた問題は「きろく」タブに残ります。</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>列</th><th>中身</th></tr>
+    <tr><td>にちじ・セット・なんもんめ</td><td>いつ、どのセットの何問めか</td></tr>
+    <tr><td>なまえ・こたえ</td><td>だれが、どれを選んだか</td></tr>
+    <tr><td>せいかい</td><td>こたえあわせのときに ○ か × が入ります</td></tr>
+    <tr><td>もんだいぶん</td><td>問題の文</td></tr>
+    <tr><td>かえた</td><td>答えを変えた人に「かえた」と入ります</td></tr>
+  </table></div>
+
+  <h2 id="a8">よくある質問</h2>
+  <h3>先生用のURLを開いたのに、生徒の画面になる</h3>
+  <p>先生の画面は、スプレッドシートを作ったアカウントでログインしているときだけ開きます。ブラウザでそのアカウントに切りかえるか、シークレットウィンドウでそのアカウントだけでログインして開いてください。</p>
+  <h3>生徒が名前をまちがえて選んだ</h3>
+  <p><span class="ui">せってい</span> の「えらばれている なまえ」で、その名前を2回押すと、その生徒だけ選び直しになります。</p>
+  <h3>問題のタブが出てこない</h3>
+  <p>そのタブのA1のセルが「問題文」で始まっているか確かめてください。</p>
+  <h3>画像が出ない</h3>
+  <p>先生の画面に「みつからないよ」と出ていないか見てください。スプレッドシートに書いた名前と、<span class="ui">がぞう</span> の一覧の名前が同じか確かめます。</p>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -182,8 +182,9 @@
   .choice.correct{ border-color:var(--ok); background:#e3f6ec; }
   .choice.wrong{ border-color:var(--ng); background:#fdeedd; }
   .choice:disabled{ opacity:1; }
-  .time-in{ display:flex; align-items:baseline; gap:6px; font-size:28px; font-weight:700; }
-  .slot{ width:76px; height:66px; border-radius:14px; border:3px solid var(--line); background:#fff; font-size:36px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+  /* 入力の前と後で高さが変わらないように、行は真ん中でそろえ、わくの高さを固定する */
+  .time-in{ display:flex; align-items:center; gap:6px; font-size:28px; font-weight:700; min-height:66px; }
+  .slot{ flex:0 0 auto; width:76px; height:66px; border-radius:14px; border:3px solid var(--line); background:#fff; font-size:36px; font-weight:700; line-height:1; display:inline-flex; align-items:center; justify-content:center; overflow:hidden; }
   .slot.cur{ border-color:var(--pri); }
   .slot.wide{ width:180px; justify-content:flex-end; padding-right:14px; }
   .pad.small{ grid-template-columns:repeat(3,72px); gap:8px; }
