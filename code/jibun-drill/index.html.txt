@@ -1,0 +1,2878 @@
+<!DOCTYPE html>
+<!--
+  じぶんのドリル　画面（生徒用・先生用の両方が入っています）
+  Apps Script では、HTMLファイルの名前を index にしてください。
+  授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+-->
+<html lang="ja">
+<head>
+<? if (page === 'teacher') { ?>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#f2f7fb; --card:#fff; --ink:#2b3a4a; --soft:#5a6b7b;
+    --pri:#3f8cd6; --pri-d:#2f6fae; --pale:#e3f0fb; --line:#d6e2ee;
+    --ok:#43b581; --ok-d:#2f8a60; --ng:#e8913a; --ng-d:#b8661c;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; }
+  body{ font-family:"BIZ UDPGothic",sans-serif; background:var(--bg); color:var(--ink); touch-action:manipulation; -webkit-text-size-adjust:100%; }
+  button{ font-family:inherit; border:none; cursor:pointer; touch-action:manipulation; color:inherit; }
+  #app{ max-width:1100px; margin:0 auto; padding:14px; }
+  h1{ font-size:24px; margin:4px 0 10px; }
+  .card{ background:var(--card); border-radius:18px; box-shadow:0 4px 14px rgba(46,90,140,.12); padding:16px 20px; margin-bottom:12px; }
+  .tabs{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .tab{ min-height:48px; padding:0 20px; font-size:17px; font-weight:700; border-radius:14px; background:#dfeaf5; color:var(--soft); }
+  .tab.on{ background:var(--pri); color:#fff; }
+  .panel{ display:none; }
+  .panel.on{ display:block; }
+
+  .row{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .row:last-child{ border-bottom:none; }
+  .row .lbl{ flex:0 0 190px; font-size:16px; font-weight:700; }
+  .row.hide{ display:none; }
+  .sub-lbl{ font-size:15px; color:var(--soft); margin-left:6px; }
+  .nocode{ font-size:26px; font-weight:700; color:var(--pri-d); }
+  .seg{ display:flex; gap:8px; flex-wrap:wrap; }
+  .seg button{ min-height:44px; padding:0 16px; font-size:16px; border-radius:12px; background:#eef4fa; border:2px solid transparent; }
+  .seg button.on{ background:var(--pri); color:#fff; }
+  .seg button .ord{ display:inline-block; min-width:1.5em; height:1.5em; line-height:1.5em; border-radius:999px; background:#fff; color:var(--pri-d); font-size:13px; margin-right:6px; }
+  .stepper{ display:flex; align-items:center; gap:6px; }
+  .stepper button{ width:44px; height:44px; border-radius:12px; background:#fff; border:2px solid var(--line); font-size:18px; color:var(--pri-d); }
+  .stepper input{ width:58px; height:44px; border-radius:12px; border:2px solid var(--line); font-size:20px; font-weight:700; text-align:center; font-family:inherit; color:var(--ink); }
+  .unit{ color:var(--soft); }
+  .note{ font-size:13px; color:var(--soft); margin:6px 0 0; line-height:1.6; }
+  .btn{ min-height:52px; padding:0 26px; font-size:18px; font-weight:700; border-radius:14px; background:var(--pri); color:#fff; box-shadow:0 3px 0 var(--pri-d); }
+  .btn.warn{ background:var(--ng); box-shadow:0 3px 0 var(--ng-d); }
+  .btn.ghost{ background:#fff; color:var(--pri-d); border:2px solid var(--line); box-shadow:none; }
+  .btn:disabled{ opacity:.45; }
+  .btn-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+
+  /* 受付中 */
+  .open-box{ display:flex; gap:20px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .code-big{ font-size:72px; font-weight:700; letter-spacing:10px; color:var(--pri-d); line-height:1; }
+  .qr svg{ width:150px; height:150px; display:block; }
+  .open-info{ font-size:15px; line-height:1.7; }
+  .status-off{ color:var(--soft); font-size:16px; }
+
+  /* ようす */
+  .dash-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .summary{ font-size:16px; font-weight:700; }
+  .tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table{ border-collapse:collapse; width:100%; font-size:15px; }
+  th,td{ border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; vertical-align:top; }
+  th{ background:#eef4fa; font-size:14px; white-space:nowrap; }
+  td.num{ text-align:right; white-space:nowrap; }
+  .st{ display:inline-block; padding:2px 10px; border-radius:999px; font-size:13px; font-weight:700; white-space:nowrap; }
+  .st.ready{ background:#eef4fa; color:var(--soft); }
+  .st.playing{ background:var(--pale); color:var(--pri-d); }
+  .st.done{ background:#e3f6ec; color:var(--ok-d); }
+  .st.lost{ background:#fdeedd; color:var(--ng-d); }
+  .lvup{ color:var(--ok-d); font-weight:700; } .lvdown{ color:var(--ng-d); font-weight:700; }
+  .recent{ font-size:13px; color:var(--soft); line-height:1.5; }
+  .types{ font-size:13px; line-height:1.5; }
+
+  /* レベル設定 */
+  .set-tbl td{ vertical-align:middle; }
+  .set-tbl .stepper button{ width:40px; height:40px; }
+  .set-tbl .stepper input{ width:46px; height:40px; font-size:18px; }
+  .tog{ min-width:72px; min-height:40px; border-radius:12px; background:#eef4fa; font-weight:700; font-size:15px; }
+  .tog.on{ background:var(--ok); color:#fff; }
+  .way{ font-size:13px; color:var(--soft); white-space:nowrap; }
+  .save-msg{ text-align:center; font-weight:700; color:var(--ok-d); min-height:1.6em; }
+
+  .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#2b3a4a; color:#fff; padding:10px 20px; border-radius:12px; font-size:15px; display:none; z-index:30; }
+  .toast.show{ display:block; }
+</style>
+<? } else { ?>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f2f7fb; --card:#fff; --ink:#2b3a4a; --soft:#5a6b7b;
+    --pri:#3f8cd6; --pri-d:#2f6fae; --pale:#e3f0fb; --line:#d6e2ee;
+    --ok:#43b581; --ok-d:#2f8a60; --ng:#e8913a; --ng-d:#b8661c;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; overflow:hidden; }
+  body{
+    font-family:"BIZ UDPGothic",sans-serif; background:var(--bg); color:var(--ink);
+    touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  ruby rt{ font-size:.55em; font-weight:400; }
+  button{ font-family:inherit; border:none; cursor:pointer; touch-action:manipulation; color:inherit; }
+  #app{ height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .screen{ display:none; min-height:100%; padding:16px; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
+  .screen.active{ display:flex; }
+  .card{ background:var(--card); border-radius:20px; box-shadow:0 4px 14px rgba(46,90,140,.12); padding:20px 22px; width:100%; max-width:640px; text-align:center; }
+  h1{ font-size:28px; margin:0 0 6px; }
+  .msg{ font-size:20px; line-height:1.9; margin:6px 0; }
+  .sub{ font-size:15px; color:var(--soft); }
+  .err{ color:var(--ng-d); font-size:18px; min-height:1.9em; margin:4px 0; font-weight:700; }
+
+  .big-btn{ min-height:64px; min-width:200px; padding:6px 30px; font-size:24px; font-weight:700; border-radius:18px; background:var(--pri); color:#fff; box-shadow:0 4px 0 var(--pri-d); }
+  .big-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--pri-d); }
+  .big-btn:disabled{ opacity:.4; }
+  .ghost-btn{ min-height:48px; padding:0 22px; font-size:18px; font-weight:700; border-radius:14px; background:#fff; color:var(--pri-d); border:2px solid var(--line); }
+
+  /* コード入力 */
+  .code-boxes{ display:flex; gap:10px; justify-content:center; margin:10px 0; }
+  .code-box{ width:62px; height:74px; border-radius:14px; border:3px solid var(--line); background:#fff; font-size:40px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .code-box.cur{ border-color:var(--pri); }
+  .pad{ display:grid; grid-template-columns:repeat(3,82px); gap:10px; justify-content:center; margin-top:6px; }
+  .pad button{ height:66px; border-radius:16px; background:#fff; border:2px solid var(--line); font-size:28px; font-weight:700; }
+  .pad button:active{ background:var(--pale); }
+  .pad .pad-sub{ font-size:18px; color:var(--soft); }
+  .pad .pad-go{ background:var(--pri); color:#fff; border-color:var(--pri); font-size:18px; }
+
+  /* 名前 */
+  .name-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; width:100%; margin:10px 0; }
+  .name-btn{ min-height:60px; padding:6px 10px; font-size:20px; font-weight:700; border-radius:14px; background:#fff; border:3px solid var(--line); }
+  .name-btn.on{ border-color:var(--pri); background:var(--pale); color:var(--pri-d); }
+  .chara-grid{ grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); }
+  .chara-btn{ min-height:104px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  .chara-btn .ic{ font-size:46px; line-height:1.1; }
+  .chara-btn .nm{ font-size:18px; }
+  .chara-btn:disabled{ opacity:.35; }
+  .chara-btn .used{ font-size:13px; color:var(--soft); font-weight:400; }
+  .demo-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+
+  /* レベル */
+  .level-list{ display:flex; flex-direction:column; gap:10px; margin:10px 0; }
+  .level-btn{ min-height:64px; padding:8px 18px; border-radius:16px; background:#fff; border:3px solid var(--line); display:flex; align-items:center; gap:16px; text-align:left; }
+  .level-btn .lv{ font-size:22px; font-weight:700; color:var(--pri-d); min-width:4.5em; }
+  .level-btn .lb{ font-size:20px; font-weight:700; }
+  .level-btn .ex{ font-size:15px; color:var(--soft); margin-left:auto; }
+  .level-btn.last{ border-color:var(--pri); }
+  .level-sub{ font-size:16px; color:var(--soft); margin:0; }
+  .glabel{ font-size:17px; font-weight:700; color:var(--pri-d); background:var(--pale); border-radius:999px; padding:2px 14px; min-height:1.6em; }
+  .glabel.empty{ display:none; }
+  .gchange{ position:fixed; top:30%; left:50%; transform:translateX(-50%); background:#fff; border:3px solid var(--pri); color:var(--ink); font-size:28px; font-weight:700; padding:16px 34px; border-radius:20px; box-shadow:0 6px 20px rgba(0,0,0,.15); display:none; z-index:20; text-align:center; line-height:1.7; }
+  .gchange.show{ display:block; }
+  .res-per{ font-size:18px; line-height:1.8; margin:4px 0; }
+  #s-level .card{ max-width:820px; }
+  .level-btn .ex{ white-space:nowrap; }
+
+  /* 練習 */
+  #s-play{ justify-content:flex-start; gap:8px; padding-top:10px; }
+  .topbar{ width:100%; max-width:760px; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; }
+  .pill{ background:#fff; border-radius:999px; padding:6px 16px; font-size:18px; font-weight:700; border:2px solid var(--line); }
+  .pill.empty{ visibility:hidden; }
+  .prompt{ font-size:26px; font-weight:700; margin:2px 0; }
+  .play-main{ width:100%; max-width:760px; display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  #q-visual{ display:flex; flex-direction:column; align-items:center; }
+  .clock-box svg{ width:min(78vw,44vh,340px); height:auto; display:block; }
+  .clock-legend{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; font-size:16px; margin-top:4px; }
+  .lg-h{ color:#b8661c; font-weight:700; } .lg-m{ color:var(--pri-d); font-weight:700; }
+  #q-answer{ display:flex; flex-direction:column; align-items:center; gap:10px; min-width:280px; }
+  .choices{ display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:420px; }
+  .choices.two{ grid-template-columns:1fr; }
+  .choice{ min-height:68px; border-radius:16px; background:var(--pale); border:3px solid transparent; font-size:26px; font-weight:700; padding:4px 8px; }
+  .choice:active{ background:#cfe4f7; }
+  .choice.correct{ border-color:var(--ok); background:#e3f6ec; }
+  .choice.wrong{ border-color:var(--ng); background:#fdeedd; }
+  .choice:disabled{ opacity:1; }
+  .time-in{ display:flex; align-items:baseline; gap:6px; font-size:28px; font-weight:700; }
+  .slot{ width:76px; height:66px; border-radius:14px; border:3px solid var(--line); background:#fff; font-size:36px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+  .slot.cur{ border-color:var(--pri); }
+  .slot.wide{ width:180px; justify-content:flex-end; padding-right:14px; }
+  .pad.small{ grid-template-columns:repeat(3,72px); gap:8px; }
+  .pad.small button{ height:56px; font-size:24px; }
+  .pad.small .pad-go, .pad.small .pad-sub{ font-size:16px; padding:0; letter-spacing:-.5px; white-space:nowrap; }
+  .feedback{ min-height:3.2em; font-size:24px; font-weight:700; text-align:center; line-height:1.6; }
+  .feedback.ok{ color:var(--ok-d); }
+  .feedback.ng{ color:var(--ng-d); }
+  .hint{ font-size:18px; color:var(--ink); font-weight:400; margin-top:2px; }
+  .notice{ font-size:16px; color:var(--soft); min-height:1.5em; }
+  .levelup{ position:fixed; top:20%; left:50%; transform:translateX(-50%); background:#fff; border:3px solid var(--pri); color:var(--pri-d); font-size:30px; font-weight:700; padding:12px 30px; border-radius:20px; box-shadow:0 6px 20px rgba(0,0,0,.15); display:none; z-index:20; }
+  .levelup.show{ display:block; }
+
+  /* 結果 */
+  .result-num{ font-size:34px; font-weight:700; color:var(--pri-d); margin:6px 0; }
+  .send-state{ font-size:16px; color:var(--soft); min-height:1.6em; }
+</style>
+<? } ?>
+</head>
+<body>
+<? if (page === 'teacher') { ?>
+<div id="app">
+  <h1>じぶんのドリル（先生用）</h1>
+
+  <div class="card" id="open-card">
+    <div id="open-area"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-p="p-start">問題の設定</button>
+    <button class="tab" data-p="p-dash">ようす</button>
+    <button class="tab" data-p="p-set">レベル設定</button>
+  </div>
+
+  <!-- 始める -->
+  <section class="panel on" id="p-start">
+    <div class="card">
+      <div class="row"><span class="lbl">ジャンル<br><span class="unit" style="font-weight:400;font-size:13px;">いくつでも選べます</span></span><div class="seg" id="o-genre"></div></div>
+      <div class="row r-order"><span class="lbl">出し方</span>
+        <div class="seg" data-key="order"><button data-v="seq">じゅんばん</button><button data-v="mix">まぜる</button></div>
+        <span class="unit" id="order-note"></span></div>
+      <div class="row"><span class="lbl">参加コード</span>
+        <div class="seg" data-key="useCode"><button data-v="1">あり（4けた）</button><button data-v="0">なし</button></div></div>
+      <div class="row"><span class="lbl">生徒の選び方</span>
+        <div class="seg" data-key="who"><button data-v="roster">名簿から名前</button><button data-v="chara">キャラ（名簿なし）</button></div></div>
+      <div class="row r-roster"><span class="lbl">名簿</span><div class="seg" id="o-group"></div></div>
+      <div class="row r-chara"><span class="lbl">キャラのときのレベル</span>
+        <span class="sub-lbl">下限</span>
+        <div class="stepper"><button data-d="-1" data-t="o-clo">▽</button><input id="o-clo" type="number" inputmode="numeric"><button data-d="1" data-t="o-clo">△</button></div>
+        <span class="sub-lbl">上限</span>
+        <div class="stepper"><button data-d="-1" data-t="o-cup">▽</button><input id="o-cup" type="number" inputmode="numeric"><button data-d="1" data-t="o-cup">△</button></div>
+        <span class="sub-lbl">自動調整</span>
+        <div class="seg" data-key="charaAuto"><button data-v="1">する</button><button data-v="0">しない</button></div></div>
+      <div class="row"><span class="lbl">時間</span>
+        <div class="stepper"><button data-d="-1" data-t="o-min">▽</button><input id="o-min" type="number" inputmode="numeric" min="1" max="60" value="5"><button data-d="1" data-t="o-min">△</button><span class="unit">分</span></div></div>
+      <div class="row"><span class="lbl">答え方</span>
+        <div class="seg" data-key="answerMode"><button data-v="level">レベルどおり</button><button data-v="4">4択</button><button data-v="2">2択</button><button data-v="input">数字を入力</button></div></div>
+      <div class="row"><span class="lbl">生徒画面の残り時間</span>
+        <div class="seg" data-key="showTime"><button data-v="1">出す</button><button data-v="0">出さない</button></div></div>
+      <div class="row"><span class="lbl">生徒画面の正解数</span>
+        <div class="seg" data-key="showScore"><button data-v="1">出す</button><button data-v="0">出さない</button></div></div>
+      <div class="row"><span class="lbl">レベルアップの知らせ</span>
+        <div class="seg" data-key="levelUpNotice"><button data-v="0">出さない</button><button data-v="1">上がったときに出す</button></div></div>
+      <div class="row"><span class="lbl">まちがえた問題を多めに</span>
+        <div class="seg" data-key="weakFocus"><button data-v="1">出す</button><button data-v="0">出さない</button></div></div>
+      <div class="row"><span class="lbl">効果音</span>
+        <div class="seg" data-key="sound"><button data-v="1">あり</button><button data-v="0">なし</button></div></div>
+      <div class="row"><span class="lbl">自動調整で上がる</span>
+        <div class="stepper"><button data-d="-1" data-t="o-up">▽</button><input id="o-up" type="number" inputmode="numeric" min="1" max="10" value="3"><button data-d="1" data-t="o-up">△</button><span class="unit">問続けて正解</span></div></div>
+      <div class="row"><span class="lbl">自動調整で下がる</span>
+        <div class="stepper"><button data-d="-1" data-t="o-down">▽</button><input id="o-down" type="number" inputmode="numeric" min="1" max="10" value="2"><button data-d="1" data-t="o-down">△</button><span class="unit">問続けてまちがい</span></div></div>
+      <div class="row r-roster"><span class="lbl">先生が指定した生徒の始めのレベル</span>
+        <div class="seg" data-key="continueLevel"><button data-v="0">レベル設定どおり</button><button data-v="1">前回のつづき</button></div></div>
+      <p class="note">自動調整をするかどうかは、生徒ごとに「レベル設定」タブで決めます（キャラのときは上の「自動調整」で全員まとめて）。範囲を決めた生徒は、その範囲の外には出ません。<br>
+        キャラのときのレベル：下限・上限が空なら自由に選べます。同じキャラは2台で選べません。<br>
+        参加コードなしのときは、受付中ならURLを開くだけで参加できます。授業が終わったら「受付を終わる」を押してください。<br>
+        答え方「レベルどおり」：時計・何分前後・お金は レベル4から、計算・かけ算・何時に出るかなは レベル5から 数字を入力。それより下は4択（お金のレベル1は2択）です。<br>
+        ジャンルを2つ以上選んだとき：生徒はレベルを選ばずに始まります。ジャンルごとに「レベル設定」のレベルで始め、指定がなければ範囲の下限（範囲もなければレベル1）から始めます。「前回のつづき」にすると、前回のレベルから始めます。自動調整はジャンルごとに別々に働きます。<br>
+        出し方「じゅんばん」：時間をジャンルの数で分けて、選んだ順に出します（例：10分で2つなら5分ずつ）。「まぜる」：1問ごとにばらばらに出します。<br>
+        まちがえた問題を多めに：まちがえた問題は2問あとに、分が同じで時がちがう問題でもう一度出します（2回まで）。ほかの問題も半分くらいは、その生徒のまちがいが多い型を練習できる時刻にします。「きろく」の「出し方」に、ふつう・やり直し・にがて と残ります。<br>
+        生徒の時間は、生徒が「はじめる」を押したときから数えます。</p>
+      <div class="btn-row"><button class="btn" id="btn-start">この設定で受付を始める</button></div>
+    </div>
+  </section>
+
+  <!-- ようす -->
+  <section class="panel" id="p-dash">
+    <div class="card">
+      <div class="dash-head">
+        <span class="summary" id="dash-sum">まだ受付をしていません</span>
+        <button class="btn ghost" id="btn-refresh" style="min-height:44px;">今すぐ更新</button>
+      </div>
+      <div class="tbl-wrap"><table id="dash-tbl"></table></div>
+      <p class="note">5秒ごとに自動で更新します。1問ごとの記録はスプレッドシートの「きろく」、1回ごとのまとめは「まとめ」タブに残ります。</p>
+    </div>
+  </section>
+
+  <!-- レベル設定 -->
+  <section class="panel" id="p-set">
+    <div class="card">
+      <div class="row"><span class="lbl">ジャンル</span><div class="seg" id="set-genre"></div></div>
+      <div class="row" style="border:none;"><span class="lbl">名簿</span><div class="seg" id="set-group"></div></div>
+      <p class="note">・レベルに数字を入れる → 先生が指定（生徒は選ばずに始まります）<br>
+        ・下限・上限を入れる → その範囲から生徒が選びます<br>
+        ・すべて空 → 生徒が自由に選びます<br>
+        名前の行は「めいぼ」タブから自動で作られます。「めいぼ」タブは、1行目に名簿の名前（例：数学、理科）、その下に生徒の名前を入れます。列ごとに別の名簿になります。<br>
+        同じ生徒が2つの名簿にいるときは、レベル設定は共通です。</p>
+      <div class="tbl-wrap"><table class="set-tbl" id="set-tbl"></table></div>
+      <div class="save-msg" id="save-msg"></div>
+      <div class="btn-row"><button class="btn" id="btn-save">保存する</button></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<? } else { ?>
+<div id="app">
+
+  <!-- 1. 参加コード -->
+  <section id="s-code" class="screen active">
+    <div class="card">
+      <h1>じぶんのドリル</h1>
+      <p class="msg"><ruby>先生<rt>せんせい</rt></ruby>の <ruby>画面<rt>がめん</rt></ruby>に ある 4けたの <ruby>数字<rt>すうじ</rt></ruby>を <ruby>入<rt>い</rt></ruby>れてね</p>
+      <div class="code-boxes" id="code-boxes"></div>
+      <div class="err" id="code-err"></div>
+      <div class="pad" id="code-pad"></div>
+      <div class="demo-row" id="demo-row"></div>
+    </div>
+  </section>
+
+  <!-- 0. まだ始まっていない -->
+  <section id="s-wait" class="screen">
+    <div class="card">
+      <h1>じぶんのドリル</h1>
+      <p class="msg" id="wait-msg"></p>
+      <div style="margin-top:10px;"><button class="big-btn" id="wait-go">もういちど しらべる</button></div>
+    </div>
+  </section>
+
+  <!-- 2. 名前（またはキャラ） -->
+  <section id="s-name" class="screen">
+    <div class="card">
+      <p class="msg" id="name-title">じぶんの <ruby>名前<rt>なまえ</rt></ruby>を おしてね</p>
+      <div class="name-grid" id="name-grid"></div>
+      <div class="err" id="name-err"></div>
+      <button class="big-btn" id="name-go" disabled>すすむ</button>
+    </div>
+  </section>
+
+  <!-- 3. レベル -->
+  <section id="s-level" class="screen">
+    <div class="card">
+      <p class="msg" id="level-title"></p>
+      <p class="level-sub" id="level-sub"></p>
+      <div class="level-list" id="level-list"></div>
+    </div>
+  </section>
+
+  <!-- 4. はじめる -->
+  <section id="s-ready" class="screen">
+    <div class="card">
+      <p class="msg" id="ready-msg"></p>
+      <p class="sub" id="ready-sub"></p>
+      <div style="margin-top:14px;"><button class="big-btn" id="ready-go">はじめる</button></div>
+    </div>
+  </section>
+
+  <!-- 5. 練習 -->
+  <section id="s-play" class="screen">
+    <div class="topbar">
+      <span class="pill" id="pill-name"></span>
+      <span class="pill" id="pill-time"></span>
+      <span class="pill" id="pill-score"></span>
+    </div>
+    <div class="glabel empty" id="q-genre"></div>
+    <div class="prompt" id="q-prompt"></div>
+    <div class="play-main">
+      <div id="q-visual"></div>
+      <div id="q-answer"></div>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div id="next-row"></div>
+    <div class="notice" id="notice"></div>
+  </section>
+
+  <!-- 6. 結果 -->
+  <section id="s-result" class="screen">
+    <div class="card">
+      <h1>おつかれさま！</h1>
+      <div class="result-num" id="res-count"></div>
+      <div class="msg" id="res-score"></div>
+      <div class="res-per" id="res-per"></div>
+      <div class="send-state" id="send-state"></div>
+      <p class="msg" id="wait-next"></p>
+    </div>
+  </section>
+</div>
+
+<div class="levelup" id="levelup">レベルアップ！</div>
+<div class="gchange" id="gchange"></div>
+<? } ?>
+<!-- ===== ジャンル（生徒用・先生用で共通） ===== -->
+<!-- ジャンル：clock -->
+<script>
+/************************************************************
+ * ジャンル：時計の読み取り
+ * どのジャンルも同じ約束で作る
+ *   make(level, prev)   … 問題をつくる
+ *   render(q, el, opt)  … 問題の絵をかく（opt.explain で解説用の色）
+ *   choices(q, n)       … 選択肢 n こ（正解1つ＋まちがいの型つきの誤答）
+ *   judge(q, given)     … 正誤とまちがいの型
+ *   hint(type)          … まちがえたときのヒント（ふりがなつき）
+ ************************************************************/
+window.GENRES = window.GENRES || {};
+(function () {
+  const STEP = [60, 30, 15, 5, 1];
+
+  function fmt(h, m) { return m === 0 ? `${h}時` : `${h}時${m}分`; }
+  function wrapH(h) { return ((h - 1) % 12 + 12) % 12 + 1; }
+  function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+  function make(level, prev) {
+    const step = STEP[level - 1];
+    let h, m, guard = 0;
+    do {
+      h = rint(1, 12);
+      m = step === 60 ? 0 : rint(0, 60 / step - 1) * step;
+      // レベル4・5は「ちょうど」が出すぎないように
+      if (level >= 4 && m === 0) continue;
+      guard++;
+    } while (guard < 30 && prev && prev.h === h && prev.m === m);
+    if (level >= 4 && m === 0) m = step;
+    return { h, m, level, text: fmt(h, m) + 'の時計', answerText: fmt(h, m) };
+  }
+
+  // まちがえやすい答え（よくある読みまちがい）を、出しやすい順にならべる
+  function candidates(q) {
+    const { h, m, level } = q;
+    const list = [];
+    const add = (hh, mm, type) => {
+      hh = wrapH(hh); mm = ((mm % 60) + 60) % 60;
+      if (hh === h && mm === m) return;
+      if (list.some(c => c.h === hh && c.m === mm)) return;
+      list.push({ h: hh, m: mm, type });
+    };
+    // 長いはりと短いはりを取りちがえる
+    const swapH = m === 0 ? 12 : (Math.floor(m / 5) || 12);
+    const swapM = ((h % 12) * 5 + Math.floor(m / 12)) % 60;
+    add(swapH, swapM, 'はりの取りちがえ');
+    // 短いはりが次の数字に近いので、次の時と読む
+    if (m >= 25) add(h + 1, m, '次の時と読む');
+    // 長いはりがさす数字をそのまま分と読む（20分→4分）
+    if (m > 0 && m % 5 === 0) add(h, m / 5, '分の読みかた');
+    add(h - 1, m, '前の時と読む');
+    if (m < 25) add(h + 1, m, '次の時と読む');
+    // 分が少しずれる
+    if (level >= 2) {
+      const s = STEP[level - 1];
+      add(h, m + s, '分のずれ');
+      add(h, m - s, '分のずれ');
+      if (level >= 4) { add(h, m + 5 * (level === 5 ? 1 : 2), '分のずれ'); }
+    }
+    return list;
+  }
+
+  function choices(q, n) {
+    const cands = candidates(q);
+    // 上位から少しだけ入れかえて、毎回同じ並びにならないようにする
+    const top = cands.slice(0, Math.min(cands.length, n + 1));
+    for (let i = top.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [top[i], top[j]] = [top[j], top[i]];
+    }
+    const pick = top.slice(0, n - 1);
+    // 足りないときは、そのレベルのきざみでずらした時刻でうめる
+    const st = q.level === 1 ? 30 : STEP[q.level - 1];
+    let k = 2;
+    while (pick.length < n - 1 && k < 120) {
+      const mm = (q.m + k * st) % 60;
+      if (!pick.some(c => c.h === q.h && c.m === mm) && mm !== q.m) pick.push({ h: q.h, m: mm, type: 'そのほか' });
+      k++;
+    }
+    const all = pick.map(c => ({ h: c.h, m: c.m, type: c.type, correct: false, text: fmt(c.h, c.m) }));
+    all.push({ h: q.h, m: q.m, type: '', correct: true, text: fmt(q.h, q.m) });
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    return all;
+  }
+
+  function judge(q, given) {
+    const ok = given.h === q.h && given.m === q.m;
+    if (ok) return { ok: true, type: '' };
+    if (given.type) return { ok: false, type: given.type };
+    const c = candidates(q).find(c => c.h === given.h && c.m === given.m);
+    return { ok: false, type: c ? c.type : 'そのほか' };
+  }
+
+  // まちがえた問題に「にた問題」：分はそのまま、時だけかえる
+  function similar(q) {
+    let h; do { h = rint(1, 12); } while (h === q.h);
+    return { h, m: q.m, level: q.level, text: fmt(h, q.m) + 'の時計', answerText: fmt(h, q.m) };
+  }
+
+  // その問題が、そのまちがいの型を練習できる問題かどうか
+  function fits(q, type) {
+    const m = q.m;
+    switch (type) {
+      case 'はりの取りちがえ': return m > 0 && Math.floor(m / 5) !== q.h % 12;
+      case '次の時と読む': return m >= 30;
+      case '前の時と読む': return m > 0 && m <= 20;
+      case '分の読みかた': return m >= 10 && m % 5 === 0;
+      case '分のずれ': return m % 15 !== 0;
+      default: return false;
+    }
+  }
+
+  const HINTS = {
+    'はりの取りちがえ': '<ruby>短<rt>みじか</rt></ruby>い はりが「<ruby>何時<rt>なんじ</rt></ruby>」、<ruby>長<rt>なが</rt></ruby>い はりが「<ruby>何分<rt>なんぷん</rt></ruby>」を おしえているよ。',
+    '次の時と読む': '<ruby>短<rt>みじか</rt></ruby>い はりは、まだ <ruby>次<rt>つぎ</rt></ruby>の <ruby>数字<rt>すうじ</rt></ruby>の <ruby>手前<rt>てまえ</rt></ruby>に あるよ。',
+    '前の時と読む': '<ruby>短<rt>みじか</rt></ruby>い はりが <ruby>通<rt>とお</rt></ruby>りすぎた <ruby>数字<rt>すうじ</rt></ruby>を <ruby>読<rt>よ</rt></ruby>むよ。',
+    '分の読みかた': '<ruby>長<rt>なが</rt></ruby>い はりは、<ruby>数字<rt>すうじ</rt></ruby>が 1つ すすむと 5分 だよ。',
+    '分のずれ': '<ruby>長<rt>なが</rt></ruby>い はりの <ruby>目<rt>め</rt></ruby>もりを、ゆっくり <ruby>数<rt>かぞ</rt></ruby>えてみてね。',
+    'そのほか': '<ruby>短<rt>みじか</rt></ruby>い はりと <ruby>長<rt>なが</rt></ruby>い はりを、ひとつずつ <ruby>見<rt>み</rt></ruby>てみてね。',
+  };
+  function hint(type) { return HINTS[type] || HINTS['そのほか']; }
+
+  // 時計の絵（SVG）。explain=true のとき、短いはり＝オレンジ、長いはり＝青で色分けして名前をつける
+  function svg(h, m, explain) {
+    const cx = 100, cy = 100;
+    let s = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="時計">`;
+    s += `<circle cx="${cx}" cy="${cy}" r="94" fill="#fff" stroke="#2b3a4a" stroke-width="3"/>`;
+    for (let i = 0; i < 60; i++) {
+      const a = i * 6 * Math.PI / 180, five = i % 5 === 0;
+      const r1 = five ? 82 : 87, r2 = 92;
+      s += `<line x1="${cx + r1 * Math.sin(a)}" y1="${cy - r1 * Math.cos(a)}" x2="${cx + r2 * Math.sin(a)}" y2="${cy - r2 * Math.cos(a)}" stroke="#2b3a4a" stroke-width="${five ? 2.4 : 1}"/>`;
+    }
+    for (let i = 1; i <= 12; i++) {
+      const a = i * 30 * Math.PI / 180;
+      s += `<text x="${cx + 69 * Math.sin(a)}" y="${cy - 69 * Math.cos(a) + 7}" font-size="20" font-weight="700" text-anchor="middle" fill="#2b3a4a" font-family="BIZ UDPGothic, sans-serif">${i}</text>`;
+    }
+    const ha = ((h % 12) + m / 60) * 30 * Math.PI / 180;
+    const ma = m * 6 * Math.PI / 180;
+    const hc = explain ? '#e8913a' : '#2b3a4a', mc = explain ? '#3f8cd6' : '#2b3a4a';
+    s += `<line x1="${cx}" y1="${cy}" x2="${cx + 46 * Math.sin(ha)}" y2="${cy - 46 * Math.cos(ha)}" stroke="${hc}" stroke-width="8" stroke-linecap="round"/>`;
+    s += `<line x1="${cx}" y1="${cy}" x2="${cx + 74 * Math.sin(ma)}" y2="${cy - 74 * Math.cos(ma)}" stroke="${mc}" stroke-width="5" stroke-linecap="round"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="5" fill="#2b3a4a"/>`;
+    s += `</svg>`;
+    return s;
+  }
+
+  function render(q, el, opt) {
+    const explain = opt && opt.explain;
+    let html = `<div class="clock-box">${svg(q.h, q.m, explain)}</div>`;
+    if (explain) {
+      html += `<div class="clock-legend"><span class="lg lg-h">■ <ruby>短<rt>みじか</rt></ruby>い はり＝<ruby>何時<rt>なんじ</rt></ruby></span>`
+        + `<span class="lg lg-m">■ <ruby>長<rt>なが</rt></ruby>い はり＝<ruby>何分<rt>なんぷん</rt></ruby></span></div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  window.GENRES.clock = {
+    key: 'clock',
+    name: '時計の読み取り',
+    nameRuby: '<ruby>時計<rt>とけい</rt></ruby>',
+    prompt: '<ruby>何時何分<rt>なんじなんぷん</rt></ruby>かな？',
+    answerKind: 'time',
+    levels: [
+      { label: 'ちょうど', ex: '3時' },
+      { label: '30分きざみ', ex: '3時30分' },
+      { label: '15分きざみ', ex: '3時15分' },
+      { label: '5分きざみ', ex: '3時25分', mode: 'input' },
+      { label: '1分きざみ', ex: '3時27分', mode: 'input' },
+    ],
+    fmt, make, render, choices, judge, hint, similar, fits,
+  };
+})();
+</script>
+<!-- ジャンル：maeato -->
+<style>
+  .ma-text{ font-size:26px; font-weight:700; text-align:center; margin:0 0 6px; line-height:1.6; }
+  .ma-text .ma-diff{ color:#2f6fae; }
+  .ma-two{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  .ma-two .ma-col{ display:flex; flex-direction:column; align-items:center; }
+  .ma-two .ma-cap{ font-size:18px; font-weight:700; margin-bottom:2px; }
+  .ma-two .ma-arrow{ font-size:20px; font-weight:700; color:#2f6fae; text-align:center; line-height:1.4; }
+  .ma-two .clock-box svg{ width:min(38vw,30vh,230px); }
+</style>
+<script>
+/************************************************************
+ * ジャンル：何分まえ・何分あと
+ * 時計（はじめの時刻）と「○分あと／まえ」を見て、その時刻を答える
+ * どのジャンルも同じ約束で作る（genre_clock.html を参照）
+ ************************************************************/
+window.GENRES = window.GENRES || {};
+(function () {
+  // step：時刻と分のきざみ、diffs：何分（最小・最大）、both：まえも出す、cross：時をこえるか
+  const CONF = [
+    { step: 10, min: 10, max: 30, both: false, cross: 'no' },
+    { step: 10, min: 10, max: 30, both: true,  cross: 'no' },
+    { step: 5,  min: 5,  max: 30, both: true,  cross: 'no' },
+    { step: 5,  min: 5,  max: 45, both: true,  cross: 'yes' },
+    { step: 1,  min: 1,  max: 59, both: true,  cross: 'any' },
+  ];
+
+  function fmt(h, m) { return m === 0 ? `${h}時` : `${h}時${m}分`; }
+  function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function toMin(h, m) { return (h % 12) * 60 + m; }
+  function fromMin(t) {
+    t = ((t % 720) + 720) % 720;
+    const h = Math.floor(t / 60);
+    return { h: h === 0 ? 12 : h, m: t % 60 };
+  }
+  function wrapH(h) { return ((h - 1) % 12 + 12) % 12 + 1; }
+  const AFTER = 'あと', BEFORE = 'まえ';
+
+  function build(h, m, diff, after, level) {
+    const e = fromMin(toMin(h, m) + (after ? diff : -diff));
+    const end = m + (after ? diff : -diff);
+    return {
+      h0: h, m0: m, diff, after, level,
+      h: e.h, m: e.m, cross: end < 0 || end >= 60,
+      text: `${fmt(h, m)}の${diff}分${after ? AFTER : BEFORE}`,
+      answerText: fmt(e.h, e.m),
+    };
+  }
+
+  function make(level, prev) {
+    const c = CONF[level - 1];
+    for (let guard = 0; guard < 200; guard++) {
+      const diff = rint(c.min / c.step, c.max / c.step) * c.step;
+      const after = c.both ? Math.random() < 0.5 : true;
+      const h = rint(1, 12);
+      const m = rint(0, 60 / c.step - 1) * c.step;
+      const end = m + (after ? diff : -diff);
+      const cross = end < 0 || end >= 60;
+      if (c.cross === 'no' && cross) continue;
+      if (c.cross === 'yes' && !cross) continue;
+      if (prev && prev.h0 === h && prev.m0 === m && prev.diff === diff) continue;
+      return build(h, m, diff, after, level);
+    }
+    return build(3, 10, 20, true, level);
+  }
+
+  // まちがえやすい答え（出しやすい順）
+  function candidates(q) {
+    const list = [];
+    const add = (hh, mm, type) => {
+      hh = wrapH(hh); mm = ((mm % 60) + 60) % 60;
+      if (hh === q.h && mm === q.m) return;
+      if (list.some(c => c.h === hh && c.m === mm)) return;
+      list.push({ h: hh, m: mm, type });
+    };
+    // まえ と あと を反対にした
+    const o = fromMin(toMin(q.h0, q.m0) + (q.after ? -q.diff : q.diff));
+    add(o.h, o.m, 'まえとあとの取りちがえ');
+    if (q.cross) {
+      // 分は合っているが、時をかえわすれた
+      add(q.h0, q.m, '時がかわっていない');
+      add(q.h + (q.after ? 1 : -1), q.m, '時のかえすぎ');
+    } else {
+      add(q.h + 1, q.m, '時のまちがい');
+      add(q.h - 1, q.m, '時のまちがい');
+    }
+    const s = CONF[q.level - 1].step;
+    add(q.h, q.m + s, '分の計算');
+    add(q.h, q.m - s, '分の計算');
+    if (s === 1) { add(q.h, q.m + 10, '分の計算'); add(q.h, q.m - 10, '分の計算'); }
+    // はじめの時刻のまま
+    add(q.h0, q.m0, 'そのほか');
+    return list;
+  }
+
+  function choices(q, n) {
+    const cands = candidates(q);
+    const top = cands.slice(0, Math.min(cands.length, n + 1));
+    for (let i = top.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [top[i], top[j]] = [top[j], top[i]];
+    }
+    const pick = top.slice(0, n - 1);
+    const st = CONF[q.level - 1].step;
+    let k = 2;
+    while (pick.length < n - 1 && k < 120) {
+      const t = fromMin(toMin(q.h, q.m) + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * st);
+      if (!(t.h === q.h && t.m === q.m) && !pick.some(c => c.h === t.h && c.m === t.m)) pick.push({ h: t.h, m: t.m, type: 'そのほか' });
+      k++;
+    }
+    const all = pick.map(c => ({ h: c.h, m: c.m, type: c.type, correct: false, text: fmt(c.h, c.m) }));
+    all.push({ h: q.h, m: q.m, type: '', correct: true, text: fmt(q.h, q.m) });
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    return all;
+  }
+
+  function judge(q, given) {
+    if (given.h === q.h && given.m === q.m) return { ok: true, type: '' };
+    if (given.type) return { ok: false, type: given.type };
+    const c = candidates(q).find(c => c.h === given.h && c.m === given.m);
+    return { ok: false, type: c ? c.type : 'そのほか' };
+  }
+
+  // にた問題：分・何分・まえあと はそのまま、時だけかえる
+  function similar(q) {
+    let h; do { h = rint(1, 12); } while (h === q.h0);
+    return build(h, q.m0, q.diff, q.after, q.level);
+  }
+
+  function fits(q, type) {
+    switch (type) {
+      case 'まえとあとの取りちがえ': return CONF[q.level - 1].both;
+      case '時がかわっていない': return q.cross;
+      case '時のまちがい': return !q.cross;
+      case '時のかえすぎ': return q.cross;
+      case '分の計算': return q.m0 !== 0;
+      default: return false;
+    }
+  }
+
+  const HINTS = {
+    'まえとあとの取りちがえ': '「あと」は <ruby>長<rt>なが</rt></ruby>い はりを すすめる、「まえ」は もどすよ。',
+    '時がかわっていない': '<ruby>長<rt>なが</rt></ruby>い はりが 12を とおりこすと、<ruby>短<rt>みじか</rt></ruby>い はりの <ruby>数字<rt>すうじ</rt></ruby>も 1つ かわるよ。',
+    '時のまちがい': '<ruby>長<rt>なが</rt></ruby>い はりが 12を とおらないときは、<ruby>短<rt>みじか</rt></ruby>い はりの <ruby>数字<rt>すうじ</rt></ruby>は そのままだよ。',
+    '時のかえすぎ': '<ruby>長<rt>なが</rt></ruby>い はりが 12を 1かい とおると、<ruby>短<rt>みじか</rt></ruby>い はりの <ruby>数字<rt>すうじ</rt></ruby>は 1つだけ かわるよ。',
+    '分の計算': '<ruby>長<rt>なが</rt></ruby>い はりを、<ruby>目<rt>め</rt></ruby>もりを <ruby>数<rt>かぞ</rt></ruby>えながら ゆっくり うごかしてみてね。',
+    'そのほか': 'はじめの <ruby>時計<rt>とけい</rt></ruby>から、<ruby>長<rt>なが</rt></ruby>い はりを うごかして <ruby>考<rt>かんが</rt></ruby>えてみてね。',
+  };
+  function hint(type) { return HINTS[type] || HINTS['そのほか']; }
+
+  // 時計の絵。arc があるとき、長いはりが動いた道のりを うすい青でかく
+  function svg(h, m, arc) {
+    const cx = 100, cy = 100;
+    let s = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="時計">`;
+    s += `<circle cx="${cx}" cy="${cy}" r="94" fill="#fff" stroke="#2b3a4a" stroke-width="3"/>`;
+    if (arc) {
+      const r = 60, a0 = arc.from * 6, sweep = arc.min * 6 * (arc.after ? 1 : -1);
+      const a1 = a0 + sweep;
+      const p = a => [cx + r * Math.sin(a * Math.PI / 180), cy - r * Math.cos(a * Math.PI / 180)];
+      const [x0, y0] = p(a0), [x1, y1] = p(a1);
+      const large = Math.abs(sweep) > 180 ? 1 : 0;
+      s += `<path d="M${x0} ${y0} A${r} ${r} 0 ${large} ${arc.after ? 1 : 0} ${x1} ${y1}" fill="none" stroke="#9cc6ec" stroke-width="18" stroke-linecap="round" opacity=".8"/>`;
+    }
+    for (let i = 0; i < 60; i++) {
+      const a = i * 6 * Math.PI / 180, five = i % 5 === 0;
+      const r1 = five ? 82 : 87, r2 = 92;
+      s += `<line x1="${cx + r1 * Math.sin(a)}" y1="${cy - r1 * Math.cos(a)}" x2="${cx + r2 * Math.sin(a)}" y2="${cy - r2 * Math.cos(a)}" stroke="#2b3a4a" stroke-width="${five ? 2.4 : 1}"/>`;
+    }
+    for (let i = 1; i <= 12; i++) {
+      const a = i * 30 * Math.PI / 180;
+      s += `<text x="${cx + 69 * Math.sin(a)}" y="${cy - 69 * Math.cos(a) + 7}" font-size="20" font-weight="700" text-anchor="middle" fill="#2b3a4a" font-family="BIZ UDPGothic, sans-serif">${i}</text>`;
+    }
+    const ha = ((h % 12) + m / 60) * 30 * Math.PI / 180;
+    const ma = m * 6 * Math.PI / 180;
+    s += `<line x1="${cx}" y1="${cy}" x2="${cx + 46 * Math.sin(ha)}" y2="${cy - 46 * Math.cos(ha)}" stroke="#2b3a4a" stroke-width="8" stroke-linecap="round"/>`;
+    s += `<line x1="${cx}" y1="${cy}" x2="${cx + 74 * Math.sin(ma)}" y2="${cy - 74 * Math.cos(ma)}" stroke="#2b3a4a" stroke-width="5" stroke-linecap="round"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="5" fill="#2b3a4a"/>`;
+    return s + `</svg>`;
+  }
+
+  function sentence(q) {
+    return `<div class="ma-text">${fmt(q.h0, q.m0)}の <span class="ma-diff">${q.diff}分 ${q.after ? AFTER : BEFORE}</span>は？</div>`;
+  }
+
+  function render(q, el, opt) {
+    if (opt && opt.explain) {
+      el.innerHTML = sentence(q) + `<div class="ma-two">
+        <div class="ma-col"><div class="ma-cap">はじめ ${fmt(q.h0, q.m0)}</div><div class="clock-box">${svg(q.h0, q.m0)}</div></div>
+        <div class="ma-arrow">${q.diff}分<br>${q.after ? AFTER : BEFORE}<br>${q.after ? '→' : '←'}</div>
+        <div class="ma-col"><div class="ma-cap">こたえ ${fmt(q.h, q.m)}</div><div class="clock-box">${svg(q.h, q.m, { from: q.m0, min: q.diff, after: q.after })}</div></div>
+      </div>`;
+      return;
+    }
+    el.innerHTML = sentence(q) + `<div class="clock-box">${svg(q.h0, q.m0)}</div>`;
+  }
+
+  window.GENRES.maeato = {
+    key: 'maeato',
+    name: '何分前・何分後',
+    nameRuby: '<ruby>何分<rt>なんぷん</rt></ruby>まえ・あと',
+    prompt: '<ruby>何時何分<rt>なんじなんぷん</rt></ruby>かな？',
+    answerKind: 'time',
+    levels: [
+      { label: '10分きざみ・あと', ex: '3時10分の 20分あと' },
+      { label: '10分きざみ・まえも', ex: '3時40分の 20分まえ' },
+      { label: '5分きざみ', ex: '3時25分の 15分あと' },
+      { label: '5分きざみ・時を こえる', ex: '3時50分の 20分あと', mode: 'input' },
+      { label: '1分きざみ', ex: '3時48分の 17分まえ', mode: 'input' },
+    ],
+    fmt, make, render, choices, judge, hint, similar, fits,
+  };
+})();
+</script>
+<!-- ジャンル：okane -->
+<style>
+  .ok-box{ width:min(94vw,560px); display:flex; flex-wrap:wrap; gap:10px 14px; justify-content:center; align-items:flex-start; }
+  .ok-grp{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .ok-row{ display:flex; flex-wrap:wrap; gap:4px; justify-content:center; align-items:center; max-width:min(94vw,440px); }
+  .ok-row svg{ display:block; }
+  .ok-grp.ex{ background:#fff; border-radius:14px; padding:4px 8px; border:2px solid #d6e2ee; }
+  .ok-cap{ font-size:16px; font-weight:700; white-space:nowrap; }
+  .ok-sum{ width:100%; text-align:center; font-size:22px; font-weight:700; color:#2f6fae; }
+</style>
+<script>
+/************************************************************
+ * ジャンル：お金（ぜんぶでいくら？）
+ * 硬貨・お札を見て、合計の金額を答える
+ * answerKind: 'number'（答えは数。入力のときは「円」をつけて1つのわくに入れる）
+ ************************************************************/
+window.GENRES = window.GENRES || {};
+(function () {
+  const YEN = '<ruby>円<rt>えん</rt></ruby>';
+  const ORDER = [10000, 5000, 1000, 500, 100, 50, 10, 5, 1];
+
+  // レベルごとの まい数のはんい（[最小, 最大]）、合計のはんい（min〜max円）、かならず入れるお金
+  const CONF = [
+    { r: { 100: [0, 4], 50: [0, 2], 10: [0, 5] }, min: 30, max: 500, need: [] },
+    { r: { 500: [0, 1], 100: [0, 4], 50: [0, 2], 10: [0, 5] }, min: 300, max: 1000, need: [[500]] },
+    { r: { 500: [1, 5], 100: [0, 5], 50: [0, 2], 10: [0, 5] }, min: 1000, max: 3000, need: [[500]] },
+    { r: { 500: [0, 5], 100: [0, 5], 50: [0, 2], 10: [0, 5], 5: [0, 2], 1: [0, 4] }, min: 300, max: 3000, need: [[1, 5]] },
+    { r: { 10000: [0, 2], 5000: [0, 1], 1000: [0, 4], 500: [0, 1], 100: [0, 4], 50: [0, 1], 10: [0, 4], 5: [0, 1], 1: [0, 4] }, min: 1000, max: 99999, need: [[1000, 5000, 10000]] },
+  ];
+
+  function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function fmt(v) { return `${v}円`; }
+  function fmtHtml(v) { return `${v}${YEN}`; }
+
+  function total(items) { return ORDER.reduce((s, d) => s + d * (items[d] || 0), 0); }
+  function count(items) { return ORDER.reduce((s, d) => s + (items[d] || 0), 0); }
+  function kinds(items) { return ORDER.filter(d => items[d] > 0); }
+
+  function build(items, level) {
+    const v = total(items);
+    const text = kinds(items).map(d => `${d}円×${items[d]}`).join(' ');
+    return { items, level, v, text, answerText: fmt(v), answerHtml: fmtHtml(v) };
+  }
+
+  function ok_(items, c) {
+    const ks = kinds(items);
+    if (ks.length < 2) return false;
+    const v = total(items);
+    if (v < c.min || v > c.max) return false;
+    return c.need.every(group => group.some(d => items[d] > 0));
+  }
+
+  function make(level, prev) {
+    const c = CONF[level - 1];
+    for (let g = 0; g < 300; g++) {
+      const items = {};
+      Object.keys(c.r).forEach(d => { items[d] = rint(c.r[d][0], c.r[d][1]); });
+      if (!ok_(items, c)) continue;
+      if (prev && prev.v === total(items)) continue;
+      return build(items, level);
+    }
+    return build({ 100: 2, 10: 3 }, level);
+  }
+
+  // 見まちがえやすいお金
+  const PAIR = { 1: 10, 5: 50, 10: 100, 50: 5, 100: 10, 500: 50, 1000: 100, 5000: 500, 10000: 1000 };
+
+  function candidates(q) {
+    const T = q.v, list = [];
+    const add = (v, type) => {
+      if (v <= 0 || v === T || list.some(c => c.v === v)) return;
+      list.push({ v, type });
+    };
+    const ks = kinds(q.items);
+    const one = [], swap = [];
+    ks.forEach(d => {
+      one.push(T - d); one.push(T + d);
+      if (PAIR[d]) swap.push(T - d + PAIR[d]);
+    });
+    // かたよらないように、型をまぜて ならべる
+    const mix = [];
+    for (let i = 0; i < Math.max(one.length, swap.length); i++) {
+      if (one[i] !== undefined) mix.push([one[i], '1まい数えまちがい']);
+      if (swap[i] !== undefined) mix.push([swap[i], 'お金の取りちがえ']);
+    }
+    for (let i = mix.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [mix[i], mix[j]] = [mix[j], mix[i]];
+    }
+    mix.forEach(([v, t]) => add(v, t));
+    add(count(q.items), 'まい数を答えた');
+    return list;
+  }
+
+  function choices(q, n) {
+    const cands = candidates(q);
+    const pick = cands.slice(0, n - 1);
+    let k = 1;
+    while (pick.length < n - 1 && k < 60) {
+      const v = q.v + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 10;
+      if (v > 0 && v !== q.v && !pick.some(c => c.v === v)) pick.push({ v, type: 'そのほか' });
+      k++;
+    }
+    const all = pick.map(c => ({ v: c.v, type: c.type, correct: false, text: fmt(c.v), html: fmtHtml(c.v) }));
+    all.push({ v: q.v, type: '', correct: true, text: fmt(q.v), html: fmtHtml(q.v) });
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    return all;
+  }
+
+  function judge(q, given) {
+    if (given.v === q.v) return { ok: true, type: '' };
+    if (given.type) return { ok: false, type: given.type };
+    const c = candidates(q).find(c => c.v === given.v);
+    return { ok: false, type: c ? c.type : 'そのほか' };
+  }
+
+  // にた問題：同じ種類のお金で、まい数を少しかえる
+  function similar(q) {
+    const c = CONF[q.level - 1];
+    for (let g = 0; g < 100; g++) {
+      const items = Object.assign({}, q.items);
+      const ks = Object.keys(c.r);
+      const d = ks[rint(0, ks.length - 1)];
+      items[d] = Math.max(c.r[d][0], Math.min(c.r[d][1], (items[d] || 0) + (Math.random() < 0.5 ? 1 : -1)));
+      if (total(items) !== q.v && ok_(items, c)) return build(items, q.level);
+    }
+    return make(q.level, q);
+  }
+
+  function fits(q, type) {
+    switch (type) {
+      case '1まい数えまちがい': return count(q.items) >= 5;
+      case 'お金の取りちがえ': return kinds(q.items).some(d => PAIR[d] && q.items[PAIR[d]] > 0);
+      case 'まい数を答えた': return true;
+      default: return false;
+    }
+  }
+
+  const HINTS = {
+    '1まい数えまちがい': '1まいずつ ゆびで さしながら、ゆっくり <ruby>数<rt>かぞ</rt></ruby>えてみてね。',
+    'お金の取りちがえ': '5' + YEN + 'と 50' + YEN + '、10' + YEN + 'と 100' + YEN + 'は にているよ。<ruby>書<rt>か</rt></ruby>いてある <ruby>数字<rt>すうじ</rt></ruby>を よく <ruby>見<rt>み</rt></ruby>てね。',
+    'まい数を答えた': 'なんまい あるか ではなく、ぜんぶで いくらかを こたえるよ。',
+    'そのほか': '<ruby>大<rt>おお</rt></ruby>きい お<ruby>金<rt>かね</rt></ruby>から じゅんに たしてみてね。',
+  };
+  function hint(type) { return HINTS[type] || HINTS['そのほか']; }
+
+  /* ---------- 絵 ---------- */
+  const COIN = {
+    1:   { bg: '#b2b2b2', inner: '#d0d0d0', rim: '#444444', hole: false, size: 50 },
+    5:   { bg: '#c8a84b', inner: '#e0c060', rim: '#5a3a00', hole: true,  size: 56 },
+    10:  { bg: '#b87333', inner: '#d4946a', rim: '#4a1800', hole: false, size: 58 },
+    50:  { bg: '#b0b0b0', inner: '#d0d0d0', rim: '#333333', hole: true,  size: 54 },
+    100: { bg: '#a8a8a8', inner: '#c8c8c8', rim: '#2a2a2a', hole: false, size: 58 },
+    500: { bg: '#a0a8b0', inner: '#c0c8d0', rim: '#1a3060', hole: false, size: 66 },
+  };
+  function coinSVG(val, k) {
+    const c = COIN[val], size = Math.round(c.size * k), r = size / 2;
+    // 穴のあるお金は、穴の上に小さめの数字
+    const ts = c.hole ? (val >= 10 ? size * 0.3 : size * 0.34) : val >= 100 ? size * 0.28 : val >= 10 ? size * 0.32 : size * 0.38;
+    const ty = c.hole ? r - size * 0.15 : r + ts * 0.36;
+    const hole = c.hole ? `<circle cx="${r}" cy="${r}" r="${size * 0.11}" fill="#fff8e7" stroke="${c.rim}" stroke-width="1.2"/>` : '';
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-label="${val}円">
+      <circle cx="${r}" cy="${r}" r="${r - 1}" fill="${c.rim}"/><circle cx="${r}" cy="${r}" r="${r - 3}" fill="${c.bg}"/>
+      <circle cx="${r}" cy="${r}" r="${r - 5}" fill="${c.inner}" opacity="0.5"/>${hole}
+      <text x="${r}" y="${ty}" text-anchor="middle" font-size="${ts}" font-weight="900" fill="${c.rim}" font-family="BIZ UDPGothic,sans-serif">${val}</text></svg>`;
+  }
+  const NOTE = { 1000: { bg: '#ede0c4', border: '#7a5010', inner: '#f8f0dc' }, 5000: { bg: '#e8ddc0', border: '#5a6820', inner: '#f5ecd4' },
+    10000: { bg: '#e4dccc', border: '#304878', inner: '#f2eadc' } };
+  function noteSVG(val, k) {
+    const c = NOTE[val], w = Math.round(104 * k), h = Math.round(58 * k);
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-label="${val}円">
+      <rect x="1" y="1" width="${w - 2}" height="${h - 2}" rx="5" fill="${c.border}"/><rect x="3" y="3" width="${w - 6}" height="${h - 6}" rx="4" fill="${c.bg}"/>
+      <rect x="6" y="6" width="${w - 12}" height="${h - 12}" rx="3" fill="${c.inner}" opacity="0.55"/>
+      <text x="${w / 2}" y="${h * 0.63}" text-anchor="middle" font-size="${h * 0.34}" font-weight="900" fill="${c.border}" font-family="BIZ UDPGothic,sans-serif">${val}</text></svg>`;
+  }
+  function pic(d, k) { return d >= 1000 ? noteSVG(d, k) : coinSVG(d, k); }
+
+  function render(q, el, opt) {
+    const ks = kinds(q.items);
+    const n = count(q.items);
+    const k = n > 14 ? 0.78 : n > 9 ? 0.88 : 1;   // まい数が多いときは少し小さく
+    const explain = opt && opt.explain;
+    let h = `<div class="ok-box">`;
+    ks.forEach(d => {
+      let row = '';
+      for (let i = 0; i < q.items[d]; i++) row += pic(d, explain ? k * 0.8 : k);
+      const cap = explain ? `<span class="ok-cap">${d}${YEN}×${q.items[d]}まい＝${d * q.items[d]}${YEN}</span>` : '';
+      h += `<div class="ok-grp ${explain ? 'ex' : ''}"><div class="ok-row">${row}</div>${cap}</div>`;
+    });
+    if (explain) h += `<div class="ok-sum">ぜんぶで ${fmtHtml(q.v)}</div>`;
+    el.innerHTML = h + `</div>`;
+  }
+
+  window.GENRES.okane = {
+    key: 'okane',
+    name: 'お金',
+    nameRuby: 'お<ruby>金<rt>かね</rt></ruby>',
+    prompt: 'ぜんぶで いくらかな？',
+    answerKind: 'number',
+    unitHtml: YEN,
+    maxDigits: 5,
+    levels: [
+      // mode：先生画面の答え方が「レベルどおり」のときの答え方
+      { label: `10${YEN}・50${YEN}・100${YEN}`, ex: `260${YEN}`, mode: '2' },
+      { label: `500${YEN}も（1000${YEN}まで）`, ex: `780${YEN}`, mode: '4' },
+      { label: `500${YEN}も（3000${YEN}まで）`, ex: `2340${YEN}`, mode: '4' },
+      { label: `1${YEN}・5${YEN}も`, ex: `1567${YEN}`, mode: 'input' },
+      { label: 'お<ruby>札<rt>さつ</rt></ruby>も', ex: `13460${YEN}`, mode: 'input' },
+    ],
+    fmt, make, render, choices, judge, hint, similar, fits,
+  };
+})();
+</script>
+<!-- ジャンル：keisan -->
+<style>
+  .ks-q{ font-size:min(14vw,80px); font-weight:700; letter-spacing:4px; line-height:1.2; text-align:center; margin:6px 0; }
+  .ks-dots svg{ display:block; width:min(86vw,420px); height:auto; }
+  .ks-cap{ font-size:18px; font-weight:700; text-align:center; margin-top:2px; }
+  .ks-hissan{ display:grid; grid-template-columns:repeat(3, 1.2em); font-size:44px; font-weight:700; text-align:center; line-height:1.25; margin:4px auto; }
+  .ks-hissan .ln{ grid-column:1 / span 3; border-top:3px solid #2b3a4a; height:4px; }
+  .ks-hissan .ans{ color:#2f8a60; }
+</style>
+<script>
+/************************************************************
+ * ジャンル：計算（たし算・ひき算）
+ * 「8 ＋ 5 ＝ ？」の答えを選ぶ・入力する
+ ************************************************************/
+window.GENRES = window.GENRES || {};
+(function () {
+  function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function fmt(v) { return String(v); }
+
+  function build(a, b, op, level) {
+    const v = op === '+' ? a + b : a - b;
+    const carry = op === '+' && (a % 10) + (b % 10) >= 10;
+    const borrow = op === '-' && (a % 10) < (b % 10);
+    return { a, b, op, level, v, carry, borrow, text: `${a}${op}${b}`, answerText: String(v) };
+  }
+
+  // 20までの問題のきまり。ok(a, b) を みたすまで作りなおす
+  const SMALL = [
+    // たし算：20まで。b は1けた（出すときに、半分くらいは 4＋13 のように前後を入れかえる）
+    { op: '+', a: [1, 19], b: [1, 9], ok: (a, b) => a + b <= 20 && (a % 10) + b < 10 },
+    { op: '+', a: [1, 19], b: [1, 9], ok: (a, b) => a + b <= 20 && (a % 10) + b >= 10 },
+    // ひき算：20まで の数から 1けたをひく
+    { op: '-', a: [2, 19], b: [1, 9], ok: (a, b) => a - b >= 1 && (a % 10) >= b },
+    { op: '-', a: [10, 20], b: [1, 9], ok: (a, b) => (a % 10) < b && a - b >= 1 },
+  ];
+  // レベル：1〜4＝SMALLの1つ、5＝SMALLをまぜる、6＝2けたのたし算、7＝2けたのひき算、8＝2けたのたし算・ひき算
+  const CONF = [
+    { small: [0], ten: '+' }, { small: [1], ten: '+' }, { small: [2], ten: '-' }, { small: [3], ten: '-' },
+    { small: [0, 1, 2, 3], ten: 'both' },
+    { big: ['+'] }, { big: ['-'] }, { big: ['+', '-'] },
+  ];
+  const TEN_RATE = 0.2;   // 20までのレベルで「10になる」問題を出すわりあい
+
+  // 「10になる」問題（3＋7、10−3）
+  function tenQ(op, level, prev) {
+    for (let g = 0; g < 20; g++) {
+      const b = rint(1, 9);
+      const q = op === '+' ? build(10 - b, b, '+', level) : build(10, b, '-', level);
+      q.ten = true;
+      if (!(prev && prev.a === q.a && prev.b === q.b && prev.op === q.op)) return q;
+    }
+    return Object.assign(build(4, 6, '+', level), { ten: true });
+  }
+
+  // want：にた問題を作るときの しゅるい（op・くり上がり・くり下がり・10になる）
+  function make(level, prev, want) {
+    const c = CONF[level - 1];
+    if (c.ten && (want ? want.ten : Math.random() < TEN_RATE)) {
+      const op = want ? want.op : (c.ten === 'both' ? (Math.random() < 0.5 ? '+' : '-') : c.ten);
+      return tenQ(op, level, prev);
+    }
+    // 2けた：くり上がり・くり下がりのある問題が半分くらい
+    const regroup = c.big ? (want ? (want.carry || want.borrow) : Math.random() < 0.5) : null;
+    const bigOp = c.big ? (want ? want.op : c.big[rint(0, c.big.length - 1)]) : null;
+    for (let g = 0; g < 400; g++) {
+      let q;
+      if (c.big) {
+        const a = rint(10, 99), b = rint(10, 99);
+        if (bigOp === '+' && a + b > 99) continue;
+        if (bigOp === '-' && a - b < 1) continue;
+        q = build(a, b, bigOp, level);
+        if ((q.carry || q.borrow) !== regroup) continue;
+      } else {
+        const sc = SMALL[c.small[rint(0, c.small.length - 1)]];
+        let a = rint(sc.a[0], sc.a[1]), b = rint(sc.b[0], sc.b[1]);
+        if (!sc.ok(a, b)) continue;
+        if (sc.op === '+' && Math.random() < 0.5) [a, b] = [b, a];
+        q = build(a, b, sc.op, level);
+        if (want && (want.op !== q.op || want.carry !== q.carry || want.borrow !== q.borrow)) continue;
+      }
+      if (prev && prev.a === q.a && prev.b === q.b && prev.op === q.op) continue;
+      return q;
+    }
+    return build(3, 2, '+', level);
+  }
+
+  function candidates(q) {
+    const { a, b, op, v } = q, list = [];
+    const add = (x, type) => {
+      if (x < 0 || x === v || list.some(c => c.v === x)) return;
+      list.push({ v: x, type });
+    };
+    if (q.carry) add(v - 10, 'くり上がりわすれ');
+    if (q.borrow) {
+      // 一のくらいを「大きいほうから小さいほう」をひいてしまう（13−8＝15）
+      const tens = Math.floor(a / 10) - Math.floor(b / 10);
+      add(tens * 10 + Math.abs((a % 10) - (b % 10)), 'くり下がりわすれ');
+      add(v + 10, 'くり下がりわすれ');
+    }
+    add(op === '+' ? a - b : a + b, 'たし算とひき算の取りちがえ');
+    add(v + 1, '1ちがい');
+    add(v - 1, '1ちがい');
+    if (q.level >= 6) { add(v + 10, '十のくらいのまちがい'); add(v - 10, '十のくらいのまちがい'); }
+    return list;
+  }
+
+  function choices(q, n) {
+    const cands = candidates(q);
+    // 一番よくあるまちがい（はじめの1つ）は入れて、あとはまぜる
+    const first = cands.slice(0, 1), rest = cands.slice(1);
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    const pick = first.concat(rest).slice(0, n - 1);
+    let k = 2;
+    while (pick.length < n - 1 && k < 40) {
+      const x = q.v + (k % 2 ? 1 : -1) * Math.ceil(k / 2);
+      if (x >= 0 && x !== q.v && !pick.some(c => c.v === x)) pick.push({ v: x, type: 'そのほか' });
+      k++;
+    }
+    const all = pick.map(c => ({ v: c.v, type: c.type, correct: false, text: String(c.v) }));
+    all.push({ v: q.v, type: '', correct: true, text: String(q.v) });
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    return all;
+  }
+
+  function judge(q, given) {
+    if (given.v === q.v) return { ok: true, type: '' };
+    if (given.type) return { ok: false, type: given.type };
+    const c = candidates(q).find(c => c.v === given.v);
+    return { ok: false, type: c ? c.type : 'そのほか' };
+  }
+
+  // にた問題：同じ しゅるい（たし算かひき算か、くり上がり・くり下がりがあるか）で、ちがう数
+  function similar(q) { return make(q.level, q, { op: q.op, carry: q.carry, borrow: q.borrow, ten: !!q.ten }); }
+
+  function fits(q, type) {
+    switch (type) {
+      case 'くり上がりわすれ': return q.carry;
+      case 'くり下がりわすれ': return q.borrow;
+      case 'たし算とひき算の取りちがえ': return true;
+      case '1ちがい': return true;
+      case '十のくらいのまちがい': return q.level >= 6;
+      default: return false;
+    }
+  }
+
+  const ICHI = '<ruby>一<rt>いち</rt></ruby>', JU = '<ruby>十<rt>じゅう</rt></ruby>';
+  const HINTS = {
+    'くり上がりわすれ': `${ICHI}の くらいが 10に なったら、${JU}の くらいに 1 くり<ruby>上<rt>あ</rt></ruby>げるよ。`,
+    'くり下がりわすれ': `${ICHI}の くらいが ひけないときは、${JU}の くらいから 10 かりてくるよ。`,
+    'たし算とひき算の取りちがえ': '＋は たし<ruby>算<rt>ざん</rt></ruby>、−は ひき<ruby>算<rt>ざん</rt></ruby>だよ。しるしを よく <ruby>見<rt>み</rt></ruby>てね。',
+    '1ちがい': 'ゆびや ブロックで、1つずつ <ruby>数<rt>かぞ</rt></ruby>えて たしかめてみてね。',
+    '十のくらいのまちがい': `${JU}の くらいどうしを、もう<ruby>一<rt>いち</rt></ruby>ど <ruby>計算<rt>けいさん</rt></ruby>してみてね。`,
+    'そのほか': `${ICHI}の くらいから じゅんに <ruby>計算<rt>けいさん</rt></ruby>してみてね。`,
+  };
+  function hint(type) { return HINTS[type] || HINTS['そのほか']; }
+
+  function sym(op) { return op === '+' ? '＋' : '−'; }
+
+  // 1けた・十いくつ：10のまとまり（2×5のわく）に まるをならべる
+  function dots(q) {
+    const N = q.op === '+' ? q.a + q.b : q.a;
+    const frames = Math.max(1, Math.ceil(N / 10));
+    const r = 15, gap = 36, fw = gap * 5 + 8, fh = gap * 2 + 8;
+    const W = frames * fw + (frames - 1) * 16, H = fh;
+    let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    for (let f = 0; f < frames; f++) {
+      const x0 = f * (fw + 16);
+      s += `<rect x="${x0 + 1}" y="1" width="${fw - 2}" height="${fh - 2}" rx="8" fill="#fff" stroke="#9fb3c8" stroke-width="2"/>`;
+      for (let i = 0; i < 10; i++) {
+        const cx = x0 + 4 + gap / 2 + (i % 5) * gap, cy = 4 + gap / 2 + Math.floor(i / 5) * gap;
+        s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e1e9f1" stroke-width="1.5"/>`;
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      const f = Math.floor(i / 10), k = i % 10;
+      const cx = f * (fw + 16) + 4 + gap / 2 + (k % 5) * gap, cy = 4 + gap / 2 + Math.floor(k / 5) * gap;
+      if (q.op === '+') {
+        s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${i < q.a ? '#3f8cd6' : '#e8913a'}"/>`;
+      } else {
+        const gone = i >= q.a - q.b;   // うしろから b こ とる
+        s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${gone ? '#d6dde5' : '#3f8cd6'}"/>`;
+        if (gone) s += `<path d="M${cx - 9} ${cy - 9}L${cx + 9} ${cy + 9}M${cx + 9} ${cy - 9}L${cx - 9} ${cy + 9}" stroke="#7a8896" stroke-width="3" stroke-linecap="round"/>`;
+      }
+    }
+    s += `</svg>`;
+    const cap = q.op === '+'
+      ? `<span style="color:#2f6fae">${q.a}</span> と <span style="color:#b8661c">${q.b}</span> で ${q.v}`
+      : `${q.a} から ${q.b} とって ${q.v}`;
+    return `<div class="ks-dots">${s}</div><div class="ks-cap">${cap}</div>`;
+  }
+
+  // 2けた：ひっ算の形
+  function hissan(q) {
+    const d = n => [Math.floor(n / 10) || '', n % 10];
+    const A = d(q.a), B = d(q.b), V = d(q.v);
+    return `<div class="ks-hissan"><span></span><span>${A[0]}</span><span>${A[1]}</span>
+      <span>${sym(q.op)}</span><span>${B[0]}</span><span>${B[1]}</span>
+      <span class="ln"></span>
+      <span></span><span class="ans">${V[0]}</span><span class="ans">${V[1]}</span></div>`;
+  }
+
+  function render(q, el, opt) {
+    let h = `<div class="ks-q">${q.a} ${sym(q.op)} ${q.b} ＝ ？</div>`;
+    if (opt && opt.explain) h += q.level >= 6 ? hissan(q) : dots(q);
+    el.innerHTML = h;
+  }
+
+  window.GENRES.keisan = {
+    key: 'keisan',
+    name: '計算',
+    nameRuby: '<ruby>計算<rt>けいさん</rt></ruby>',
+    prompt: 'こたえは いくつかな？',
+    answerKind: 'number',
+    unitHtml: '',
+    maxDigits: 3,
+    levels: [
+      { label: 'たし<ruby>算<rt>ざん</rt></ruby>（くり<ruby>上<rt>あ</rt></ruby>がりなし・20まで）', ex: '13＋4' },
+      { label: 'たし<ruby>算<rt>ざん</rt></ruby>（くり<ruby>上<rt>あ</rt></ruby>がりあり・20まで）', ex: '8＋5' },
+      { label: 'ひき<ruby>算<rt>ざん</rt></ruby>（くり<ruby>下<rt>さ</rt></ruby>がりなし・20まで）', ex: '17−4' },
+      { label: 'ひき<ruby>算<rt>ざん</rt></ruby>（くり<ruby>下<rt>さ</rt></ruby>がりあり・20まで）', ex: '13−8' },
+      { label: '20までの たし<ruby>算<rt>ざん</rt></ruby>・ひき<ruby>算<rt>ざん</rt></ruby>', ex: '8＋5、13−8', mode: 'input' },
+      { label: '2けたの たし<ruby>算<rt>ざん</rt></ruby>', ex: '47＋28', mode: 'input' },
+      { label: '2けたの ひき<ruby>算<rt>ざん</rt></ruby>', ex: '63−25', mode: 'input' },
+      { label: '2けたの たし<ruby>算<rt>ざん</rt></ruby>・ひき<ruby>算<rt>ざん</rt></ruby>', ex: '47＋28、63−25', mode: 'input' },
+    ],
+    fmt, make, render, choices, judge, hint, similar, fits,
+  };
+})();
+</script>
+<!-- ジャンル：kuku -->
+<style>
+  .kk-q{ font-size:min(15vw,84px); font-weight:700; letter-spacing:4px; line-height:1.2; text-align:center; margin:6px 0; }
+  .kk-tbl{ display:grid; grid-template-columns:repeat(4, auto); gap:4px 16px; font-size:20px; font-weight:700; margin-top:4px; }
+  .kk-tbl span{ padding:2px 8px; border-radius:8px; }
+  .kk-tbl .now{ background:#fdeedd; color:#b8661c; }
+</style>
+<script>
+/************************************************************
+ * ジャンル：かけ算（九九と、×0・×10）
+ * 「7 × 6 ＝ ？」の答えを選ぶ・入力する
+ ************************************************************/
+window.GENRES = window.GENRES || {};
+(function () {
+  const DAN = '<ruby>段<rt>だん</rt></ruby>';
+  // レベルごとの段と、かける数（どのレベルにも ×0 と ×10 を入れる）
+  const ALL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const CONF = [
+    { dans: [2, 5], bs: ALL },
+    { dans: [3, 4], bs: ALL },
+    { dans: [6, 7], bs: ALL },
+    { dans: [8, 9], bs: ALL },
+    { dans: [6, 7, 8, 9], bs: [0, 5, 6, 7, 8, 9, 10, 20, 30, 100] },
+  ];
+
+  function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function fmt(v) { return String(v); }
+
+  function build(a, b, level) {
+    return { a, b, level, v: a * b, text: `${a}×${b}`, answerText: String(a * b) };
+  }
+
+  function make(level, prev) {
+    const c = CONF[level - 1];
+    for (let g = 0; g < 50; g++) {
+      const a = c.dans[rint(0, c.dans.length - 1)], b = c.bs[rint(0, c.bs.length - 1)];
+      if (prev && prev.a === a && prev.b === b) continue;
+      return build(a, b, level);
+    }
+    return build(c.dans[0], 5, level);
+  }
+
+  function candidates(q) {
+    const { a, b, v } = q, list = [];
+    const add = (x, type) => {
+      if (x < 0 || x > 9999 || x === v || list.some(c => c.v === x)) return;
+      list.push({ v: x, type });
+    };
+    // ×0 を「その数のまま」、×10 を「その数のまま」や「10」と答える
+    if (b === 0) { add(a, '0のかけ算'); add(10, '0のかけ算'); }
+    if (b === 10) { add(a, '10のかけ算'); add(a + 10, '10のかけ算'); }
+    // ×20・×30・×100：0の つけわすれ・つけすぎ、となりの ×10
+    if (b >= 20) {
+      add(v / 10, '0の数のまちがい');
+      add(v * 10, '0の数のまちがい');
+      if (b === 100) add(a * 10, '0の数のまちがい');
+      else { add(a * (b - 10), 'となりの答え'); add(a * (b + 10), 'となりの答え'); }
+      if (a > 1) add((a - 1) * b, 'となりの段');
+      if (a < 9) add((a + 1) * b, 'となりの段');
+      for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+      // 「0の数のまちがい」を かならず先頭に
+      list.sort((p, q2) => (p.type === '0の数のまちがい' ? 0 : 1) - (q2.type === '0の数のまちがい' ? 0 : 1));
+      return list;
+    }
+    // となりの答え（7×6 を 7×5 や 7×7 と言う）
+    if (b >= 2) add(a * (b - 1), 'となりの答え');
+    if (b >= 1 && b < 10) add(a * (b + 1), 'となりの答え');
+    // となりの段（7×6 を 6×6 や 8×6 と言う）
+    if (b > 0 && a > 1) add((a - 1) * b, 'となりの段');
+    if (b > 0 && a < 9) add((a + 1) * b, 'となりの段');
+    // 数字の取りちがえ（56 と 65 など）
+    if (v >= 10 && v % 10 !== Math.floor(v / 10)) add((v % 10) * 10 + Math.floor(v / 10), '数字の取りちがえ');
+    // たし算にした
+    add(a + b, 'たし算にした');
+    // まぜて、毎回同じにならないように
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  }
+
+  function choices(q, n) {
+    const pick = candidates(q).slice(0, n - 1);
+    let k = 1;
+    while (pick.length < n - 1 && k < 40) {
+      const x = q.v + (k % 2 ? 1 : -1) * Math.ceil(k / 2);
+      if (x >= 0 && x !== q.v && !pick.some(c => c.v === x)) pick.push({ v: x, type: 'そのほか' });
+      k++;
+    }
+    const all = pick.map(c => ({ v: c.v, type: c.type, correct: false, text: String(c.v) }));
+    all.push({ v: q.v, type: '', correct: true, text: String(q.v) });
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    return all;
+  }
+
+  function judge(q, given) {
+    if (given.v === q.v) return { ok: true, type: '' };
+    if (given.type) return { ok: false, type: given.type };
+    const c = candidates(q).find(c => c.v === given.v);
+    return { ok: false, type: c ? c.type : 'そのほか' };
+  }
+
+  // かけ算は、同じ問題をもう一度（思い出す練習）
+  function similar(q) { return build(q.a, q.b, q.level); }
+
+  function fits(q, type) {
+    switch (type) {
+      case 'となりの答え': return q.b >= 3 && q.b <= 9;
+      case 'となりの段': return q.b > 0 && q.a >= 2 && q.a <= 8;
+      case '数字の取りちがえ': return q.v >= 10 && q.v % 10 !== Math.floor(q.v / 10);
+      case 'たし算にした': return q.b > 0;
+      case '0のかけ算': return q.b === 0;
+      case '10のかけ算': return q.b === 10;
+      case '0の数のまちがい': return q.b >= 20;
+      default: return false;
+    }
+  }
+
+  function hint(type, q) {
+    const a = q ? q.a : '';
+    switch (type) {
+      case 'となりの答え':
+        return `${a}の${DAN}は ${a}ずつ ふえるよ。<ruby>表<rt>ひょう</rt></ruby>で たしかめてね。`;
+      case 'となりの段':
+        return `いまは ${a}の${DAN}だよ。<ruby>前<rt>まえ</rt></ruby>の <ruby>数字<rt>すうじ</rt></ruby>を よく <ruby>見<rt>み</rt></ruby>てね。`;
+      case '数字の取りちがえ':
+        return '<ruby>十<rt>じゅう</rt></ruby>の くらいと <ruby>一<rt>いち</rt></ruby>の くらいが <ruby>入<rt>い</rt></ruby>れかわって いないかな。';
+      case 'たし算にした':
+        return '× は かけ<ruby>算<rt>ざん</rt></ruby>だよ。たし<ruby>算<rt>ざん</rt></ruby>では ないよ。';
+      case '0のかけ算':
+        return 'どんな <ruby>数<rt>かず</rt></ruby>に 0を かけても、こたえは 0だよ。';
+      case '10のかけ算':
+        return '10を かけると、その <ruby>数<rt>かず</rt></ruby>の うしろに 0が 1つ つくよ（7×10＝70）。';
+      case '0の数のまちがい':
+        return q && q.b === 100
+          ? '100を かけると、うしろに 0が 2つ つくよ（7×100＝700）。'
+          : `×${q ? q.b : 20}は、×${q ? q.b / 10 : 2}の こたえの うしろに 0を 1つ つけるよ。`;
+      default:
+        return `${a}の${DAN}を、はじめから <ruby>言<rt>い</rt></ruby>ってみてね。`;
+    }
+  }
+
+  function render(q, el, opt) {
+    let h = `<div class="kk-q">${q.a} × ${q.b} ＝ ？</div>`;
+    if (opt && opt.explain) {
+      // その段の ×0〜×10 を ならべて、いまの問題に色をつける
+      h += `<div class="kk-tbl">`;
+      if (q.b >= 20) {
+        // ×20・×30・×100 は、もとになる九九と ならべる
+        const base = q.b === 100 ? [1, 10, 100] : [q.b / 10, q.b];
+        base.forEach(i => { h += `<span class="${i === q.b ? 'now' : ''}">${q.a}×${i}＝${q.a * i}</span>`; });
+      } else {
+        for (let i = 0; i <= 10; i++) h += `<span class="${i === q.b ? 'now' : ''}">${q.a}×${i}＝${q.a * i}</span>`;
+      }
+      h += `</div>`;
+    }
+    el.innerHTML = h;
+  }
+
+  window.GENRES.kuku = {
+    key: 'kuku',
+    name: 'かけ算',
+    nameRuby: 'かけ<ruby>算<rt>ざん</rt></ruby>',
+    prompt: 'こたえは いくつかな？',
+    answerKind: 'number',
+    unitHtml: '',
+    maxDigits: 4,
+    levels: [
+      { label: `2の${DAN}・5の${DAN}`, ex: '2×4、5×10' },
+      { label: `3の${DAN}・4の${DAN}`, ex: '3×7、4×0' },
+      { label: `6の${DAN}・7の${DAN}`, ex: '6×3、7×8' },
+      { label: `8の${DAN}・9の${DAN}`, ex: '8×4、9×6' },
+      { label: `6・7・8・9の${DAN}`, ex: '6×7、8×30、9×100', mode: 'input' },
+    ],
+    fmt, make, render, choices, judge, hint, similar, fits,
+  };
+})();
+</script>
+<!-- ジャンル：deru -->
+<style>
+  .dr-text{ font-size:24px; line-height:1.9; text-align:left; max-width:min(92vw,520px); margin:0 auto; }
+  .dr-text .t{ color:#2f6fae; font-weight:700; }
+  .dr-text .d{ font-weight:700; }
+  .dr-line{ display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:4px; margin-top:10px; }
+  .dr-box{ background:#fff; border:3px solid #d6e2ee; border-radius:14px; padding:4px 10px; text-align:center; min-width:96px; }
+  .dr-box .cap{ font-size:14px; color:#5a6b7b; }
+  .dr-box .tm{ font-size:22px; font-weight:700; }
+  .dr-box.ans{ border-color:#43b581; background:#e3f6ec; }
+  .dr-box.ans .tm{ color:#2f8a60; }
+  .dr-arrow{ font-size:15px; font-weight:700; color:#2f6fae; text-align:center; line-height:1.3; padding:0 2px; }
+</style>
+<script>
+/************************************************************
+ * ジャンル：何時に出るかな（かかる時間から、つく時刻・出る時刻を考える）
+ * 答えは時刻（answerKind: 'time'）。時刻は 24時間で あらわす（7時〜19時ごろ）
+ ************************************************************/
+window.GENRES = window.GENRES || {};
+(function () {
+  const R = (k, r) => `<ruby>${k}<rt>${r}</rt></ruby>`;
+  const IE = R('家', 'いえ'), EKI = R('駅', 'えき'), ARU = R('歩', 'ある'), DEN = R('電車', 'でんしゃ');
+  const NO = R('乗', 'の'), DE = R('出', 'で'), NANJI = R('何時何分', 'なんじなんぷん');
+
+  // walk/ride：かかる分のはんい、back：まえに もどして考える、cross：時がかわるか（'no'／'half'／'any'）
+  const CONF = [
+    { segs: ['walk'], walk: [5, 15], back: false, cross: 'no' },
+    { segs: ['ride'], ride: [10, 35], back: false, cross: 'half' },
+    { segs: ['walk'], walk: [5, 20], back: true, cross: 'no' },
+    { segs: ['ride'], ride: [10, 35], back: true, cross: 'half' },
+    { segs: ['walk', 'ride'], walk: [5, 20], ride: [10, 35], back: 'both', cross: 'any' },
+  ];
+  const STEP = 5;
+
+  function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function rstep(r) { return rint(r[0] / STEP, r[1] / STEP) * STEP; }
+  function hm(t) { t = ((t % 1440) + 1440) % 1440; return { h: Math.floor(t / 60), m: t % 60 }; }
+  function fmtT(t) { const x = hm(t); return fmt(x.h, x.m); }
+  function fmt(h, m) { return m === 0 ? `${h}時` : `${h}時${m}分`; }
+
+  function build(level, durs, back, start) {
+    const total = durs.reduce((a, b) => a + b.dur, 0);
+    const end = start + total;
+    const ans = back ? start : end;
+    const known = back ? end : start;
+    const a = hm(ans);
+    const segTxt = durs.map(d => (d.kind === 'walk' ? '歩いて' : '電車で') + d.dur + '分').join('＋');
+    return {
+      level, durs, back, start, end, total, known,
+      h: a.h, m: a.m,
+      cross: Math.floor(start / 60) !== Math.floor(end / 60),
+      text: back ? `${fmtT(end)}につくには（${segTxt}）` : `${fmtT(start)}に出て（${segTxt}）`,
+      answerText: fmt(a.h, a.m),
+    };
+  }
+
+  function make(level, prev, want) {
+    const c = CONF[level - 1];
+    const back = want ? want.back : (c.back === 'both' ? Math.random() < 0.5 : c.back);
+    const wantCross = want ? want.cross : (c.cross === 'half' ? Math.random() < 0.5 : null);
+    for (let g = 0; g < 400; g++) {
+      const durs = c.segs.map(k => ({ kind: k, dur: rstep(k === 'walk' ? c.walk : c.ride) }));
+      const start = rint(7 * 12, 17 * 12) * STEP;   // 7時〜17時ごろ、5分きざみ
+      const q = build(level, durs, back, start);
+      if (c.cross === 'no' && q.cross) continue;
+      if (wantCross !== null && wantCross !== undefined && q.cross !== wantCross) continue;
+      if (prev && prev.start === q.start && prev.total === q.total) continue;
+      return q;
+    }
+    return build(level, [{ kind: c.segs[0], dur: 10 }], back, 8 * 60);
+  }
+
+  function candidates(q) {
+    const ansT = q.back ? q.start : q.end;
+    const list = [];
+    const add = (t, type) => {
+      const x = hm(t);
+      if (x.h === q.h && x.m === q.m) return;
+      if (list.some(c => c.h === x.h && c.m === x.m)) return;
+      list.push({ h: x.h, m: x.m, type });
+    };
+    // 時を かえわすれる（分だけ 計算して、時は わかっている時刻のまま）
+    if (q.cross) {
+      const k = hm(q.known);
+      add(k.h * 60 + hm(ansT).m, '時がかわるのをわすれた');
+    }
+    // たす と ひく を 反対にした
+    add(q.back ? q.known + q.total : q.known - q.total, 'まえとあとの取りちがえ');
+    // 2つのうち 1つしか 計算していない
+    if (q.durs.length === 2) q.durs.forEach(d => add(q.back ? q.known - d.dur : q.known + d.dur, 'かかる時間のたしわすれ'));
+    add(ansT + 60, '時のまちがい');
+    add(ansT - 60, '時のまちがい');
+    add(ansT + 5, '分の計算');
+    add(ansT - 5, '分の計算');
+    add(ansT + 10, '分の計算');
+    add(ansT - 10, '分の計算');
+    return list;
+  }
+
+  function choices(q, n) {
+    const cands = candidates(q);
+    // はじめの1つ（いちばん よくある まちがい）は入れて、のこりは まぜる
+    // 歩きと電車の問題では「たしわすれ」も1つ入れる
+    const first = cands.slice(0, 1);
+    const forgot = cands.find(c => c.type === 'かかる時間のたしわすれ' && c !== first[0]);
+    if (forgot && n >= 4) first.push(forgot);
+    const rest = cands.filter(c => first.indexOf(c) < 0);
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    const pick = first.concat(rest).slice(0, n - 1);
+    const all = pick.map(c => ({ h: c.h, m: c.m, type: c.type, correct: false, text: fmt(c.h, c.m) }));
+    all.push({ h: q.h, m: q.m, type: '', correct: true, text: fmt(q.h, q.m) });
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    return all;
+  }
+
+  function judge(q, given) {
+    if (given.h === q.h && given.m === q.m) return { ok: true, type: '' };
+    if (given.type) return { ok: false, type: given.type };
+    const c = candidates(q).find(c => c.h === given.h && c.m === given.m);
+    return { ok: false, type: c ? c.type : 'そのほか' };
+  }
+
+  // にた問題：同じレベル・同じ むき（まえ／あと）・時がかわるかどうかも同じで、数をかえる
+  function similar(q) { return make(q.level, q, { back: q.back, cross: q.cross }); }
+
+  function fits(q, type) {
+    switch (type) {
+      case '時がかわるのをわすれた': return q.cross;
+      case 'まえとあとの取りちがえ': return true;
+      case 'かかる時間のたしわすれ': return q.durs.length === 2;
+      case '時のまちがい': return !q.cross;
+      case '分の計算': return true;
+      default: return false;
+    }
+  }
+
+  function hint(type, q) {
+    const back = q && q.back;
+    switch (type) {
+      case '時がかわるのをわすれた':
+        return back
+          ? `<ruby>分<rt>ふん</rt></ruby>が たりないときは、<ruby>時<rt>じ</rt></ruby>を 1つ もどして 60<ruby>分<rt>ぷん</rt></ruby>を たして <ruby>考<rt>かんが</rt></ruby>えるよ。`
+          : `<ruby>分<rt>ふん</rt></ruby>が 60を こえたら、<ruby>時<rt>じ</rt></ruby>が 1つ すすむよ。`;
+      case 'まえとあとの取りちがえ':
+        return back
+          ? `つく <ruby>時刻<rt>じこく</rt></ruby>から、かかる <ruby>時間<rt>じかん</rt></ruby>の ぶん もどして（ひいて）<ruby>考<rt>かんが</rt></ruby>えるよ。`
+          : `${DE}た <ruby>時刻<rt>じこく</rt></ruby>に、かかる <ruby>時間<rt>じかん</rt></ruby>を たして <ruby>考<rt>かんが</rt></ruby>えるよ。`;
+      case 'かかる時間のたしわすれ':
+        return `${ARU}く <ruby>時間<rt>じかん</rt></ruby>と ${DEN}の <ruby>時間<rt>じかん</rt></ruby>を、どちらも <ruby>計算<rt>けいさん</rt></ruby>するよ。`;
+      case '時のまちがい':
+        return `<ruby>分<rt>ふん</rt></ruby>が 60を こえないときは、<ruby>時<rt>じ</rt></ruby>は そのままだよ。`;
+      case '分の計算':
+        return `<ruby>分<rt>ふん</rt></ruby>の <ruby>計算<rt>けいさん</rt></ruby>を、もう<ruby>一<rt>いち</rt></ruby>ど たしかめてね。`;
+      default:
+        return `<ruby>下<rt>した</rt></ruby>の じゅんばんを <ruby>見<rt>み</rt></ruby>て、<ruby>時刻<rt>じこく</rt></ruby>を たどってみてね。`;
+    }
+  }
+
+  function sentence(q) {
+    const T = t => `<span class="t">${fmtT(t)}</span>`;
+    const D = d => `<span class="d">${d}分</span>`;
+    const w = q.durs.find(d => d.kind === 'walk'), r = q.durs.find(d => d.kind === 'ride');
+    if (q.durs.length === 2) {
+      const how = `${IE}から A${EKI}まで ${ARU}いて ${D(w.dur)}、<br>A${EKI}から B${EKI}まで ${DEN}で ${D(r.dur)} かかるよ。`;
+      return q.back
+        ? `${T(q.end)}に B${EKI}に つきたいよ。<br>${how}<br>${IE}を ${NANJI}に ${DE}たら いいかな？`
+        : `${T(q.start)}に ${IE}を ${DE}たよ。<br>${how}<br>B${EKI}に つくのは ${NANJI}かな？`;
+    }
+    if (w) {
+      return q.back
+        ? `${T(q.end)}に ${EKI}に つきたいよ。<br>${IE}から ${EKI}まで ${ARU}いて ${D(w.dur)} かかるよ。<br>${IE}を ${NANJI}に ${DE}たら いいかな？`
+        : `${T(q.start)}に ${IE}を ${DE}たよ。<br>${IE}から ${EKI}まで ${ARU}いて ${D(w.dur)} かかるよ。<br>${EKI}に つくのは ${NANJI}かな？`;
+    }
+    return q.back
+      ? `${T(q.end)}に つきたいよ。<br>${DEN}は ${D(r.dur)} かかるよ。<br>${NANJI}の ${DEN}に ${NO}れば いいかな？`
+      : `${T(q.start)}の ${DEN}に ${NO}ったよ。<br>${DEN}は ${D(r.dur)} かかるよ。<br>つくのは ${NANJI}かな？`;
+  }
+
+  // 解説：時刻の じゅんばんを 左から右へ ならべる（答えのところに色）
+  function line(q) {
+    const two = q.durs.length === 2, walk = q.durs[0].kind === 'walk';
+    const caps = two ? [`${IE}を ${DE}る`, `A${EKI}に つく`, `B${EKI}に つく`]
+      : walk ? [`${IE}を ${DE}る`, `${EKI}に つく`] : [`${DEN}に ${NO}る`, 'つく'];
+    const times = [q.start];
+    q.durs.forEach(d => times.push(times[times.length - 1] + d.dur));
+    const ansIdx = q.back ? 0 : times.length - 1;
+    let h = `<div class="dr-line">`;
+    times.forEach((t, i) => {
+      h += `<div class="dr-box ${i === ansIdx ? 'ans' : ''}"><div class="cap">${caps[i]}</div><div class="tm">${fmtT(t)}</div></div>`;
+      if (i < q.durs.length) {
+        const d = q.durs[i];
+        h += `<div class="dr-arrow">${d.kind === 'walk' ? ARU + 'いて' : DEN + 'で'}<br>${d.dur}分<br>→</div>`;
+      }
+    });
+    return h + `</div>`;
+  }
+
+  function render(q, el, opt) {
+    let h = `<div class="dr-text">${sentence(q)}</div>`;
+    if (opt && opt.explain) h += line(q);
+    el.innerHTML = h;
+  }
+
+  window.GENRES.deru = {
+    key: 'deru',
+    name: '何時に出るかな',
+    nameRuby: `「${R('何時', 'なんじ')}に ${DE}るかな」`,
+    prompt: '',
+    answerKind: 'time',
+    levels: [
+      { label: `${ARU}いて つく ${R('時刻', 'じこく')}`, ex: `8時10分に ${DE}て 15分` },
+      { label: `${DEN}で つく ${R('時刻', 'じこく')}`, ex: `8時50分の ${DEN}で 20分` },
+      { label: `${IE}を ${DE}る ${R('時刻', 'じこく')}`, ex: '9時に つくには 15分まえ' },
+      { label: `${DEN}に ${NO}る ${R('時刻', 'じこく')}`, ex: '10時5分に つくには 25分まえ' },
+      { label: `${ARU}きと ${DEN}`, ex: `${ARU}いて 10分＋${DEN}で 20分`, mode: 'input' },
+    ],
+    fmt, make, render, choices, judge, hint, similar, fits,
+  };
+})();
+</script>
+<? if (page === 'teacher') { ?>
+<script>
+"use strict";
+
+/* ============================================================
+   サーバーとのやりとり（プレビューではデモ用のにせサーバー）
+============================================================ */
+const DEMO = {
+  session:null,
+  genres:{ clock:{ name:'時計の読み取り', sheet:'せってい_時計', maxLevel:5 }, maeato:{ name:'何分前・何分後', sheet:'せってい_何分前後', maxLevel:5 }, okane:{ name:'お金', sheet:'せってい_お金', maxLevel:5 },
+    keisan:{ name:'計算', sheet:'せってい_計算', maxLevel:8 }, kuku:{ name:'かけ算', sheet:'せってい_かけ算', maxLevel:5 },
+    deru:{ name:'何時に出るかな', sheet:'せってい_何時に出る', maxLevel:5 } },
+  groups:['名簿1','理科'],
+  charas:[ {name:'いぬ',icon:'🐶'},{name:'ねこ',icon:'🐱'},{name:'うさぎ',icon:'🐰'} ],
+  table:[
+    { name:'れい たろう', level:2, lower:'', upper:'', auto:true, last:'' },
+    { name:'れい はなこ', level:'', lower:1, upper:3, auto:true, last:2 },
+    { name:'れい じろう', level:'', lower:'', upper:'', auto:true, last:'' },
+  ],
+  teacherInit(){ return { session:this.session, genres:this.genres, groups:this.groups, charas:this.charas, url:location.href }; },
+  startSession(o){ this.session = Object.assign({}, o, { id:'demo', code:'1234', open:true, started:Date.now() }); return this.session; },
+  endSession(){ if(this.session) this.session.open = false; return this.session; },
+  getSettingsTable(g, group){ const t = JSON.parse(JSON.stringify(this.table)); return group === '理科' ? t.slice(0,2) : t; },
+  saveSettingsTable(g, rows){ this.table = rows; return true; },
+  getDashboard(){
+    if(!this.session) return { session:null, rows:[] };
+    const now = Date.now();
+    if(this.session.who === 'chara') return { session:this.session, now, rows:[
+      { name:'いぬ', state:'playing', level:2, startLevel:1, count:7, correct:6, remain:120, types:{'分のずれ':1},
+        recent:[{q:'3時30分',a:'3時',type:'分のずれ'}], auto:true, t:now-2000 } ]};
+    if((this.session.genres||[]).length > 1){
+      const nm = k=> this.genres[k].name, [a,b] = this.session.genres;
+      return { session:this.session, now, rows:[
+        { name:'れい たろう', state:'playing', genre:nm(b), level:2, startLevel:1, count:11, correct:9, remain:100, auto:true, t:now-3000,
+          per:[{genre:a,name:nm(a),startLevel:2,level:3,count:7,correct:6},{genre:b,name:nm(b),startLevel:1,level:2,count:4,correct:3}],
+          types:{[nm(a)+'：はりの取りちがえ']:1,[nm(b)+'：そのほか']:1}, recent:[{g:nm(b),q:'260',a:'250',type:'そのほか'}] } ]};
+    }
+    return { session:this.session, now, rows:[
+      { name:'れい たろう', state:'playing', level:3, startLevel:2, count:12, correct:10, remain:154, top:'次の時と読む',
+        types:{'次の時と読む':2}, recent:[{q:'4時30分',a:'5時30分',type:'次の時と読む'}], auto:true, t:now-3000 },
+      { name:'れい はなこ', state:'done', level:2, startLevel:2, count:9, correct:5, remain:0, top:'はりの取りちがえ',
+        types:{'はりの取りちがえ':3,'前の時と読む':1}, recent:[{q:'2時15分',a:'3時10分',type:'はりの取りちがえ'}], auto:false, t:now-8000 },
+      { name:'れい じろう', state:'ready', level:1, startLevel:1, count:0, correct:0, remain:null, types:{}, recent:[], auto:true, t:now-2000 },
+    ]};
+  },
+};
+const IS_GAS = !!(window.google && google.script && google.script.run);
+function api(fn, ...args){
+  return new Promise((res, rej)=>{
+    if(IS_GAS) google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args);
+    else setTimeout(()=>{ try{ res(DEMO[fn](...args)); }catch(e){ rej(e); } }, 150);
+  });
+}
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"), 2200); }
+
+const T = { session:null, genres:{}, groups:[], charas:[], url:"", opt:null, setGenre:"clock", setGroup:"", table:[], dashTimer:null };
+
+/* ============================================================
+   設定（前回の値を覚えておく）
+============================================================ */
+const DEF = { genre:"clock", genres:["clock"], order:"seq", minutes:5, weakFocus:true, answerMode:"level", showTime:true, showScore:true, levelUpNotice:false,
+              sound:true, upN:3, downN:2, continueLevel:false,
+              useCode:true, who:"roster", group:"", charaLower:"", charaUpper:"", charaAuto:true };
+function loadOpt(){
+  let o = Object.assign({}, DEF);
+  try{ const v = localStorage.getItem("jibundrill_teacher_opt4"); if(v) o = Object.assign(o, JSON.parse(v)); }catch(e){}
+  if(!Array.isArray(o.genres) || !o.genres.length) o.genres = [o.genre || "clock"];
+  return o;
+}
+function saveOpt(){ try{ localStorage.setItem("jibundrill_teacher_opt4", JSON.stringify(T.opt)); }catch(e){} }
+
+function bindOptions(){
+  // ジャンル（いくつでも。選んだ順が「じゅんばん」の順）
+  const gs = $("o-genre");
+  gs.innerHTML = Object.keys(T.genres).map(k=> `<button data-v="${k}"></button>`).join("");
+  gs.querySelectorAll("button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const list = T.opt.genres, i = list.indexOf(b.dataset.v);
+      if(i >= 0){
+        if(list.length === 1){ toast("ジャンルは1つ以上選んでください"); return; }
+        list.splice(i,1);
+      }else list.push(b.dataset.v);
+      T.opt.genre = list[0];
+      drawGenreBtns(); saveOpt();
+    });
+  });
+  drawGenreBtns();
+  // 二択・三択のボタン
+  document.querySelectorAll("#p-start .seg[data-key]").forEach(seg=>{
+    const key = seg.dataset.key;
+    const cur = typeof T.opt[key] === "boolean" ? (T.opt[key] ? "1" : "0") : String(T.opt[key]);
+    seg.querySelectorAll("button").forEach(b=>{
+      b.classList.toggle("on", b.dataset.v === cur);
+      b.addEventListener("click", ()=>{
+        seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x===b));
+        T.opt[key] = (key === "answerMode" || key === "who" || key === "order") ? b.dataset.v : b.dataset.v === "1";
+        saveOpt();
+        if(key === "who") showWhoRows();
+        if(key === "order") drawGenreBtns();
+      });
+    });
+  });
+  // 名簿
+  const og = $("o-group");
+  og.innerHTML = T.groups.length ? T.groups.map(g=> `<button data-v="${esc(g)}">${esc(g)}</button>`).join("")
+    : `<span class="unit">「めいぼ」タブに名簿がありません</span>`;
+  og.querySelectorAll("button").forEach(b=>{
+    b.classList.toggle("on", b.dataset.v === T.opt.group);
+    b.addEventListener("click", ()=>{ T.opt.group = b.dataset.v; og.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x===b)); saveOpt(); });
+  });
+  // キャラのときの下限・上限（空欄＝なし も選べる）
+  const gmax = ()=> Math.max(1, ...T.opt.genres.map(k=> window.GENRES[k] ? window.GENRES[k].levels.length : 5));
+  [["o-clo","charaLower"],["o-cup","charaUpper"]].forEach(([id,key])=>{
+    const inp = $(id);
+    inp.value = T.opt[key];
+    const set = v=>{ v = (v === "" || isNaN(v) || v < 1) ? "" : Math.min(gmax(), v); inp.value = v; T.opt[key] = v; saveOpt(); };
+    inp.addEventListener("change", ()=> set(inp.value === "" ? "" : parseInt(inp.value)));
+    document.querySelectorAll(`#p-start .stepper button[data-t="${id}"]`).forEach(b=> b.addEventListener("click", ()=>{
+      const d = parseInt(b.dataset.d), cur = T.opt[key];
+      set(cur === "" ? (d > 0 ? 1 : "") : parseInt(cur) + d);
+    }));
+  });
+  showWhoRows();
+  // 数字＋△▽
+  const map = { "o-min":["minutes",1,60], "o-up":["upN",1,10], "o-down":["downN",1,10] };
+  Object.keys(map).forEach(id=>{
+    const [key,min,max] = map[id];
+    const inp = $(id);
+    inp.value = T.opt[key];
+    const set = v=>{ v = Math.max(min, Math.min(max, parseInt(v)||min)); inp.value = v; T.opt[key] = v; saveOpt(); if(key === "minutes") drawGenreBtns(); };
+    inp.addEventListener("change", ()=> set(inp.value));
+    document.querySelectorAll(`#p-start .stepper button[data-t="${id}"]`).forEach(b=>{
+      b.addEventListener("click", ()=> set((parseInt(inp.value)||min) + parseInt(b.dataset.d)));
+    });
+  });
+}
+
+function drawGenreBtns(){
+  const list = T.opt.genres, multi = list.length > 1, seq = T.opt.order !== "mix";
+  $("o-genre").querySelectorAll("button").forEach(b=>{
+    const i = list.indexOf(b.dataset.v);
+    b.classList.toggle("on", i >= 0);
+    b.innerHTML = (i >= 0 && multi && seq ? `<span class="ord">${i+1}</span>` : "") + esc(T.genres[b.dataset.v].name);
+  });
+  document.querySelectorAll("#p-start .r-order").forEach(r=> r.classList.toggle("hide", !multi));
+  const m = T.opt.minutes, n = list.length;
+  $("order-note").textContent = !multi ? "" : seq
+    ? `1つ ${Math.round(m / n * 10) / 10}分ずつ、番号の順に出ます`
+    : "1問ごとに、選んだジャンルからばらばらに出ます";
+}
+function showWhoRows(){
+  const chara = T.opt.who === "chara";
+  document.querySelectorAll("#p-start .r-roster").forEach(r=> r.classList.toggle("hide", chara));
+  document.querySelectorAll("#p-start .r-chara").forEach(r=> r.classList.toggle("hide", !chara));
+}
+
+/* ============================================================
+   受付
+============================================================ */
+function drawOpen(){
+  const s = T.session, box = $("open-area");
+  if(!s || !s.open){
+    box.innerHTML = `<div class="status-off">いまは受付をしていません。下の「問題の設定」で選んで、「この設定で受付を始める」を押してください。</div>`;
+    $("btn-start").textContent = "この設定で受付を始める";
+    return;
+  }
+  const keys = (s.genres && s.genres.length) ? s.genres : [s.genre];
+  const names = keys.map(k=> T.genres[k] ? T.genres[k].name : k);
+  const g = keys.length > 1 ? names.join(s.order === "mix" ? "・" : " → ") + (s.order === "mix" ? "（まぜる）" : "（じゅんばん）") : names[0];
+  let qr = "";
+  try{ const q = qrcode(0, "M"); q.addData(T.url); q.make(); qr = q.createSvgTag({ cellSize:4, margin:2, scalable:true }); }catch(e){}
+  box.innerHTML = `
+    <div class="open-box">
+      ${s.useCode === false
+        ? `<div style="text-align:center;"><div class="nocode">参加コードなし</div></div>`
+        : `<div style="text-align:center;"><div style="font-size:15px;color:var(--soft);">参加コード</div><div class="code-big">${esc(s.code)}</div></div>`}
+      <div class="qr">${qr}</div>
+      <div class="open-info">
+        受付中：<b>${esc(g)}</b>　${s.minutes}分　${s.answerMode==="input"?"数字を入力":s.answerMode==="level"?"答え方はレベルどおり":s.answerMode+"択"}<br>
+        ${s.who === "chara" ? "キャラで参加" : "名簿：" + esc(s.group || "全員")}<br>
+        ${s.useCode === false ? "生徒はQRコードから開くと、そのまま参加できます。" : "生徒はQRコードから開いて、参加コードを入れます。"}<br>
+        結果画面で待っている生徒は、つぎの回が始まると自動で入れます。<br>
+        <button class="btn warn" id="btn-end" style="margin-top:8px;">受付を終わる</button>
+      </div>
+    </div>`;
+  $("btn-end").addEventListener("click", ()=>{
+    if(!confirm("受付を終わりますか？\n解いている途中の生徒は、その問題を解いたら終わりになります。")) return;
+    api("endSession").then(s=>{ T.session = s; drawOpen(); refreshDash(); toast("受付を終わりました"); });
+  });
+  $("btn-start").textContent = "いまの受付を終わって、この設定で始める";
+}
+
+$("btn-start").addEventListener("click", ()=>{
+  if(T.session && T.session.open && !confirm("いまの受付を終わって、この設定で新しく始めますか？\n結果画面で待っている生徒は、そのまま新しい問題に入れます。")) return;
+  if(T.opt.who !== "chara" && T.groups.length && T.groups.indexOf(T.opt.group) < 0){ toast("名簿を選んでください"); return; }
+  T.opt.genre = T.opt.genres[0];
+  $("btn-start").disabled = true;
+  api("startSession", T.opt).then(s=>{
+    $("btn-start").disabled = false;
+    T.session = s; drawOpen();
+    showPanel("p-dash"); refreshDash();
+    window.scrollTo(0,0);
+  }).catch(e=>{ $("btn-start").disabled = false; toast("始められませんでした：" + e); });
+});
+
+/* ============================================================
+   ようす
+============================================================ */
+function stateBadge(r, now){
+  if(r.state === "playing" && now - r.t > 45000) return `<span class="st lost">通信なし</span>`;
+  if(r.state === "done") return `<span class="st done">終わり</span>`;
+  if(r.state === "playing") return `<span class="st playing">取り組み中</span>` + (r.per && r.genre ? `<div class="way">${esc(r.genre)}</div>` : "");
+  return `<span class="st ready">準備中</span>`;
+}
+function fmtRemain(sec){
+  if(sec === null || sec === undefined) return "";
+  const m = Math.floor(sec/60), s = sec%60;
+  return m > 0 ? `${m}分${s}秒` : `${s}秒`;
+}
+function drawDash(d){
+  const s = d.session;
+  if(!s){ $("dash-sum").textContent = "まだ受付をしていません"; $("dash-tbl").innerHTML = ""; return; }
+  const rows = d.rows || [], now = d.now || Date.now();
+  const done = rows.filter(r=>r.state==="done").length;
+  const play = rows.filter(r=>r.state==="playing").length;
+  $("dash-sum").textContent = `回 ${s.id}（${s.open?"受付中":"受付終了"}）　参加 ${rows.length}人・取り組み中 ${play}人・終わり ${done}人`;
+  let h = `<tr><th>名前</th><th>状態</th><th>残り</th><th>レベル</th><th>解いた</th><th>正解</th><th>正答率</th><th>まちがいの型</th><th>最近のまちがい</th></tr>`;
+  rows.forEach(r=>{
+    const rate = r.count ? Math.round(r.correct/r.count*100) + "%" : "";
+    const lvText = (a, b)=> (a && b && a !== b) ? `${a}→<span class="${b>a?'lvup':'lvdown'}">${b}</span>` : (b || "");
+    let lv;
+    if(r.per && r.per.length){
+      // 複数ジャンル：ジャンルごとに「時計 2→3（5問）」
+      lv = r.per.map(p=> `<span class="way">${esc(p.name)}</span> ${lvText(p.startLevel, p.level)} <span class="way">${p.count}問</span>`).join("<br>");
+    }else lv = lvText(r.startLevel, r.level);
+    if(r.auto) lv += ` <span class="way">自動</span>`;
+    const types = Object.keys(r.types||{}).sort((a,b)=>r.types[b]-r.types[a]).map(k=>`${esc(k)} ${r.types[k]}`).join("<br>");
+    const recent = (r.recent||[]).slice(0,3).map(x=>`${x.g ? esc(x.g) + "：" : ""}${esc(x.q)} → ${esc(x.a)}`).join("<br>");
+    const ch = s.who === "chara" ? T.charas.find(c=>c.name === r.name) : null;
+    h += `<tr><td><b>${ch ? ch.icon + " " : ""}${esc(r.name)}</b></td><td>${stateBadge(r, now)}</td><td class="num">${r.state==="playing"?fmtRemain(r.remain):""}</td>
+      <td class="${r.per ? '' : 'num'}">${lv}</td><td class="num">${r.count||0}</td><td class="num">${r.correct||0}</td><td class="num">${rate}</td>
+      <td class="types">${types}</td><td class="recent">${recent}</td></tr>`;
+  });
+  if(!rows.length) h += `<tr><td colspan="9" style="color:var(--soft);">まだ参加した生徒はいません</td></tr>`;
+  $("dash-tbl").innerHTML = h;
+}
+function refreshDash(){
+  api("getDashboard").then(d=>{ T.session = d.session || T.session; drawDash(d); }).catch(()=>{});
+}
+$("btn-refresh").addEventListener("click", refreshDash);
+function startDashTimer(){ clearInterval(T.dashTimer); T.dashTimer = setInterval(()=>{ if(!document.hidden) refreshDash(); }, 5000); }
+
+/* ============================================================
+   レベル設定
+============================================================ */
+function bindSetGenre(){
+  const gs = $("set-genre");
+  gs.innerHTML = Object.keys(T.genres).map(k=> `<button data-v="${k}" class="${k===T.setGenre?'on':''}">${esc(T.genres[k].name)}</button>`).join("");
+  gs.querySelectorAll("button").forEach(b=> b.addEventListener("click", ()=>{
+    T.setGenre = b.dataset.v;
+    gs.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x===b));
+    loadTable();
+  }));
+}
+function bindSetGroup(){
+  const gs = $("set-group");
+  gs.innerHTML = T.groups.map(g=> `<button data-v="${esc(g)}" class="${g===T.setGroup?'on':''}">${esc(g)}</button>`).join("")
+    + `<button data-v="" class="${T.setGroup===''?'on':''}">全員</button>`;
+  gs.querySelectorAll("button").forEach(b=> b.addEventListener("click", ()=>{
+    T.setGroup = b.dataset.v;
+    gs.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x===b));
+    loadTable();
+  }));
+}
+function loadTable(){
+  $("set-tbl").innerHTML = `<tr><td style="color:var(--soft);">読みこんでいます…</td></tr>`;
+  api("getSettingsTable", T.setGenre, T.setGroup).then(rows=>{ T.table = rows; drawTable(); })
+    .catch(e=>{ $("set-tbl").innerHTML = `<tr><td>読みこめませんでした：${esc(e)}</td></tr>`; });
+}
+function wayText(r){
+  if(r.level !== "" && r.level !== null) return "先生が指定";
+  if((r.lower !== "" && r.lower !== null) || (r.upper !== "" && r.upper !== null)) return "範囲から選ぶ";
+  return "自由に選ぶ";
+}
+function maxLv(){ const g = window.GENRES[T.setGenre]; return g ? g.levels.length : 5; }
+function stepperCell(i, key, val){
+  return `<div class="stepper"><button data-i="${i}" data-k="${key}" data-d="-1">▽</button>
+    <input data-i="${i}" data-k="${key}" type="number" inputmode="numeric" value="${val===null?'':val}">
+    <button data-i="${i}" data-k="${key}" data-d="1">△</button></div>`;
+}
+function drawTable(){
+  let h = `<tr><th>名前</th><th>レベル</th><th>下限</th><th>上限</th><th>自動調整</th><th>決め方</th><th>前回</th></tr>`;
+  T.table.forEach((r,i)=>{
+    h += `<tr><td><b>${esc(r.name)}</b></td>
+      <td>${stepperCell(i,"level",r.level)}</td>
+      <td>${stepperCell(i,"lower",r.lower)}</td>
+      <td>${stepperCell(i,"upper",r.upper)}</td>
+      <td><button class="tog ${r.auto?'on':''}" data-i="${i}">${r.auto?'する':'しない'}</button></td>
+      <td class="way" id="way-${i}">${wayText(r)}</td>
+      <td class="num">${r.last===null?'':r.last}</td></tr>`;
+  });
+  if(!T.table.length) h += `<tr><td colspan="7">「めいぼ」タブに名前を入れてください</td></tr>`;
+  $("set-tbl").innerHTML = h;
+  const max = maxLv();
+  const setVal = (i, k, v)=>{
+    // 空欄（なし）も選べる：1より下で空、空から△で1
+    if(v === "" || isNaN(v) || v < 1) v = "";
+    else v = Math.min(max, v);
+    T.table[i][k] = v;
+    const inp = $("set-tbl").querySelector(`input[data-i="${i}"][data-k="${k}"]`);
+    if(inp) inp.value = v;
+    $("way-" + i).textContent = wayText(T.table[i]);
+    $("save-msg").textContent = "";
+  };
+  $("set-tbl").querySelectorAll(".stepper button").forEach(b=> b.addEventListener("click", ()=>{
+    const i = parseInt(b.dataset.i), k = b.dataset.k, cur = T.table[i][k];
+    const d = parseInt(b.dataset.d);
+    if(cur === "" || cur === null) setVal(i, k, d > 0 ? 1 : "");
+    else setVal(i, k, parseInt(cur) + d);
+  }));
+  $("set-tbl").querySelectorAll(".stepper input").forEach(inp=> inp.addEventListener("change", ()=>{
+    setVal(parseInt(inp.dataset.i), inp.dataset.k, inp.value === "" ? "" : parseInt(inp.value));
+  }));
+  $("set-tbl").querySelectorAll(".tog").forEach(b=> b.addEventListener("click", ()=>{
+    const i = parseInt(b.dataset.i);
+    T.table[i].auto = !T.table[i].auto;
+    b.classList.toggle("on", T.table[i].auto);
+    b.textContent = T.table[i].auto ? "する" : "しない";
+    $("save-msg").textContent = "";
+  }));
+}
+$("btn-save").addEventListener("click", ()=>{
+  $("btn-save").disabled = true;
+  api("saveSettingsTable", T.setGenre, T.table).then(()=>{
+    $("btn-save").disabled = false;
+    $("save-msg").textContent = "保存しました";
+  }).catch(e=>{ $("btn-save").disabled = false; $("save-msg").textContent = "保存できませんでした：" + e; });
+});
+
+/* ============================================================
+   タブ
+============================================================ */
+function showPanel(id){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on", t.dataset.p === id));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on", p.id === id));
+  if(id === "p-dash") refreshDash();
+  if(id === "p-set") loadTable();
+}
+document.querySelectorAll(".tab").forEach(t=> t.addEventListener("click", ()=> showPanel(t.dataset.p)));
+
+/* ダブルタップでの拡大を防ぐ（操作する部品は対象外） */
+let lastTouch = 0;
+document.addEventListener("touchend", e=>{
+  const now = Date.now(), t = e.target;
+  const inter = t && t.closest && t.closest("button,input,select,textarea,a,label");
+  if(!inter && now - lastTouch <= 300) e.preventDefault();
+  lastTouch = now;
+}, { passive:false });
+document.addEventListener("gesturestart", e=> e.preventDefault());
+
+/* ============================================================
+   はじまり
+============================================================ */
+T.opt = loadOpt();
+api("teacherInit").then(d=>{
+  T.session = d.session; T.genres = d.genres; T.url = d.url;
+  T.groups = d.groups || []; T.charas = d.charas || [];
+  if(!T.genres[T.opt.genre]) T.opt.genre = Object.keys(T.genres)[0];
+  if(T.groups.indexOf(T.opt.group) < 0) T.opt.group = T.groups[0] || "";
+  T.opt.genres = T.opt.genres.filter(k=> T.genres[k]);
+  if(!T.opt.genres.length) T.opt.genres = [T.opt.genre];
+  T.setGenre = T.opt.genres[0]; T.setGroup = T.opt.group;
+  bindOptions(); bindSetGenre(); bindSetGroup(); drawOpen(); startDashTimer();
+}).catch(e=>{ $("open-area").textContent = "読みこめませんでした：" + e; });
+</script>
+<? } else { ?>
+<script>
+"use strict";
+
+/* ============================================================
+   サーバーとのやりとり
+   GASの中では google.script.run を使う。
+   ふつうのブラウザで開いたとき（プレビュー）は、デモ用のにせサーバーで動く。
+============================================================ */
+const DEMO = {
+  session:{ id:'demo', code:'1234', genre:'clock', genres:['clock'], order:'seq', minutes:5, answerMode:'level', showTime:true, showScore:true,
+            levelUpNotice:false, sound:true, upN:3, downN:2, continueLevel:false, open:true, weakFocus:true,
+            useCode:true, who:'roster', group:'名簿1', charaLower:'', charaUpper:'', charaAuto:true },
+  charas:[ {name:'いぬ',icon:'🐶'},{name:'ねこ',icon:'🐱'},{name:'うさぎ',icon:'🐰'},{name:'くま',icon:'🐻'},
+           {name:'パンダ',icon:'🐼'},{name:'ぞう',icon:'🐘'},{name:'ライオン',icon:'🦁'},{name:'とら',icon:'🐯'},
+           {name:'さる',icon:'🐵'},{name:'ぶた',icon:'🐷'},{name:'かえる',icon:'🐸'},{name:'ひよこ',icon:'🐤'} ],
+  taken:['ねこ'],
+  names:['れい たろう','れい はなこ','れい じろう'],
+  conf:{
+    'れい たろう':{ level:2, lower:'', upper:'', auto:true, last:'' },
+    'れい はなこ':{ level:'', lower:1, upper:3, auto:true, last:2 },
+    'れい じろう':{ level:'', lower:'', upper:'', auto:true, last:'' },
+  },
+  studentJoin(code){
+    const s = this.session;
+    if(s.useCode && String(code) !== s.code) return { ok:false, needCode:true };
+    return s.who === 'chara' ? { ok:true, session:s, charas:this.charas, taken:this.taken } : { ok:true, session:s, names:this.names };
+  },
+  studentConfig(code,name){
+    const s = this.session;
+    if(s.who === 'chara'){
+      if(this.taken.indexOf(name) >= 0) return { ok:false, taken:true };
+      const c = { level:'', lower:s.charaLower, upper:s.charaUpper, auto:s.charaAuto, last:'' };
+      const confs = {}; s.genres.forEach(g=> confs[g] = c);
+      return { ok:true, conf:c, confs };
+    }
+    const c = this.conf[name] || { level:'', lower:'', upper:'', auto:true, last:'' };
+    const confs = {}; s.genres.forEach(g=> confs[g] = c);
+    return { ok:true, conf:c, confs };
+  },
+  studentLog(){ return { ok:true, open:true }; },
+  studentFinish(){ return true; },
+  // おためし：結果画面で2回たずねると、先生が新しい回を始めたことにする
+  studentWait(sid){
+    this.waitN = (this.waitN || 0) + 1;
+    if(this.waitN < 2) return { ok:false };
+    this.waitN = 0;
+    this.session = Object.assign({}, this.session, { id:'demo' + Date.now() });
+    return this.studentJoin(this.session.code);
+  },
+};
+const IS_GAS = !!(window.google && google.script && google.script.run);
+function api(fn, ...args){
+  return new Promise((res, rej)=>{
+    if(IS_GAS){
+      google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args);
+    }else{
+      setTimeout(()=>{ try{ res(DEMO[fn](...args)); }catch(e){ rej(e); } }, 200);
+    }
+  });
+}
+
+/* ============================================================
+   じょうたい
+============================================================ */
+const S = {
+  code:'', sess:null, names:[], charas:[], taken:[], name:'', conf:null, G:null, dev:'',
+  level:1, startLevel:1, minLv:1, maxLv:1, auto:false,
+  endAt:0, timeUp:false, teacherEnded:false, finished:false,
+  count:0, correct:0, streakOk:0, streakNg:0, types:{}, recent:[],
+  q:null, qStart:0, answered:false, input:{ h:'', m:'', focus:'h' },
+  review:[], qSrc:'ふつう', qTries:0,
+  queue:[], sending:false,
+  // 複数ジャンル：ジャンルごとの じょうたいを gs にしまい、いまのジャンルの分を S に出しておく
+  gs:{}, gkeys:[], gcur:'', confs:null, lastQ:null, gCount:0, gCorrect:0,
+};
+const GKEYS = ['G','level','startLevel','minLv','maxLv','auto','streakOk','streakNg','types','review','lastQ','gCount','gCorrect'];
+function saveGenre(){ if(S.gcur && S.gs[S.gcur]) GKEYS.forEach(k=> S.gs[S.gcur][k] = S[k]); }
+function useGenre(key){
+  if(S.gcur === key) return;
+  saveGenre();
+  S.gcur = key;
+  GKEYS.forEach(k=> S[k] = S.gs[key][k]);
+}
+function sessKeys(sess){ const l = (sess.genres && sess.genres.length) ? sess.genres : [sess.genre]; return l.filter(k=> window.GENRES[k]); }
+function isMulti(){ return S.gkeys.length > 1; }
+
+function $(id){ return document.getElementById(id); }
+function show(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(id).classList.add("active");
+  $("app").scrollTop = 0;
+}
+
+/* iOS Safari で、消した文字が画面に残ることがあるので、要素ごと入れかえる */
+function freshEl(id){
+  const old = $(id);
+  const el = old.cloneNode(false);
+  old.parentNode.replaceChild(el, old);
+  void el.offsetHeight;
+  return el;
+}
+
+/* ============================================================
+   音（効果音）
+============================================================ */
+let actx = null;
+function unlockAudio(){
+  try{
+    if(!actx){ const AC = window.AudioContext || window.webkitAudioContext; if(AC) actx = new AC(); }
+    if(actx && actx.state === "suspended") actx.resume();
+  }catch(e){}
+}
+function tone(freq, start, dur, vol, type){
+  if(!actx) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || "sine"; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.001, start);
+  g.gain.linearRampToValueAtTime(vol, start + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(start); o.stop(start + dur + 0.05);
+}
+function soundOk(){ if(!S.sess || !S.sess.sound || !actx) return; const t = actx.currentTime; tone(880,t,.16,.22); tone(1175,t+.16,.22,.22); }
+function soundNg(){ if(!S.sess || !S.sess.sound || !actx) return; const t = actx.currentTime; tone(330,t,.28,.12,"triangle"); }
+
+/* ============================================================
+   1. 参加コード
+============================================================ */
+function buildCodeScreen(){
+  const pad = $("code-pad");
+  const keys = ["1","2","3","4","5","6","7","8","9","けす","0",""];
+  pad.innerHTML = keys.map(k=> k==="" ? "<span></span>" :
+    `<button data-k="${k}" class="${k==='けす'?'pad-sub':''}">${k}</button>`).join("");
+  pad.querySelectorAll("button").forEach(b=> b.addEventListener("click", ()=> codeKey(b.dataset.k)));
+  drawCode();
+}
+function drawCode(){
+  let h = "";
+  for(let i=0;i<4;i++) h += `<div class="code-box ${i===S.code.length?'cur':''}">${S.code[i]||""}</div>`;
+  $("code-boxes").innerHTML = h;
+}
+let joining = false;
+function codeKey(k){
+  unlockAudio();
+  if(joining) return;
+  if(k === "けす"){ S.code = S.code.slice(0,-1); }
+  else if(S.code.length < 4){ S.code += k; }
+  freshEl("code-err");
+  drawCode();
+  if(S.code.length === 4) tryJoin();
+}
+function tryJoin(){
+  joining = true;
+  $("code-err").textContent = "しらべているよ…";
+  api("studentJoin", S.code, S.dev).then(r=>{
+    joining = false;
+    if(r && r.closed){ S.code = ""; drawCode(); freshEl("code-err"); showWait(); return; }
+    if(!r || !r.ok){
+      freshEl("code-err").textContent = "その 数字では はいれないみたい。もういちど 見てね";
+      S.code = ""; drawCode();
+      return;
+    }
+    enter(r);
+  }).catch(()=>{
+    joining = false;
+    freshEl("code-err").innerHTML = "つながらなかったよ。もういちど <ruby>入<rt>い</rt></ruby>れてね";
+    S.code = ""; drawCode();
+  });
+}
+
+/* 参加できたとき（コードあり・なし どちらも） */
+function enter(r){
+  stopProbe();
+  S.sess = r.session;
+  S.names = r.names || []; S.charas = r.charas || []; S.taken = r.taken || [];
+  S.gkeys = sessKeys(S.sess);
+  S.G = window.GENRES[S.gkeys[0]];
+  freshEl("code-err");
+  buildNameScreen();
+  show("s-name");
+}
+
+/* まだ受付が始まっていないとき */
+function showWait(){
+  $("wait-msg").innerHTML = "まだ はじまっていないよ。<br><ruby>先生<rt>せんせい</rt></ruby>が はじめると、<br>じどうで はじまるよ";
+  show("s-wait");
+  // しばらく、じどうで しらべる（ボタンでも しらべられる）
+  if(!probeTimer){ probeStart = Date.now(); probeTimer = setInterval(()=>{ if(Date.now() - probeStart > 40*60000) stopProbe(); else probe(); }, POLL_MS); }
+}
+const POLL_MS = IS_GAS ? 8000 : 3000;
+let probeTimer = null, probeStart = 0;
+function stopProbe(){ clearInterval(probeTimer); probeTimer = null; }
+$("wait-go").addEventListener("click", ()=>{ unlockAudio(); probe(); });
+
+/* はじめに、コードなしで入れるかどうかを しらべる */
+function probe(){
+  $("wait-go").disabled = true;
+  api("studentJoin", "", S.dev).then(r=>{
+    $("wait-go").disabled = false;
+    if(r && r.ok) enter(r);
+    else if(r && r.needCode){ stopProbe(); S.code = ""; drawCode(); show("s-code"); }
+    else showWait();
+  }).catch(()=>{
+    $("wait-go").disabled = false;
+    $("wait-msg").innerHTML = "つながらなかったよ。<br>すこし まって、もういちど おしてね";
+    show("s-wait");
+  });
+}
+
+/* ============================================================
+   2. 名前（またはキャラ）
+============================================================ */
+function isChara(){ return S.sess && S.sess.who === "chara"; }
+function charaOf(name){ return S.charas.find(c=>c.name === name); }
+function displayName(){ const c = isChara() && charaOf(S.name); return c ? c.icon + " " + S.name : S.name; }
+
+function buildNameScreen(){
+  const grid = $("name-grid");
+  S.name = ""; $("name-go").disabled = true;
+  freshEl("name-err");
+  if(isChara()){
+    $("name-title").innerHTML = "すきな キャラを えらんでね";
+    grid.className = "name-grid chara-grid";
+    grid.innerHTML = S.charas.map((c,i)=>{
+      const used = S.taken.indexOf(c.name) >= 0;
+      return `<button class="name-btn chara-btn" data-i="${i}" ${used?'disabled':''}>
+        <span class="ic">${c.icon}</span><span class="nm">${escapeHtml(c.name)}</span>${used?'<span class="used">つかっているよ</span>':''}</button>`;
+    }).join("");
+  }else{
+    $("name-title").innerHTML = "じぶんの <ruby>名前<rt>なまえ</rt></ruby>を おしてね";
+    grid.className = "name-grid";
+    grid.innerHTML = S.names.map((n,i)=> `<button class="name-btn" data-i="${i}">${escapeHtml(n)}</button>`).join("");
+  }
+  // つぎの回に入ったときは、前の名前（キャラ）を はじめから えらんでおく
+  if(S.prevName){
+    $("name-title").innerHTML = "あたらしい もんだいが はじまったよ<br>" + $("name-title").innerHTML;
+    const list = isChara() ? S.charas.map(c=>c.name) : S.names;
+    const i = list.indexOf(S.prevName);
+    const b = i >= 0 ? grid.querySelector(`.name-btn[data-i="${i}"]`) : null;
+    if(b && !b.disabled){ b.classList.add("on"); S.name = S.prevName; $("name-go").disabled = false; }
+  }
+  grid.querySelectorAll(".name-btn").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      grid.querySelectorAll(".name-btn").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      const i = parseInt(b.dataset.i);
+      S.name = isChara() ? S.charas[i].name : S.names[i];
+      $("name-go").disabled = false;
+    });
+  });
+}
+function escapeHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+$("name-go").addEventListener("click", ()=>{
+  unlockAudio();
+  if(!S.name) return;
+  S.prevName = "";
+  $("name-go").disabled = true;
+  api("studentConfig", S.code, S.name, S.dev).then(r=>{
+    $("name-go").disabled = false;
+    if(r && r.taken){
+      // ほかの人が先にえらんだ
+      api("studentJoin", S.code, S.dev).then(j=>{
+        if(j && j.ok){ S.taken = j.taken || []; buildNameScreen(); }
+        freshEl("name-err").innerHTML = "その キャラは ほかの <ruby>人<rt>ひと</rt></ruby>が つかっているよ。ちがう キャラを えらんでね";
+      }).catch(()=>{});
+      return;
+    }
+    if(!r || !r.ok){ S.code=""; drawCode(); probe(); return; }
+    S.conf = r.conf;
+    S.confs = r.confs || null;
+    loadPending();
+    decideLevel();
+  }).catch(()=>{ $("name-go").disabled = false; });
+});
+
+/* ============================================================
+   3. レベルの決めかた
+   ・レベルに数字がある → 先生が指定（前回のつづきが「する」なら前回から）
+   ・下限・上限がある   → その中から自分で選ぶ
+   ・ぜんぶ空           → 自由に選ぶ
+   複数ジャンルのときは、生徒は選ばない（ジャンルごとのレベル設定で始める）
+     指定なし → 範囲があれば下限、なければレベル1（前回のつづきなら前回のレベル）
+============================================================ */
+function planLevel(G, c){
+  const max = G.levels.length;
+  c = c || {};
+  const n = v => (v === "" || v === null || v === undefined) ? null : parseInt(v);
+  const clamp = (v, a, b)=> Math.min(b, Math.max(a, v));
+  const lv = n(c.level), lo = n(c.lower), up = n(c.upper), last = n(c.last);
+  if(lv){
+    let start = clamp(lv, 1, max);
+    if(S.sess.continueLevel && last) start = clamp(last, 1, max);
+    return { fixed:true, level:start, minLv:1, maxLv:max, auto:!!c.auto, last };
+  }
+  let a = lo || 1, b = up || max;
+  if(a > b) [a,b] = [b,a];
+  a = clamp(a, 1, max); b = clamp(b, 1, max);
+  const ranged = !!(lo || up);
+  let start = a;
+  if(S.sess.continueLevel && last) start = clamp(last, a, b);
+  return { fixed:false, level:start, a, b, minLv: ranged ? a : 1, maxLv: ranged ? b : max, auto:!!c.auto, last };
+}
+function initGenre(key, p, level){
+  S.gs[key] = { G:window.GENRES[key], level, startLevel:level, minLv:p.minLv, maxLv:p.maxLv, auto:p.auto,
+                streakOk:0, streakNg:0, types:{}, review:[], lastQ:null, gCount:0, gCorrect:0 };
+}
+function confOf(key){ return (S.confs && S.confs[key]) || S.conf || {}; }
+
+function decideLevel(){
+  S.gs = {}; S.gcur = "";
+  if(isMulti()){
+    S.gkeys.forEach(k=>{ const p = planLevel(window.GENRES[k], confOf(k)); initGenre(k, p, p.level); });
+    goReady();
+    return;
+  }
+  const key = S.gkeys[0];
+  const p = planLevel(window.GENRES[key], confOf(key));
+  if(p.fixed){ initGenre(key, p, p.level); goReady(); return; }
+  buildLevelScreen(key, p);
+  show("s-level");
+}
+function buildLevelScreen(key, p){
+  const G = window.GENRES[key];
+  $("level-title").innerHTML = `${G.nameRuby}、どの レベルから はじめる？`;
+  $("level-sub").innerHTML = p.auto ? "えらんだ レベルから はじまるよ" : "えらんだ レベルで やるよ";
+  let h = "";
+  for(let i=p.a;i<=p.b;i++){
+    const L = G.levels[i-1];
+    h += `<button class="level-btn ${p.last===i?'last':''}" data-lv="${i}">
+      <span class="lv">レベル${i}</span><span class="lb">${L.label}</span><span class="ex">れい：${L.ex}</span></button>`;
+  }
+  $("level-list").innerHTML = h;
+  $("level-list").querySelectorAll(".level-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{ unlockAudio(); initGenre(key, p, parseInt(btn.dataset.lv)); goReady(); });
+  });
+}
+
+/* ============================================================
+   4. はじめる
+============================================================ */
+function goReady(){
+  S.gcur = "";
+  useGenre(S.gkeys[0]);
+  const names = S.gkeys.map(k=> window.GENRES[k].nameRuby);
+  const mix = S.sess.order === "mix";
+  $("ready-msg").innerHTML = `${escapeHtml(displayName())}さん、${names.join(mix ? "と " : " → ")}の もんだいを ${S.sess.minutes}分 やるよ`;
+  let sub = "じゅんびが できたら おしてね";
+  if(isMulti()) sub = (mix ? "いろいろな もんだいが まざって でるよ。" : "とちゅうで もんだいが かわるよ。") + "<br>" + sub;
+  $("ready-sub").innerHTML = sub;
+  sendStatus("ready");
+  show("s-ready");
+}
+$("ready-go").addEventListener("click", ()=>{
+  unlockAudio();
+  S.endAt = Date.now() + S.sess.minutes * 60000;
+  freshEl("notice");
+  $("pill-name").textContent = displayName();
+  $("pill-time").classList.toggle("empty", !S.sess.showTime);
+  $("pill-score").classList.toggle("empty", !S.sess.showScore);
+  show("s-play");
+  nextQuestion();
+  startTimer();
+  startHeartbeat();
+});
+
+/* ============================================================
+   タイマー
+============================================================ */
+let timerId = null;
+function startTimer(){
+  clearInterval(timerId);
+  timerId = setInterval(tickTimer, 250);
+  tickTimer();
+}
+function remainSec(){ return Math.max(0, Math.ceil((S.endAt - Date.now())/1000)); }
+function tickTimer(){
+  const r = remainSec();
+  if(S.sess.showTime){
+    const m = Math.floor(r/60), s = r%60;
+    $("pill-time").textContent = "のこり " + (m>0 ? `${m}分${s}秒` : `${s}秒`);
+  }
+  if(r <= 0 && !S.timeUp){
+    S.timeUp = true;
+    onStopSignal("じかんに なったよ。");
+  }
+}
+function onStopSignal(text){
+  if(S.finished) return;
+  if(S.answered){
+    // こたえを見ている間なら、ボタンを「おわる」にかえる（解説はそのまま読める）
+    const b = $("btn-next"); if(b) b.textContent = "おわる";
+    freshEl("notice").innerHTML = text;
+    return;
+  }
+  // とちゅうの問題は さいごまで とける
+  freshEl("notice").innerHTML = text + "この もんだいで おわりだよ";
+}
+
+/* ============================================================
+   5. 問題
+============================================================ */
+function nextQuestion(){
+  if(S.timeUp || S.teacherEnded){ finish(); return; }
+  S.answered = false;
+  const key = chooseGenre();
+  const changed = S.gcur !== key;
+  useGenre(key);
+  const gl = $("q-genre");
+  gl.classList.toggle("empty", !isMulti());
+  gl.innerHTML = isMulti() ? S.G.nameRuby : "";
+  if(changed && S.count > 0 && S.sess.order !== "mix") showGenreChange();
+  S.q = pickQuestion();
+  S.q._g = key;
+  S.qStart = Date.now();
+  S.input = { h:"", m:"", n:"", focus:"h" };
+  $("q-prompt").innerHTML = S.G.prompt;
+  S.G.render(S.q, $("q-visual"));
+  freshEl("feedback").className = "feedback";
+  freshEl("next-row");
+  drawScore();
+  const mode = curMode();
+  if(mode === "input") buildInput();
+  else buildChoices(mode === "2" ? 2 : 4);
+}
+/* つぎの問題のジャンル
+   じゅんばん：時間をジャンルの数で分けて、選んだ順に
+   まぜる　　：1問ごとに ばらばら（同じジャンルが3回つづかないように） */
+function chooseGenre(){
+  const keys = S.gkeys;
+  if(keys.length === 1) return keys[0];
+  if(S.sess.order === "mix"){
+    const h = S.genreHist || [];
+    let cand = keys;
+    if(h.length >= 2 && h[0] === h[1]) cand = keys.filter(k=> k !== h[0]);
+    const k = cand[Math.floor(Math.random() * cand.length)];
+    S.genreHist = [k].concat(h).slice(0,2);
+    return k;
+  }
+  const total = S.sess.minutes * 60000;
+  const used = total - (S.endAt - Date.now());
+  const i = Math.floor(used / (total / keys.length));
+  return keys[Math.max(0, Math.min(keys.length - 1, i))];
+}
+function showGenreChange(){
+  const el = $("gchange");
+  el.innerHTML = `ここから<br>${S.G.nameRuby}の もんだいだよ`;
+  el.classList.add("show");
+  setTimeout(()=> el.classList.remove("show"), 1800);
+}
+
+/* ============================================================
+   問題のえらびかた（「まちがえた問題を多めに」のとき）
+   ・まちがえた問題は、2問あとに「にた問題」でもう一度（同じ問題で2回まで）
+   ・それ以外のときも、半分くらいは、まちがいの多い型を練習できる問題にする
+============================================================ */
+function pickQuestion(){
+  const G = S.G;
+  const prev = (S.q && S.q._g === S.gcur) ? S.q : S.lastQ;
+  S.qSrc = "ふつう"; S.qTries = 0;
+  if(S.sess.weakFocus !== false){
+    const i = S.review.findIndex(r=> r.due <= S.count);
+    if(i >= 0){
+      const r = S.review.splice(i,1)[0];
+      S.qSrc = "やり直し"; S.qTries = r.tries;
+      return G.similar ? G.similar(r.q) : r.q;
+    }
+    const keys = Object.keys(S.types);
+    if(keys.length && G.fits && Math.random() < 0.5){
+      // まちがえた回数が多い型ほど えらばれやすい
+      let total = 0; keys.forEach(k=> total += S.types[k]);
+      let x = Math.random() * total, type = keys[0];
+      for(const k of keys){ x -= S.types[k]; if(x < 0){ type = k; break; } }
+      for(let k=0;k<12;k++){
+        const q = G.make(S.level, prev);
+        if(G.fits(q, type)){ S.qSrc = "にがて"; return q; }
+      }
+    }
+  }
+  return G.make(S.level, prev);
+}
+
+function drawScore(){
+  if(S.sess.showScore) $("pill-score").textContent = `せいかい ${S.correct}`;
+}
+
+function buildChoices(n){
+  const box = $("q-answer");
+  const cs = S.G.choices(S.q, n);
+  box.innerHTML = `<div class="choices ${n===2?'two':''}">` +
+    cs.map((c,i)=> `<button class="choice" data-i="${i}">${c.html || c.text}</button>`).join("") + `</div>`;
+  box.querySelectorAll(".choice").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      if(S.answered) return;
+      const c = cs[parseInt(b.dataset.i)];
+      box.querySelectorAll(".choice").forEach((x,i)=>{
+        x.disabled = true;
+        if(cs[i].correct) x.classList.add("correct");
+      });
+      if(!c.correct) b.classList.add("wrong");
+      answer(c, c.text);
+    });
+  });
+}
+
+function buildInput(){
+  if(S.G.answerKind === "number"){ buildNumInput(); return; }
+  const box = $("q-answer");
+  box.innerHTML = `
+    <div class="time-in">
+      <span class="slot" id="slot-h"></span><span>時</span>
+      <span class="slot" id="slot-m"></span><span>分</span>
+    </div>
+    <div class="pad small" id="in-pad"></div>`;
+  $("slot-h").addEventListener("click", ()=>{ S.input.focus="h"; drawInput(); });
+  $("slot-m").addEventListener("click", ()=>{ S.input.focus="m"; drawInput(); });
+  const keys = ["1","2","3","4","5","6","7","8","9","けす","0","こたえる"];
+  $("in-pad").innerHTML = keys.map(k=>
+    `<button data-k="${k}" class="${k==='けす'?'pad-sub':''}${k==='こたえる'?'pad-go':''}">${k}</button>`).join("");
+  $("in-pad").querySelectorAll("button").forEach(b=> b.addEventListener("click", ()=> inputKey(b.dataset.k)));
+  drawInput();
+}
+/* 数で答えるジャンル（お金など） */
+function buildNumInput(){
+  const box = $("q-answer");
+  box.innerHTML = `
+    <div class="time-in"><span class="slot wide cur" id="slot-n"></span><span>${S.G.unitHtml || ""}</span></div>
+    <div class="pad small" id="in-pad"></div>`;
+  const keys = ["1","2","3","4","5","6","7","8","9","けす","0","こたえる"];
+  $("in-pad").innerHTML = keys.map(k=>
+    `<button data-k="${k}" class="${k==='けす'?'pad-sub':''}${k==='こたえる'?'pad-go':''}">${k}</button>`).join("");
+  $("in-pad").querySelectorAll("button").forEach(b=> b.addEventListener("click", ()=> numKey(b.dataset.k)));
+}
+function numKey(k){
+  if(S.answered) return;
+  if(k === "けす") S.input.n = S.input.n.slice(0,-1);
+  else if(k === "こたえる"){
+    if(S.input.n === "") return;
+    const v = parseInt(S.input.n);
+    answer({ v }, S.G.fmt(v));
+    return;
+  }
+  else if(S.input.n === "0") S.input.n = k;          // 0 のあとに数字を押したら入れかえる（05 にしない）
+  else if(S.input.n.length < (S.G.maxDigits || 5)) S.input.n += k;
+  $("slot-n").textContent = S.input.n;
+}
+
+function drawInput(){
+  const sn = $("slot-n"); if(sn) sn.classList.toggle("cur", !S.answered);
+  const sh = $("slot-h"), sm = $("slot-m");
+  if(!sh) return;
+  sh.textContent = S.input.h; sm.textContent = S.input.m;
+  sh.classList.toggle("cur", S.input.focus === "h" && !S.answered);
+  sm.classList.toggle("cur", S.input.focus === "m" && !S.answered);
+}
+function inputKey(k){
+  if(S.answered) return;
+  const f = S.input.focus;
+  if(k === "けす"){
+    if(S.input[f] === "" && f === "m"){ S.input.focus = "h"; }
+    else S.input[f] = S.input[f].slice(0,-1);
+  }else if(k === "こたえる"){
+    if(S.input.h === "") { S.input.focus = "h"; drawInput(); return; }
+    const h = parseInt(S.input.h), m = S.input.m === "" ? 0 : parseInt(S.input.m);
+    answer({ h, m }, S.G.fmt(h, m));
+    return;
+  }else{
+    if(S.input[f].length < 2) S.input[f] += k;
+    // 時を入れ終わったら、自動で分へ
+    if(f === "h" && (S.input.h.length === 2 || parseInt(S.input.h) >= 2)) S.input.focus = "m";
+  }
+  drawInput();
+}
+
+/* ============================================================
+   こたえあわせ
+============================================================ */
+function answer(given, givenText){
+  S.answered = true;
+  drawInput();
+  const res = S.G.judge(S.q, given);
+  const sec = Math.round((Date.now() - S.qStart)/100)/10;
+  S.count++; S.gCount++;
+  S.lastQ = S.q;
+  const lvAtAnswer = S.level;
+  const fb = $("feedback");
+  if(res.ok){
+    S.correct++; S.gCorrect++; S.streakOk++; S.streakNg = 0;
+    fb.className = "feedback ok";
+    fb.innerHTML = "せいかい！";
+    soundOk();
+  }else{
+    S.streakNg++; S.streakOk = 0;
+    S.types[res.type] = (S.types[res.type] || 0) + 1;
+    S.recent.unshift({ q:S.q.answerText, a:givenText, type:res.type, g: isMulti() ? S.G.name : "" });
+    S.recent = S.recent.slice(0,5);
+    if(S.sess.weakFocus !== false){
+      const tries = S.qSrc === "やり直し" ? S.qTries + 1 : 1;
+      if(tries <= 2) S.review.push({ q:S.q, due:S.count + 2, tries });
+    }
+    fb.className = "feedback ng";
+    fb.innerHTML = `こたえは ${S.q.answerHtml || S.q.answerText} だよ<div class="hint">${S.G.hint(res.type, S.q)}</div>`;
+    S.G.render(S.q, $("q-visual"), { explain:true });
+    soundNg();
+  }
+  drawScore();
+  S.queue.push({
+    ts: Date.now(), genre:S.G.name, level:lvAtAnswer, q:S.q.text, ans:S.q.answerText,
+    given:givenText, ok:res.ok, sec, type:res.type, mode:modeName(), src:S.qSrc,
+  });
+  savePending();
+  autoAdjust();
+  flush();
+
+  const stop = S.timeUp || S.teacherEnded;
+  const row = $("next-row");
+  row.innerHTML = `<button class="big-btn" id="btn-next">${stop ? "おわる" : "つぎへ"}</button>`;
+  $("btn-next").addEventListener("click", nextQuestion);
+  // せいかいのときは、少しまって自動で次へ
+  if(res.ok && !stop){
+    const q = S.q;
+    setTimeout(()=>{ if(S.q === q && S.answered && !S.finished) nextQuestion(); }, 1100);
+  }
+}
+/* 答え方。「レベルどおり」のときは、ジャンルがレベルごとに決めた答え方（決めていなければ4択） */
+function curMode(){
+  const m = S.sess.answerMode;
+  if(m !== "level") return m;
+  const L = S.G.levels[(S.q ? S.q.level : S.level) - 1];
+  return (L && L.mode) || "4";
+}
+function modeName(){ const m = curMode(); return m === "input" ? "入力" : (m === "2" ? "2択" : "4択"); }
+
+/* レベルの自動調整（その生徒が「する」のときだけ） */
+function autoAdjust(){
+  if(!S.auto) return;
+  const up = S.sess.upN || 3, down = S.sess.downN || 2;
+  if(S.streakOk >= up && S.level < S.maxLv){
+    S.level++; S.streakOk = 0;
+    if(S.sess.levelUpNotice){
+      const el = $("levelup"); el.classList.add("show");
+      setTimeout(()=> el.classList.remove("show"), 1400);
+    }
+  }else if(S.streakNg >= down && S.level > S.minLv){
+    S.level--; S.streakNg = 0;   // 下がったときは、なにも出さない
+  }
+}
+
+/* ============================================================
+   送る（うらで順番に。失敗したらためておいて、あとで送り直す）
+============================================================ */
+function pendKey(){ return "jibundrill_q_" + (S.sess ? S.sess.id : "") + "_" + S.name; }
+function savePending(){ try{ localStorage.setItem(pendKey(), JSON.stringify(S.queue)); }catch(e){} }
+function loadPending(){
+  try{
+    const v = localStorage.getItem(pendKey());
+    if(v){ const arr = JSON.parse(v); if(Array.isArray(arr)) S.queue = arr.concat(S.queue); }
+  }catch(e){}
+}
+function topOf(types){
+  let top = "", topN = 0;
+  Object.keys(types || {}).forEach(k=>{ if(types[k] > topN){ top = k; topN = types[k]; } });
+  return top;
+}
+function snapshot(state){
+  saveGenre();
+  // 複数ジャンルのときは「ジャンル名：まちがいの型」でまとめる
+  let types = S.types;
+  if(isMulti()){
+    types = {};
+    S.gkeys.forEach(k=>{ const g = S.gs[k]; if(g) Object.keys(g.types).forEach(t=> types[g.G.name + "：" + t] = g.types[t]); });
+  }
+  const per = S.gkeys.filter(k=> S.gs[k]).map(k=>{ const g = S.gs[k];
+    return { genre:k, name:g.G.name, level:g.level, startLevel:g.startLevel, count:g.gCount, correct:g.gCorrect }; });
+  return {
+    state: state || (S.finished ? "done" : "playing"),
+    level:S.level, startLevel:S.startLevel, count:S.count, correct:S.correct,
+    types, top:topOf(types), recent:S.recent, remain: S.endAt ? remainSec() : null, auto:S.auto, dev:S.dev,
+    genre: S.G ? S.G.name : "", per: isMulti() ? per : null,
+  };
+}
+function flush(){
+  if(S.sending) return;
+  S.sending = true;
+  const items = S.queue.slice();
+  api("studentLog", S.sess.id, S.name, items, snapshot()).then(r=>{
+    S.queue.splice(0, items.length);
+    savePending();
+    if(r && r.open === false && !S.teacherEnded && !S.finished){
+      S.teacherEnded = true;
+      onStopSignal("<ruby>先生<rt>せんせい</rt></ruby>が おわりに したよ。");
+    }
+  }).catch(()=>{}).finally(()=>{
+    S.sending = false;
+    if(S.queue.length && S.finishing) setTimeout(flush, 1500);
+  });
+}
+function sendStatus(state){
+  api("studentLog", S.sess.id, S.name, [], snapshot(state)).catch(()=>{});
+}
+let hbId = null;
+function startHeartbeat(){
+  clearInterval(hbId);
+  hbId = setInterval(()=>{ if(!S.finished) flush(); }, 12000);
+}
+
+/* ============================================================
+   6. 結果
+============================================================ */
+function finish(){
+  if(S.finished) return;
+  S.finished = true; S.finishing = true;
+  clearInterval(timerId); clearInterval(hbId);
+  $("res-count").textContent = `${S.count}もん といたよ`;
+  $("res-score").innerHTML = S.sess.showScore ? `せいかいは ${S.correct}もん だったよ` : "よく がんばったね";
+  saveGenre();
+  $("res-per").innerHTML = isMulti() ? S.gkeys.map(k=>{ const g = S.gs[k];
+    return `${g.G.nameRuby}：${g.gCount}もん` + (S.sess.showScore ? `（せいかい ${g.gCorrect}）` : ""); }).join("<br>") : "";
+  show("s-result");
+  sendAll();
+}
+function sendAll(){
+  $("send-state").innerHTML = "<ruby>先生<rt>せんせい</rt></ruby>に おくっているよ…";
+  saveGenre();
+  const share = (isMulti() && S.sess.order !== "mix") ? Math.round(S.sess.minutes / S.gkeys.length * 10) / 10 : S.sess.minutes;
+  const per = S.gkeys.map(k=>{ const g = S.gs[k];
+    return { genre:k, genreName:g.G.name, startLevel:g.startLevel, endLevel:g.level,
+             count:g.gCount, correct:g.gCorrect, topType:topOf(g.types), minutes:share }; });
+  const sum = Object.assign({}, per[0], { per });
+  const tryOnce = ()=>{
+    const items = S.queue.slice();
+    api("studentLog", S.sess.id, S.name, items, snapshot("done")).then(()=>{
+      S.queue.splice(0, items.length); savePending();
+      return api("studentFinish", S.sess.id, S.name, sum);
+    }).then(()=>{
+      $("send-state").innerHTML = "<ruby>先生<rt>せんせい</rt></ruby>に おくったよ";
+      startWaitNext();
+      try{ localStorage.removeItem(pendKey()); }catch(e){}
+    }).catch(()=>{
+      $("send-state").innerHTML = "つながるのを まっているよ…";
+      setTimeout(tryOnce, 4000);
+    });
+  };
+  // 送っている途中のものが終わるのを少しまつ
+  setTimeout(tryOnce, S.sending ? 1500 : 0);
+}
+
+/* ============================================================
+   7. つぎの回を まつ
+   結果画面のまま まっていれば、先生が新しい回を始めたときに じどうで入れる
+============================================================ */
+let nextTimer = null, nextStart = 0;
+function startWaitNext(){
+  $("wait-next").innerHTML = "つぎの もんだいが はじまったら、<br>じどうで かわるよ。このまま まってね";
+  clearInterval(nextTimer);
+  nextStart = Date.now();
+  nextTimer = setInterval(checkNext, POLL_MS);
+}
+function stopWaitNext(){ clearInterval(nextTimer); nextTimer = null; }
+function checkNext(){
+  if(Date.now() - nextStart > 40*60000){ stopWaitNext(); $("wait-next").innerHTML = ""; return; }
+  api("studentWait", S.sess.id, S.dev).then(r=>{
+    if(!r || (!r.ok && !r.needCode)) return;
+    stopWaitNext();
+    const prev = S.name;
+    resetForNext();
+    S.prevName = prev;
+    $("wait-next").innerHTML = "";
+    if(r.ok){
+      S.code = r.session.code;
+      enter(r);
+    }else{
+      S.code = ""; drawCode();
+      freshEl("code-err").innerHTML = "あたらしい もんだいが はじまったよ。<br><ruby>先生<rt>せんせい</rt></ruby>の <ruby>画面<rt>がめん</rt></ruby>の <ruby>数字<rt>すうじ</rt></ruby>を <ruby>入<rt>い</rt></ruby>れてね";
+      show("s-code");
+    }
+  }).catch(()=>{});
+}
+/* つぎの回のために、前の回の じょうたいを もどす */
+function resetForNext(){
+  clearInterval(timerId); clearInterval(hbId);
+  Object.assign(S, {
+    sess:null, conf:null, G:null, name:"",
+    level:1, startLevel:1, minLv:1, maxLv:1, auto:false,
+    endAt:0, timeUp:false, teacherEnded:false, finished:false, finishing:false,
+    count:0, correct:0, streakOk:0, streakNg:0, types:{}, recent:[],
+    q:null, qStart:0, answered:false, input:{ h:"", m:"", n:"", focus:"h" },
+    queue:[], sending:false, review:[], qSrc:"ふつう", qTries:0,
+    gs:{}, gkeys:[], gcur:"", confs:null, lastQ:null, gCount:0, gCorrect:0, genreHist:[],
+  });
+}
+
+/* ============================================================
+   iPad：ダブルタップでの拡大を防ぐ
+   ボタンなどへのタップで preventDefault すると click が来なくなるので、
+   操作する部品は対象外にする
+============================================================ */
+let lastTouch = 0;
+document.addEventListener("touchend", e=>{
+  const now = Date.now();
+  const t = e.target;
+  const inter = t && t.closest && t.closest("button,input,select,textarea,a,label,.slot");
+  if(!inter && now - lastTouch <= 300) e.preventDefault();
+  lastTouch = now;
+}, { passive:false });
+document.addEventListener("gesturestart", e=> e.preventDefault());
+
+/* このiPadの しるし（同じキャラを2台でえらばないように） */
+function makeDev(){
+  let d = "";
+  try{ d = localStorage.getItem("jibundrill_dev") || ""; }catch(e){}
+  if(!d){
+    d = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+    try{ localStorage.setItem("jibundrill_dev", d); }catch(e){}
+  }
+  return d;
+}
+S.dev = makeDev();
+
+buildCodeScreen();
+if(IS_GAS){
+  // コードなしの回なら、そのまま名前の画面へ
+  show("s-wait"); $("wait-msg").textContent = "しらべているよ…";
+  probe();
+}else{
+  // プレビュー用：ためす形を選べる
+  $("code-err").innerHTML = "おためし：1234 で はいれるよ";
+  $("demo-row").innerHTML = `<button class="ghost-btn" data-g="clock">ジャンル：時計</button>
+    <button class="ghost-btn" data-g="maeato">ジャンル：何分まえ・あと</button>
+    <button class="ghost-btn" data-g="okane">ジャンル：お金</button>
+    <button class="ghost-btn" data-g="keisan">ジャンル：計算</button>
+    <button class="ghost-btn" data-g="kuku">ジャンル：かけ算</button>
+    <button class="ghost-btn" data-g="deru">ジャンル：何時に出るかな</button>
+    <button class="ghost-btn" data-m="roster">おためし：コードなし・名簿</button>
+    <button class="ghost-btn" data-m="chara">おためし：コードなし・キャラ</button>`;
+  // ジャンルは いくつでも選べる（選んだ順）。出し方も切りかえられる
+  $("demo-row").insertAdjacentHTML("beforeend", `<button class="ghost-btn" id="demo-order"></button>`);
+  const gb = $("demo-row").querySelectorAll("button[data-g]");
+  const markG = ()=>{
+    const gs = DEMO.session.genres;
+    gb.forEach(x=>{ const i = gs.indexOf(x.dataset.g); x.style.borderColor = i >= 0 ? "var(--pri)" : ""; x.style.background = i >= 0 ? "var(--pale)" : ""; });
+    $("demo-order").textContent = "出し方：" + (DEMO.session.order === "mix" ? "まぜる" : "じゅんばん");
+  };
+  gb.forEach(b=> b.addEventListener("click", ()=>{
+    const gs = DEMO.session.genres, i = gs.indexOf(b.dataset.g);
+    if(i >= 0){ if(gs.length > 1) gs.splice(i,1); } else gs.push(b.dataset.g);
+    DEMO.session.genre = gs[0]; markG();
+  }));
+  $("demo-order").addEventListener("click", ()=>{ DEMO.session.order = DEMO.session.order === "mix" ? "seq" : "mix"; markG(); });
+  markG();
+  $("demo-row").querySelectorAll("button[data-m]").forEach(b=> b.addEventListener("click", ()=>{
+    unlockAudio();
+    DEMO.session.useCode = false; DEMO.session.who = b.dataset.m;
+    probe();
+  }));
+}
+</script>
+<? } ?>
+</body>
+</html>

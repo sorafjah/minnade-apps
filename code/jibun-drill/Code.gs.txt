@@ -1,0 +1,365 @@
+/**
+ * @OnlyCurrentDoc
+ */
+/************************************************************
+ * じぶんのドリル　サーバー側
+ *  - 生徒が各自のiPadで、決められた時間だけ問題を解く
+ *  - 1問ごとに「きろく」タブへ、1回ごとに「まとめ」タブへ書く
+ *  - 先生画面は、URLの最後に ?page=teacher をつけて開く
+ *
+ * ファイルはこの「コード.gs」と「index」（HTML）の2つだけです。
+ * はじめに一度だけ setup を実行して、タブを作ってください。
+ *
+ * 「めいぼ」タブ：1行目に名簿の名前（例：1組、数学グループ）、その下に生徒の名前。
+ *   列ごとに別の名簿になります。同じ生徒が何列に出てきてもかまいません。
+ *
+ * 授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+ ************************************************************/
+
+// ジャンルの一覧（ジャンルを増やすときは、ここと index.html の GENRES に足す）
+const GENRES = {
+  clock: { name: '時計の読み取り', sheet: 'せってい_時計', maxLevel: 5 },
+  maeato: { name: '何分前・何分後', sheet: 'せってい_何分前後', maxLevel: 5 },
+  okane: { name: 'お金', sheet: 'せってい_お金', maxLevel: 5 },
+  keisan: { name: '計算', sheet: 'せってい_計算', maxLevel: 8 },
+  kuku: { name: 'かけ算', sheet: 'せってい_かけ算', maxLevel: 5 },
+  deru: { name: '何時に出るかな', sheet: 'せってい_何時に出る', maxLevel: 5 },
+};
+
+// 名簿を使わないときに選ぶキャラ
+const CHARAS = [
+  { name: 'いぬ', icon: '🐶' }, { name: 'ねこ', icon: '🐱' }, { name: 'うさぎ', icon: '🐰' },
+  { name: 'くま', icon: '🐻' }, { name: 'パンダ', icon: '🐼' }, { name: 'ぞう', icon: '🐘' },
+  { name: 'ライオン', icon: '🦁' }, { name: 'とら', icon: '🐯' }, { name: 'さる', icon: '🐵' },
+  { name: 'ぶた', icon: '🐷' }, { name: 'かえる', icon: '🐸' }, { name: 'ひよこ', icon: '🐤' },
+  { name: 'ペンギン', icon: '🐧' }, { name: 'ふくろう', icon: '🦉' }, { name: 'くじら', icon: '🐳' },
+  { name: 'いるか', icon: '🐬' }, { name: 'たこ', icon: '🐙' }, { name: 'かめ', icon: '🐢' },
+  { name: 'きつね', icon: '🦊' }, { name: 'こあら', icon: '🐨' },
+];
+
+const SH_ROSTER = 'めいぼ';
+const SH_LOG = 'きろく';
+const SH_SUM = 'まとめ';
+const LOG_HEAD = ['日時', '回', '名前', 'ジャンル', 'レベル', '問題', '正解', '答え', '正誤', '秒数', 'まちがいの型', '答え方', '出し方'];
+const SUM_HEAD = ['日時', '回', '名前', 'ジャンル', 'はじめのレベル', 'おわりのレベル', '解いた数', '正解数', '正答率', '多かったまちがい', '時間(分)'];
+const SET_HEAD = ['名前', 'レベル', '下限', '上限', '自動調整', '前回のレベル'];
+
+/* ---------- 画面（生徒用・先生用とも index.html。page で切りかえる） ---------- */
+function doGet(e) {
+  const page = (e && e.parameter && e.parameter.page === 'teacher') ? 'teacher' : 'student';
+  const t = HtmlService.createTemplateFromFile('index');
+  t.page = page;
+  return t.evaluate()
+    .setTitle(page === 'teacher' ? 'じぶんのドリル（先生用）' : 'じぶんのドリル')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ---------- はじめの準備 ---------- */
+function setup() {
+  const ss = SpreadsheetApp.getActive();
+  const roster = getOrCreate_(ss, SH_ROSTER, ['名簿1']);
+  if (roster.getLastRow() < 2) {
+    roster.getRange(2, 1, 3, 1).setValues([['れい たろう'], ['れい はなこ'], ['れい じろう']]);
+  }
+  getOrCreate_(ss, SH_LOG, LOG_HEAD);
+  getOrCreate_(ss, SH_SUM, SUM_HEAD);
+  Object.keys(GENRES).forEach(g => {
+    getOrCreate_(ss, GENRES[g].sheet, SET_HEAD);
+    syncSettings_(g);
+  });
+}
+function getOrCreate_(ss, name, head) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/* ---------- めいぼ（列ごとに名簿） ---------- */
+function readRoster_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SH_ROSTER);
+  const out = { groups: [], names: {} };
+  if (!sh || sh.getLastRow() < 1 || sh.getLastColumn() < 1) return out;
+  const v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), sh.getLastColumn()).getValues();
+  for (let c = 0; c < v[0].length; c++) {
+    const g = String(v[0][c]).trim();
+    if (!g) continue;
+    const list = [];
+    for (let r = 1; r < v.length; r++) {
+      const n = String(v[r][c]).trim();
+      if (n && list.indexOf(n) < 0) list.push(n);
+    }
+    out.groups.push(g);
+    out.names[g] = list;
+  }
+  return out;
+}
+function getGroups_() { return readRoster_().groups; }
+
+// group を指定するとその名簿、指定しない（または見つからない）ときは全員
+function getRosterNames_(group) {
+  const ro = readRoster_();
+  if (group && ro.names[group]) return ro.names[group];
+  const all = [];
+  ro.groups.forEach(g => ro.names[g].forEach(n => { if (all.indexOf(n) < 0) all.push(n); }));
+  return all;
+}
+
+/* ---------- レベル設定 ---------- */
+// めいぼにいて、せってい_○○ にいない生徒の行を足す
+function syncSettings_(genre) {
+  const ss = SpreadsheetApp.getActive();
+  const sh = getOrCreate_(ss, GENRES[genre].sheet, SET_HEAD);
+  const names = getRosterNames_();
+  const have = sh.getLastRow() < 2 ? [] :
+    sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim());
+  const add = names.filter(n => have.indexOf(n) < 0).map(n => [n, '', '', '', 'する', '']);
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, SET_HEAD.length).setValues(add);
+}
+
+function num_(v) {
+  const n = parseInt(v, 10);
+  return isNaN(n) ? '' : n;
+}
+// 自動調整：空欄は「する」。「しない」などと書いたときだけ、しない
+function isOn_(v) {
+  if (v === false) return false;
+  return ['しない', 'なし', '×', 'いいえ', 'off', 'OFF', 'FALSE', 'false'].indexOf(String(v).trim()) < 0;
+}
+
+function readSettings_(genre) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(GENRES[genre].sheet);
+  const map = {};
+  if (!sh || sh.getLastRow() < 2) return map;
+  sh.getRange(2, 1, sh.getLastRow() - 1, SET_HEAD.length).getValues().forEach(r => {
+    const name = String(r[0]).trim();
+    if (!name) return;
+    map[name] = { level: num_(r[1]), lower: num_(r[2]), upper: num_(r[3]), auto: isOn_(r[4]), last: num_(r[5]) };
+  });
+  return map;
+}
+
+function getSettingsTable(genre, group) {
+  syncSettings_(genre);
+  const names = getRosterNames_(group);
+  const map = readSettings_(genre);
+  return names.map(n => Object.assign({ name: n }, map[n] || { level: '', lower: '', upper: '', auto: true, last: '' }));
+}
+
+// 送られてきた生徒の行だけ書きかえる（ほかの名簿の生徒の行はそのまま）
+function saveSettingsTable(genre, rows) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sh = getOrCreate_(SpreadsheetApp.getActive(), GENRES[genre].sheet, SET_HEAD);
+    const n = sh.getLastRow() - 1;
+    const values = n > 0 ? sh.getRange(2, 1, n, SET_HEAD.length).getValues() : [];
+    const idx = {};
+    values.forEach((r, i) => { idx[String(r[0]).trim()] = i; });
+    rows.forEach(r => {
+      const row = [r.name, num_(r.level), num_(r.lower), num_(r.upper), r.auto ? 'する' : 'しない'];
+      if (idx[r.name] !== undefined) {
+        const i = idx[r.name];
+        values[i] = row.concat([values[i][5]]);
+      } else {
+        idx[r.name] = values.length;
+        values.push(row.concat(['']));
+      }
+    });
+    if (values.length) sh.getRange(2, 1, values.length, SET_HEAD.length).setValues(values);
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ---------- 回（先生が受付を始めてから終わるまで） ---------- */
+function getSession_() {
+  const s = PropertiesService.getScriptProperties().getProperty('session');
+  return s ? JSON.parse(s) : null;
+}
+function saveSession_(s) {
+  PropertiesService.getScriptProperties().setProperty('session', JSON.stringify(s));
+}
+
+function teacherInit() {
+  return { session: getSession_(), genres: GENRES, groups: getGroups_(), charas: CHARAS, url: ScriptApp.getService().getUrl() };
+}
+
+// この回のジャンル（複数のときは選んだ順）
+function genreKeys_(s) {
+  const list = (s && s.genres && s.genres.length) ? s.genres : [s && s.genre];
+  return list.filter(g => GENRES[g]);
+}
+
+function startSession(opt) {
+  const old = getSession_();
+  let gs = (opt.genres && opt.genres.length ? opt.genres : [opt.genre]).filter(g => GENRES[g]);
+  if (!gs.length) gs = [Object.keys(GENRES)[0]];
+  const s = Object.assign({}, opt, {
+    id: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'MMdd-HHmmss'),
+    code: String(Math.floor(1000 + Math.random() * 9000)),
+    open: true,
+    started: Date.now(),
+  });
+  s.useCode = opt.useCode !== false;
+  s.prevId = old ? old.id : '';   // 前の回に参加していた生徒は、コードなしでつぎの回に入れる
+  s.who = opt.who === 'chara' ? 'chara' : 'roster';
+  s.genres = gs;
+  s.genre = gs[0];
+  s.order = opt.order === 'mix' ? 'mix' : 'seq';   // seq：じゅんばん、mix：まぜる
+  saveSession_(s);
+  return s;
+}
+
+function endSession() {
+  const s = getSession_();
+  if (s) { s.open = false; saveSession_(s); }
+  return s;
+}
+
+/* ---------- 生徒 ---------- */
+function codeOk_(s, code) {
+  return s.useCode === false || String(code) === String(s.code);
+}
+
+// この回の参加者（名簿の名前、またはキャラの名前）
+function members_(s) {
+  return s.who === 'chara' ? CHARAS.map(c => c.name) : getRosterNames_(s.group);
+}
+
+// ほかのiPadが使っているキャラ
+function takenCharas_(s, dev) {
+  const names = CHARAS.map(c => c.name);
+  const keys = names.map(n => statusKey_(s.id, n));
+  const got = CacheService.getScriptCache().getAll(keys);
+  return names.filter((n, i) => {
+    const v = got[keys[i]];
+    if (!v) return false;
+    try { return JSON.parse(v).dev !== dev; } catch (e) { return false; }
+  });
+}
+
+// code が空でも、コードなしの回なら入れる
+function studentJoin(code, dev) {
+  const s = getSession_();
+  if (!s || !s.open) return { ok: false, closed: true };
+  if (!codeOk_(s, code)) return { ok: false, needCode: true };
+  const r = { ok: true, session: s };
+  if (s.who === 'chara') { r.charas = CHARAS; r.taken = takenCharas_(s, dev); }
+  else r.names = getRosterNames_(s.group);
+  return r;
+}
+
+// 結果画面で待っている生徒：sid（前に参加した回）とちがう回が始まっていたら知らせる
+function studentWait(sid, dev) {
+  const s = getSession_();
+  if (!s || !s.open || s.id === sid) return { ok: false };
+  if (s.useCode !== false && s.prevId !== sid) return { ok: false, needCode: true };
+  return studentJoin(s.code, dev);
+}
+
+function studentConfig(code, name, dev) {
+  const s = getSession_();
+  if (!s || !codeOk_(s, code)) return { ok: false };
+  const keys = genreKeys_(s);
+  const empty = { level: '', lower: '', upper: '', auto: true, last: '' };
+  const confs = {};
+  if (s.who === 'chara') {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      if (takenCharas_(s, dev).indexOf(name) >= 0) return { ok: false, taken: true };
+      putStatus_(s.id, name, { state: 'ready', dev: dev });
+    } finally {
+      lock.releaseLock();
+    }
+    const c = { level: '', lower: num_(s.charaLower), upper: num_(s.charaUpper), auto: s.charaAuto !== false, last: '' };
+    keys.forEach(g => { confs[g] = c; });
+  } else {
+    keys.forEach(g => { confs[g] = readSettings_(g)[name] || empty; });
+    putStatus_(s.id, name, { state: 'ready', dev: dev });
+  }
+  // conf は前の版との互換のため（1つめのジャンル）
+  return { ok: true, conf: confs[keys[0]], confs: confs };
+}
+
+// items：解いた問題の配列（まとめて送る）。status：先生画面に出す今のようす
+function studentLog(sid, name, items, status) {
+  if (items && items.length) {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(15000);
+    try {
+      const sh = getOrCreate_(SpreadsheetApp.getActive(), SH_LOG, LOG_HEAD);
+      // 前の版で作ったタブには「出し方」の見出しがないので足す
+      if (sh.getLastColumn() < LOG_HEAD.length) sh.getRange(1, 1, 1, LOG_HEAD.length).setValues([LOG_HEAD]).setFontWeight('bold');
+      const rows = items.map(it => [
+        new Date(it.ts), sid, name, it.genre, it.level, it.q, it.ans, it.given,
+        it.ok ? '○' : '×', it.sec, it.ok ? '' : it.type, it.mode, it.src || 'ふつう',
+      ]);
+      sh.getRange(sh.getLastRow() + 1, 1, rows.length, LOG_HEAD.length).setValues(rows);
+    } finally {
+      lock.releaseLock();
+    }
+  }
+  if (status) putStatus_(sid, name, status);
+  const s = getSession_();
+  return { ok: true, open: !!(s && s.id === sid && s.open) };
+}
+
+function studentFinish(sid, name, sum) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const sh = getOrCreate_(ss, SH_SUM, SUM_HEAD);
+    // 複数ジャンルのときは、ジャンルごとに1行ずつ
+    const list = (sum.per && sum.per.length) ? sum.per : [sum];
+    const s = getSession_();
+    const chara = s && s.id === sid && s.who === 'chara';
+    list.forEach(p => {
+      if (!GENRES[p.genre]) return;
+      const rate = p.count ? Math.round(p.correct / p.count * 100) + '%' : '';
+      sh.appendRow([new Date(), sid, name, p.genreName, p.startLevel, p.endLevel,
+        p.count, p.correct, rate, p.topType || '', p.minutes]);
+      // 前回のレベルを書いておく（名簿で参加したときだけ）
+      const set = ss.getSheetByName(GENRES[p.genre].sheet);
+      if (!chara && set && set.getLastRow() > 1) {
+        const names = set.getRange(2, 1, set.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim());
+        const i = names.indexOf(name);
+        if (i >= 0) set.getRange(i + 2, 6).setValue(p.endLevel);
+      }
+    });
+  } finally {
+    lock.releaseLock();
+  }
+  return true;
+}
+
+/* ---------- ようす（先生画面） ---------- */
+// 名前（日本語）を、文字コードに左右されない形でキーにする
+function statusKey_(sid, name) {
+  return 'st_' + sid + '_' + encodeURIComponent(String(name));
+}
+function putStatus_(sid, name, st) {
+  st.t = Date.now();
+  CacheService.getScriptCache().put(statusKey_(sid, name), JSON.stringify(st), 21600);
+}
+
+function getDashboard() {
+  const s = getSession_();
+  if (!s) return { session: null, rows: [] };
+  const names = members_(s);
+  const keys = names.map(n => statusKey_(s.id, n));
+  const got = CacheService.getScriptCache().getAll(keys);
+  const rows = [];
+  names.forEach((n, i) => {
+    const v = got[keys[i]];
+    if (v) rows.push(Object.assign({ name: n }, JSON.parse(v)));
+  });
+  return { session: s, rows: rows, now: Date.now() };
+}
