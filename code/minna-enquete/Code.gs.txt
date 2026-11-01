@@ -11,13 +11,13 @@
 const SH = { Q: 'しつもん', ROSTER: 'めいぼ', ANS: 'かいとう', SUM: 'まとめ', ROUND: '回のきろく' };
 
 const HEADERS = {
-  'しつもん':   ['アンケート名', '番号', '種類', '質問文', '選択肢', '複数選択', 'ゲージ左', 'ゲージ右', '必須'],
+  'しつもん':   ['アンケート名', '番号', '種類', '質問文', '選択肢', '複数選択', 'ゲージ左', 'ゲージ右', '必須', '段階数'],
   'かいとう':   ['日時', '回ID', 'アンケート名', '送信ID', '名前', '番号', '種類', '質問', '回答', '数値'],
   'まとめ':     ['日時', '回ID', 'アンケート名', '送信ID', '名前', '端末', '回答の一覧'],
   '回のきろく': ['回ID', 'アンケート名', '始めた日時', '終えた日時', '対象', '名前の集め方', '参加コード', '回答数', 'ゲージの平均', '質問の内容']
 };
 
-const TYPE_JA = { free: '自由', choice: '選択', gauge: 'ゲージ' };
+const TYPE_JA = { free: '自由', choice: '選択', gauge: 'ゲージ', scale: '段階', message: 'メッセージ' };
 const AUDIENCE_JA = { adult: '大人向け', student: '生徒向け' };
 const NAME_MODE_JA = { none: '集めない', input: '書いてもらう', roster: '名簿から選ぶ', chara: 'キャラで参加' };
 const TZ = 'Asia/Tokyo';
@@ -44,11 +44,14 @@ function setup() {
   const q = sheet_(SH.Q);
   if (q.getLastRow() < 2) {
     const rows = [
-      ['校外学習のふりかえり', 1, 'ゲージ', '校外学習《こうがいがくしゅう》は どうだった？', '', '', 'たのしくなかった', 'たのしかった', '○'],
-      ['校外学習のふりかえり', 2, '選択', 'いちばん よかった ところは どこ？', '水族館《すいぞくかん》/お弁当《べんとう》/バス/買《か》い物《もの》', '', '', '', '○'],
-      ['校外学習のふりかえり', 3, '選択', 'また 行《い》きたい ところは？（いくつでも）', '水族館《すいぞくかん》/公園《こうえん》/動物園《どうぶつえん》', '○', '', '', '×'],
-      ['校外学習のふりかえり', 4, 'ゲージ', 'お弁当《べんとう》は おいしかった？', '', '', 'おいしくなかった', 'おいしかった', '○'],
-      ['校外学習のふりかえり', 5, '自由', '感想《かんそう》を 書《か》いてね', '', '', '', '', '×']
+      ['校外学習のふりかえり', 1, 'メッセージ', '校外学習《こうがいがくしゅう》の ふりかえりを するよ。', '', '', '', '', '', ''],
+      ['校外学習のふりかえり', 2, 'ゲージ', '校外学習《こうがいがくしゅう》は どうだった？', '', '', 'たのしくなかった', 'たのしかった', '○', ''],
+      ['校外学習のふりかえり', 3, '段階', 'バスの 移動《いどう》は どうだった？', '', '', 'たいへんだった', 'らくだった', '○', 5],
+      ['校外学習のふりかえり', 4, '選択', 'いちばん よかった ところは どこ？', '水族館《すいぞくかん》/お弁当《べんとう》/バス/買《か》い物《もの》', '', '', '', '○', ''],
+      ['校外学習のふりかえり', 5, '選択', 'また 行《い》きたい ところは？（いくつでも）', '水族館《すいぞくかん》/公園《こうえん》/動物園《どうぶつえん》', '○', '', '', '×', ''],
+      ['校外学習のふりかえり', 6, '段階', 'お弁当《べんとう》の 量《りょう》は どうだった？', 'すくなかった/ちょうどよかった/おおかった', '', '', '', '○', ''],
+      ['校外学習のふりかえり', 7, '自由', '感想《かんそう》を 書《か》いてね', '', '', '', '', '×', ''],
+      ['校外学習のふりかえり', 8, 'メッセージ', '答《こた》えてくれて ありがとう！', '', '', '', '', '', '']
     ];
     appendObjs_(q, rows.map(r => {
       const o = {}; HEADERS[SH.Q].forEach((h, i) => o[h] = r[i]); return o;
@@ -188,6 +191,8 @@ function knownRounds_() {
 
 function typeFromJa_(v) {
   const s = String(v || '').trim();
+  if (/メッセージ|message|お知らせ|説明/.test(s)) return 'message';
+  if (/段階|scale/.test(s)) return 'scale';
   if (/ゲージ|gauge|評価/.test(s)) return 'gauge';
   if (/選|choice/.test(s)) return 'choice';
   return 'free';
@@ -202,8 +207,8 @@ function normalizeQs_(arr) {
   (arr || []).forEach((q, i) => {
     const type = TYPE_JA[q.type] ? q.type : typeFromJa_(q.type);
     const text = String(q.text || '').trim().slice(0, 500);
-    if (!text) throw new Error('質問' + (i + 1) + 'の質問文が空です。');
-    const o = { type: type, text: text, required: flag_(q.required, type !== 'free') };
+    if (!text) throw new Error((i + 1) + '番目の' + (type === 'message' ? 'メッセージ' : '質問') + 'の文が空です。');
+    const o = { type: type, text: text, required: type === 'message' ? false : flag_(q.required, type !== 'free') };
     if (type === 'choice') {
       o.options = (Array.isArray(q.options) ? q.options : splitOptions_(q.options))
         .map(x => String(x).trim().replace(/\//g, '／')).filter(x => x).slice(0, 30);
@@ -211,6 +216,15 @@ function normalizeQs_(arr) {
       o.multi = flag_(q.multi, false);
     }
     if (type === 'gauge') {
+      o.left = String(q.left || '').trim() || 'よくなかった';
+      o.right = String(q.right || '').trim() || 'よかった';
+    }
+    if (type === 'scale') {
+      // 段階ごとの言葉が2つ以上あれば、その数が段階の数になる
+      const labels = (Array.isArray(q.labels) ? q.labels : splitOptions_(q.labels))
+        .map(x => String(x).trim().replace(/\//g, '／')).filter(x => x).slice(0, 10);
+      o.labels = labels.length >= 2 ? labels : [];
+      o.steps = o.labels.length || Math.max(2, Math.min(10, Math.round(Number(q.steps) || 5)));
       o.left = String(q.left || '').trim() || 'よくなかった';
       o.right = String(q.right || '').trim() || 'よかった';
     }
@@ -226,6 +240,8 @@ function readSurvey_(name) {
     type: typeFromJa_(r['種類']),
     text: r['質問文'],
     options: splitOptions_(r['選択肢']),
+    labels: splitOptions_(r['選択肢']),
+    steps: r['段階数'],
     multi: r['複数選択'],
     left: r['ゲージ左'],
     right: r['ゲージ右'],
@@ -341,13 +357,14 @@ function submit(p) {
 
     appendObjs_(sheet_(SH.ANS), ans.map(a => {
       const v = Number(a.value);
-      const isNum = a.type === 'gauge' && a.value !== null && a.value !== '' && isFinite(v);
+      const isNum = (a.type === 'gauge' || a.type === 'scale') && a.value !== null && a.value !== '' && isFinite(v);
+      const num = !isNum ? '' : a.type === 'gauge' ? Math.max(0, Math.min(100, Math.round(v))) : Math.max(1, Math.min(10, Math.round(v)));
       return {
         '日時': now, '回ID': p.roundId, 'アンケート名': safe_(title), '送信ID': sendId,
         '名前': safe_(name), '番号': Number(a.no) || '', '種類': TYPE_JA[a.type] || '',
         '質問': safe_(plain_(a.text).slice(0, 500)),
         '回答': safe_(String(a.answer == null ? '' : a.answer).slice(0, 2000)),
-        '数値': isNum ? Math.max(0, Math.min(100, Math.round(v))) : ''
+        '数値': num
       };
     }));
 
@@ -418,6 +435,7 @@ function tStart(pass, cfg) {
     title = String(cfg.title || '').trim() || 'アンケート';
   }
   if (!questions.length) throw new Error('質問が1つもありません。');
+  if (!questions.some(q => q.type !== 'message')) throw new Error('メッセージのほかに、答える質問を1つ以上入れてください。');
   const nameMode = NAME_MODE_JA[cfg.nameMode] ? cfg.nameMode : 'none';
   if (nameMode === 'roster' && !getRoster_(cfg.roster).length) throw new Error('名簿「' + (cfg.roster || '') + '」に名前がありません。');
 
@@ -435,7 +453,7 @@ function tStart(pass, cfg) {
       open: true, roundId: roundId, code: code, needCode: !!cfg.needCode, nameMode: nameMode,
       audience: cfg.audience === 'student' ? 'student' : 'adult',
       roster: nameMode === 'roster' ? String(cfg.roster || '') : '', showNumber: !!cfg.showNumber,
-      shared: !!cfg.shared, title: title, startedAt: now.getTime(), qCount: questions.length
+      shared: !!cfg.shared, title: title, startedAt: now.getTime(), qCount: questions.filter(q => q.type !== 'message').length
     };
     const qStr = JSON.stringify(questions);
     setBig_('SURVEY', qStr);
@@ -471,18 +489,19 @@ function tStop(pass) {
   return tStatus(pass);
 }
 
-// 回を閉じるときに、回答数とゲージの平均を「回のきろく」に書く
+// 回を閉じるときに、回答数とゲージ・段階評価の平均を「回のきろく」に書く
 function finishRound_(s) {
   const rows = answersOf_(s.roundId);
   const ids = {}, g = {};
   rows.forEach(r => {
     ids[r.sendId] = 1;
-    if (r.type === 'gauge' && r.value !== '' && r.value !== null) {
-      (g[r.no] = g[r.no] || []).push(Number(r.value));
+    if ((r.type === 'gauge' || r.type === 'scale') && r.value !== '' && r.value !== null) {
+      (g[r.no] = g[r.no] || { t: r.type, a: [] }).a.push(Number(r.value));
     }
   });
   const avg = Object.keys(g).sort((a, b) => a - b).map(no => {
-    const a = g[no]; return no + '番: ' + (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1);
+    const o = g[no];
+    return no + '番' + (o.t === 'scale' ? '（段階）' : '') + ': ' + (o.a.reduce((x, y) => x + y, 0) / o.a.length).toFixed(1);
   }).join(' / ');
   const sh = sheet_(SH.ROUND);
   const hm = headerMap_(sh);
@@ -517,7 +536,7 @@ function answersOf_(roundId) {
   if (lr < 2) return [];
   const hm = headerMap_(sh);
   const m = hm.map;
-  const rev = { '自由': 'free', '選択': 'choice', 'ゲージ': 'gauge' };
+  const rev = { '自由': 'free', '選択': 'choice', 'ゲージ': 'gauge', '段階': 'scale' };
   return sh.getRange(2, 1, lr - 1, hm.width).getValues()
     .filter(r => String(r[m['回ID']]) === String(roundId))
     .map(r => ({
@@ -538,7 +557,7 @@ function listRounds_() {
 function tResults(pass, roundId) {
   checkPass_(pass);
   const st = getState_();
-  const rid = roundId || st.roundId;
+  const rid = roundId || st.roundId || ((listRounds_()[0] || {}).id || '');  // 受付中の回がなければ、いちばん新しい回
   if (!rid) return { roundId: '', answers: [], questions: [] };
   let questions = null, title = '', started = 0;
   const info = readObjs_(sheet_(SH.ROUND)).filter(r => String(r['回ID']) === rid)[0];
@@ -575,10 +594,12 @@ function tSaveSurveyToSheet(pass, name, questions) {
     rows.sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
     appendObjs_(sh, qs.map((q, i) => ({
       'アンケート名': safe_(name), '番号': i + 1, '種類': TYPE_JA[q.type], '質問文': safe_(q.text),
-      '選択肢': q.type === 'choice' ? safe_(q.options.join('/')) : '',
+      '選択肢': q.type === 'choice' ? safe_(q.options.join('/')) : (q.type === 'scale' && q.labels.length ? safe_(q.labels.join('/')) : ''),
       '複数選択': q.type === 'choice' ? (q.multi ? '○' : '×') : '',
-      'ゲージ左': q.type === 'gauge' ? safe_(q.left) : '', 'ゲージ右': q.type === 'gauge' ? safe_(q.right) : '',
-      '必須': q.required ? '○' : '×'
+      'ゲージ左': (q.type === 'gauge' || q.type === 'scale') ? safe_(q.left) : '',
+      'ゲージ右': (q.type === 'gauge' || q.type === 'scale') ? safe_(q.right) : '',
+      '必須': q.type === 'message' ? '' : (q.required ? '○' : '×'),
+      '段階数': q.type === 'scale' && !q.labels.length ? q.steps : ''
     })));
   } finally {
     lock.releaseLock();

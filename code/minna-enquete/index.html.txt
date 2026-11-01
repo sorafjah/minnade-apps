@@ -223,6 +223,17 @@ body.student.adult textarea.free { font-size: 18px; }
 body.student.adult .qtext { font-size: 20px; }
 body.student.adult .opt { font-size: 17px; }
 }
+/* 段階評価・メッセージ */
+body.student .scale { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+body.student .sbtn { min-width: 0; min-height: 64px; padding: 0; font-size: 26px; font-weight: bold; }
+body.student .sbtn[aria-pressed="true"] { background: var(--pri); border-color: var(--pri); color: #fff; }
+body.student .msgbox { font-size: 26px; line-height: 2; white-space: normal; word-break: break-word; }
+body.student.adult .sbtn { font-size: 22px; min-height: 56px; }
+body.student.adult .msgbox { font-size: 21px; line-height: 1.7; }
+@media (max-width: 480px) {
+body.student .scale.many { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+body.student .msgbox { font-size: 22px; }
+}
 /* ===== 先生の画面（body.teacher の中だけ） ===== */
 body.teacher { font-size: 16px;
 }
@@ -382,6 +393,10 @@ body.teacher #big img { width: min(46vh, 80vw); height: min(46vh, 80vw); image-r
 }
 body.teacher #big .close { position: absolute; top: 12px; right: 12px;
 }
+body.teacher .num { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+body.teacher .num input { width: 72px; text-align: center; font-size: 18px; min-height: 44px; border: 1px solid #b9c4d2; border-radius: 10px; }
+body.teacher .num input:disabled { background: #f1f4f9; color: var(--sub); }
+body.teacher .qcard.msg { background: #f7f9f2; }
 @media (max-width: 640px) {
 body.teacher .status { grid-template-columns: 1fr;
 }
@@ -449,6 +464,10 @@ function rubyText(s) {
 }
 function plainText(s) { return String(s || '').replace(/｜/g, '').replace(/《[^》]*》/g, ''); }
 
+// 段階評価：段階ごとの言葉（2つ以上あるときだけ）と、段階の数
+function scaleLabels(q) { const l = (q.labels || []).filter(x => String(x).trim()); return l.length >= 2 ? l.slice(0, 10) : null; }
+function scaleSteps(q) { const l = scaleLabels(q); return l ? l.length : Math.max(2, Math.min(10, Math.round(Number(q.steps) || 5))); }
+
 // 7時5分 / 7時
 function fmtTime(ms) {
   const d = new Date(ms); const m = d.getMinutes();
@@ -514,14 +533,19 @@ function confirmBox(message, okLabel) {
 /* ===== デモ用のにせサーバー（GASがないときだけ使う） ===== */
 const DEMO = (function () {
   const SAMPLE = [
+    { type: 'message', text: '校外学習《こうがいがくしゅう》の ふりかえりを するよ。', required: false },
     { type: 'gauge', text: '校外学習《こうがいがくしゅう》は どうだった？', left: 'たのしくなかった', right: 'たのしかった', required: true },
+    { type: 'scale', text: 'バスの 移動《いどう》は どうだった？', steps: 5, labels: [], left: 'たいへんだった', right: 'らくだった', required: true },
     { type: 'choice', text: 'いちばん よかった ところは どこ？', options: ['水族館《すいぞくかん》', 'お弁当《べんとう》', 'バス', '買《か》い物《もの》'], multi: false, required: true },
     { type: 'choice', text: 'また 行《い》きたい ところは？（いくつでも）', options: ['水族館《すいぞくかん》', '公園《こうえん》', '動物園《どうぶつえん》'], multi: true, required: false },
     { type: 'gauge', text: 'お弁当《べんとう》は おいしかった？', left: 'おいしくなかった', right: 'おいしかった', required: true },
-    { type: 'free', text: '感想《かんそう》を 書《か》いてね', required: false }
+    { type: 'scale', text: 'お弁当《べんとう》の 量《りょう》は どうだった？', steps: 3, labels: ['すくなかった', 'ちょうどよかった', 'おおかった'], left: '', right: '', required: true },
+    { type: 'free', text: '感想《かんそう》を 書《か》いてね', required: false },
+    { type: 'message', text: '答《こた》えてくれて ありがとう！', required: false }
   ];
   const LESSON = [
     { type: 'gauge', text: '今日《きょう》の 授業《じゅぎょう》は わかった？', left: 'わからなかった', right: 'よくわかった', required: true },
+    { type: 'scale', text: 'むずかしさは どうだった？', steps: 3, labels: ['むずかしかった', 'ちょうどよかった', 'かんたんだった'], left: '', right: '', required: true },
     { type: 'choice', text: 'いちばん がんばったのは？', options: ['計算《けいさん》', '話《はな》し合《あ》い', '発表《はっぴょう》'], multi: false, required: true },
     { type: 'free', text: 'ひとこと どうぞ', required: false }
   ];
@@ -546,8 +570,12 @@ const DEMO = (function () {
     const sendId = 'f' + Math.random().toString(36).slice(2);
     const t = Date.now();
     qs.forEach((q, i) => {
+      if (q.type === 'message') return;
       let answer = '', value = null;
-      if (q.type === 'gauge') { value = Math.max(0, Math.min(100, Math.round(40 + Math.random() * 60 - (i % 2) * 15))); answer = String(value); }
+      if (q.type === 'scale') {
+        const lb = scaleLabels(q); value = 1 + Math.floor(Math.random() * scaleSteps(q));
+        answer = lb ? plainText(lb[value - 1]) : String(value);
+      } else if (q.type === 'gauge') { value = Math.max(0, Math.min(100, Math.round(40 + Math.random() * 60 - (i % 2) * 15))); answer = String(value); }
       else if (q.type === 'choice') {
         const opts = q.options.map(plainText);
         answer = q.multi ? opts.filter(() => Math.random() < .5).join(' / ') : opts[Math.floor(Math.random() * opts.length)];
@@ -555,6 +583,7 @@ const DEMO = (function () {
       answers.push({ sendId, name, no: i + 1, type: q.type, q: plainText(q.text), answer, value, time: t });
     });
     people[name + '@' + sendId] = { name, status: 'done', t };
+    return sendId;
   }
 
   // 前の回（きのう）のデータを入れておく
@@ -576,7 +605,7 @@ const DEMO = (function () {
     s.needCode = !!cfg.needCode; s.nameMode = cfg.nameMode || 'none'; s.roster = s.nameMode === 'roster' ? (cfg.roster || '') : '';
     s.showNumber = !!cfg.showNumber; s.shared = !!cfg.shared;
     s.title = cfg.source === 'sheet' ? cfg.sheetName : (cfg.title || 'アンケート');
-    s.startedAt = Date.now(); s.qCount = qs.length; survey = qs; fakeCount = 0;
+    s.startedAt = Date.now(); s.qCount = qs.filter(q => q.type !== 'message').length; survey = qs; fakeCount = 0;
     rounds.push({ id: s.roundId, title: s.title, started: s.startedAt, count: 0, questions: qs });
   }
   // 回答者プレビューでは、はじめから受付中にしておく
@@ -596,7 +625,7 @@ const DEMO = (function () {
     setStatus(roundId, key, name, status) { if (roundId === s.roundId) people[key] = { name, status, t: Date.now() }; return true; },
     submit(p) {
       if (answers.some(a => a.sendId === p.sendId)) return { ok: true, dup: true };
-      p.answers.forEach(a => answers.push({ sendId: p.sendId, name: p.name || '（名前なし）', no: a.no, type: a.type, q: plainText(a.text), answer: String(a.answer), value: a.type === 'gauge' && a.value != null ? a.value : null, time: Date.now(), _round: p.roundId }));
+      p.answers.forEach(a => answers.push({ sendId: p.sendId, name: p.name || '（名前なし）', no: a.no, type: a.type, q: plainText(a.text), answer: String(a.answer), value: (a.type === 'gauge' || a.type === 'scale') && a.value != null ? a.value : null, time: Date.now(), _round: p.roundId }));
       if (p.statusKey && p.roundId === s.roundId) people[p.statusKey] = { name: p.name || '（名前なし）', status: 'done', t: Date.now() };
       return { ok: true };
     },
@@ -614,13 +643,13 @@ const DEMO = (function () {
       // デモ：受付中は、ときどき回答がとどく
       if (s.open && fakeCount < 6 && Math.random() < .7) {
         const n = s.nameMode === 'none' ? '（名前なし）' : NAMES[fakeCount];
-        addFake(s.roundId, survey, n); answers.slice(-survey.length).forEach(a => a._round = s.roundId); fakeCount++;
+        const sid = addFake(s.roundId, survey, n); answers.forEach(a => { if (a.sendId === sid) a._round = s.roundId; }); fakeCount++;
       }
       const list = Object.keys(people).map(k => people[k]);
       return { state: api._tstate(), people: s.roundId ? list.map(p => ({ name: p.name, status: p.status, t: p.t })) : [], count: new Set(answers.filter(a => roundOf(a) === s.roundId).map(a => a.sendId)).size };
     },
     tResults(pass, roundId) {
-      const id = roundId || s.roundId;
+      const id = roundId || s.roundId || (api._rounds()[0] || {}).id;
       const r = rounds.find(x => x.id === id);
       return { roundId: id, title: r ? r.title : '', started: r ? r.started : 0, open: s.open && id === s.roundId, questions: r ? r.questions : [], answers: answers.filter(a => roundOf(a) === id), rounds: api._rounds() };
     },
@@ -865,7 +894,7 @@ function enter(r) {
 }
 
 function resetAnswers() {
-  S.answers = S.survey.map(q => q.type === 'choice' ? [] : (q.type === 'gauge' ? null : ''));
+  S.answers = S.survey.map(q => q.type === 'choice' ? [] : (q.type === 'free' ? '' : null));
   S.idx = 0; S.name = '';
   store.del('svy_progress');
 }
@@ -924,32 +953,53 @@ function beginAnswer() {
 /* ---------- 質問 ---------- */
 function isEmpty(i) {
   const a = S.answers[i]; const q = S.survey[i];
+  if (q.type === 'message') return false;
   if (q.type === 'choice') return !a || !a.length;
-  if (q.type === 'gauge') return a === null || a === undefined;
+  if (q.type === 'gauge' || q.type === 'scale') return a === null || a === undefined;
   return !String(a || '').trim();
 }
+
+// メッセージは答えないページ。いちばん最後のメッセージは、送ったあとの画面に出す
+function isQ(q) { return q.type !== 'message'; }
+function lastQIndex() { for (let k = S.survey.length - 1; k >= 0; k--) if (isQ(S.survey[k])) return k; return -1; }
+function qNumber(i) { let c = 0; for (let k = 0; k <= i; k++) if (isQ(S.survey[k])) c++; return c; }
+function qTotal() { return S.survey.filter(isQ).length; }
+function endMessages() { const L = lastQIndex(); return L < 0 ? [] : S.survey.slice(L + 1).filter(q => !isQ(q)); }
 
 function showQ(i) {
   S.phase = 'q'; S.idx = i; saveProgress();
   const q = S.survey[i]; const n = S.survey.length;
+  const toConfirm = i >= lastQIndex();
   let body = '';
   if (q.type === 'choice') {
     body = '<p class="note">' + (q.multi ? J('いくつでも えらべるよ', '当てはまるものをすべて選んでください（複数選択可）') : J('1つ えらんでね', '1つ選んでください')) + '</p><div class="opts">' +
       q.options.map((o, k) => '<button class="opt' + (q.multi ? ' multi' : '') + '" data-k="' + k + '" aria-pressed="false"><span class="mark"></span><span>' + qt(o) + '</span><span class="badge"></span></button>').join('') +
       '</div>';
+  } else if (q.type === 'scale') {
+    const steps = scaleSteps(q); const lb = scaleLabels(q);
+    body = '<p class="note">' + J('あてはまる ものを 1つ おしてね', '当てはまるものを1つ選んでください') + '</p>' +
+      (lb
+        ? '<div class="opts">' + lb.map((l, k) => '<button class="opt" data-v="' + (k + 1) + '" aria-pressed="false"><span class="mark"></span><span>' + qt(l) + '</span><span class="badge"></span></button>').join('') + '</div>'
+        : '<div class="scale' + (steps > 7 ? ' many' : '') + '" style="--n:' + steps + '">' +
+            Array.from({ length: steps }, (_, k) => '<button class="sbtn" data-v="' + (k + 1) + '" aria-pressed="false">' + (k + 1) + '</button>').join('') + '</div>' +
+          '<div class="g-ends"><span>' + qt(q.left || '') + '</span><span>' + qt(q.right || '') + '</span></div>') +
+      '<div class="g-state sstate"></div>';
   } else if (q.type === 'gauge') {
     body = '<p class="note">' + J('ゲージを おしてね。ゆびで うごかしても いいよ', '当てはまる位置を押してください（指でずらして調整することもできます）') + '</p><div class="gbox"></div>';
-  } else {
+  } else if (q.type === 'free') {
     body = '<p class="note">' + J('ここに ' + R('書', 'か') + 'いてね', 'ご自由にお書きください') + '</p><textarea class="free" maxlength="1000" aria-label="' + J('こたえ', '回答') + '"></textarea>';
   }
+  const qno = isQ(q)
+    ? J('しつもん ', '質問 ') + qNumber(i) + ' / ' + qTotal() + (q.required ? '' : J('　（' + R('答', 'こた') + 'えなくても いいよ）', '　（任意）'))
+    : '';
   const v = show(head() +
     '<div class="progress"><i style="width:' + Math.round((i / n) * 100) + '%"></i></div>' +
-    '<div class="qno">' + J('しつもん ', '質問 ') + (i + 1) + ' / ' + n +
-      (q.required ? '' : J('　（' + R('答', 'こた') + 'えなくても いいよ）', '　（任意）')) + '</div>' +
-    '<div class="card" style="margin-top:8px"><div class="qtext">' + qt(q.text) + '</div>' + body +
+    '<div class="qno">' + qno + '</div>' +
+    '<div class="card" style="margin-top:8px">' +
+      (isQ(q) ? '<div class="qtext">' + qt(q.text) + '</div>' + body : '<div class="msgbox">' + qt(q.text) + '</div>') +
     '<div class="gentle" style="margin-top:12px"></div>' +
     '<div class="nav">' + (i > 0 ? '<button class="back btn-lg">' + J(R('前', 'まえ') + 'へ', '戻る') + '</button>' : '') +
-    '<button class="pri next btn-lg">' + (i === n - 1 ? J('かくにんへ', '確認へ') : J('つぎへ', '次へ')) + '</button></div></div>');
+    '<button class="pri next btn-lg">' + (toConfirm ? J('かくにんへ', '確認へ') : J('つぎへ', '次へ')) + '</button></div></div>');
 
   if (q.type === 'choice') {
     const draw = () => v.querySelectorAll('.opt').forEach(b => {
@@ -967,6 +1017,25 @@ function showQ(i) {
       S.answers[i] = a; saveProgress(); draw();
       v.querySelector('.gentle').innerHTML = '';
     });
+  } else if (q.type === 'scale') {
+    const lb = scaleLabels(q);
+    const draw = () => {
+      v.querySelectorAll('[data-v]').forEach(b => {
+        const on = +b.dataset.v === S.answers[i];
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        const mk = b.querySelector('.mark'); if (mk) mk.innerHTML = on ? '✓' : '';
+        const bd = b.querySelector('.badge'); if (bd) bd.innerHTML = on ? J('えらんだ', '選択中') : '';
+      });
+      const a = S.answers[i];
+      v.querySelector('.sstate').innerHTML = a == null ? '' :
+        '✓ ' + (lb ? J(R('答', 'こた') + 'えたよ', '回答済み') : J(a + ' を えらんだよ', a + ' を選択中'));
+    };
+    draw();
+    v.addEventListener('click', e => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      S.answers[i] = +b.dataset.v; saveProgress(); draw();
+      v.querySelector('.gentle').innerHTML = '';
+    });
   } else if (q.type === 'gauge') {
     Gauge.create(v.querySelector('.gbox'), {
       left: q.left, right: q.right, value: S.answers[i], showNumber: S.showNumber, fmt: qt,
@@ -974,7 +1043,7 @@ function showQ(i) {
       doneText: J(R('答', 'こた') + 'えたよ', '回答済み'),
       onChange: val => { S.answers[i] = val; saveProgress(); v.querySelector('.gentle').innerHTML = ''; }
     });
-  } else {
+  } else if (q.type === 'free') {
     const ta = v.querySelector('textarea');
     ta.value = S.answers[i] || '';
     ta.addEventListener('input', () => { S.answers[i] = ta.value; saveProgress(); });
@@ -987,15 +1056,16 @@ function showQ(i) {
       v.querySelector('.gentle').innerHTML = J('まだ ' + R('答', 'こた') + 'えて いないよ', 'この質問は回答が必要です');
       return;
     }
-    if (i < n - 1) showQ(i + 1); else showConfirm();
+    if (toConfirm) showConfirm(); else showQ(i + 1);
   });
 }
 
 /* ---------- 確認 ---------- */
 function answerText(i) {
   const q = S.survey[i], a = S.answers[i];
-  if (isEmpty(i)) return '';
+  if (q.type === 'message' || isEmpty(i)) return '';
   if (q.type === 'choice') return a.map(k => plainText(q.options[k])).join(' / ');
+  if (q.type === 'scale') { const lb = scaleLabels(q); return lb ? plainText(lb[a - 1] || '') : String(a); }
   if (q.type === 'gauge') return String(a);
   return String(a).trim();
 }
@@ -1006,12 +1076,14 @@ function showConfirm() {
   const v = show(head() + '<div class="card stack">' +
     '<p class="big">' + J('これで ' + R('送', 'おく') + 'るよ', '以下の内容で送信します') + '</p>' +
     '<div class="clist">' + S.survey.map((q, i) => {
+      if (!isQ(q)) return '';
       let a;
       if (isEmpty(i)) a = '<div class="a sub">' + none + '</div>';
+      else if (q.type === 'scale') { const lb = scaleLabels(q); a = '<div class="a">' + (lb ? qt(lb[S.answers[i] - 1] || '') : S.answers[i] + ' / ' + scaleSteps(q)) + '</div>'; }
       else if (q.type === 'gauge') a = (S.showNumber ? '<div class="a">' + S.answers[i] + '</div>' : '') + Gauge.mini(S.answers[i]);
       else if (q.type === 'choice') a = '<div class="a">' + S.answers[i].map(k => qt(q.options[k])).join('、') + '</div>';
       else a = '<div class="a">' + esc(S.answers[i]) + '</div>';
-      return '<div class="citem card"><div class="body"><div class="q">' + (i + 1) + '. ' + qt(q.text) + '</div>' + a + '</div>' +
+      return '<div class="citem card"><div class="body"><div class="q">' + qNumber(i) + '. ' + qt(q.text) + '</div>' + a + '</div>' +
         '<button data-i="' + i + '">' + J('なおす', '修正する') + '</button></div>';
     }).join('') + '</div>' +
     '<div class="nav"><button class="ok btn-lg send">' + J(R('送', 'おく') + 'る', '送信する') + '</button></div></div>');
@@ -1046,8 +1118,8 @@ async function send() {
     roundId: S.roundId, title: S.title, name: S.name, device: deviceKind(), statusKey: statusKey(),
     answers: S.survey.map((q, i) => ({
       no: i + 1, type: q.type, text: q.text, answer: answerText(i),
-      value: q.type === 'gauge' ? S.answers[i] : null
-    }))
+      value: (q.type === 'gauge' || q.type === 'scale') ? S.answers[i] : null
+    })).filter((x, k) => isQ(S.survey[k]))
   };
   store.set('svy_queue', getQueue().concat([payload]));
   store.del('svy_progress');
@@ -1063,9 +1135,12 @@ function sentText() { return J(R('送', 'おく') + 'れたよ', '送信しま�
 function showDone(already) {
   S.phase = 'done';
   const pending = getQueue().length;
+  const msgs = endMessages();   // いちばん最後に置いたメッセージ（なければ、いつものお礼）
   const v = show(head() + '<div class="card center stack">' +
     '<div class="done-mark">✓</div>' +
-    '<p class="big">' + J(R('答', 'こた') + 'えてくれて ありがとう！', 'ご回答ありがとうございました') + '</p>' +
+    (msgs.length
+      ? '<div class="msgbox">' + msgs.map(m => qt(m.text)).join('<br><br>') + '</div>'
+      : '<p class="big">' + J(R('答', 'こた') + 'えてくれて ありがとう！', 'ご回答ありがとうございました') + '</p>') +
     '<p class="note sendstate">' + (pending
       ? J('いまは ' + R('通信', 'つうしん') + 'が つながって いないみたい。<br>つながったら ' + R('自動', 'じどう') + 'で ' + R('送', 'おく') + 'るね',
           '現在、通信できない状態です。<br>通信が回復すると自動で送信します')
@@ -1144,7 +1219,7 @@ function runTeacher() {
 const POLL_MS = IS_GAS ? 10000 : 3000;
 const AUDIENCES = [['adult', '大人向け（ふつうの文章）'], ['student', '生徒向け（やさしい言葉・ふりがな）']];
 const NAME_MODES = [['none', '集めない（無記名）'], ['input', '書いてもらう'], ['roster', '名簿から選ぶ'], ['chara', 'キャラで参加']];
-const TYPE_LABEL = { free: '自由に書く', choice: '選ぶ', gauge: '評価ゲージ' };
+const TYPE_LABEL = { gauge: '評価ゲージ', scale: '段階評価', choice: '選ぶ', free: '自由に書く', message: 'メッセージ' };
 
 const T = {
   pass: store.get('svy_t_pass', ''),
@@ -1326,7 +1401,7 @@ function renderRun() {
     let qs = [];
     if (c.source === 'app') qs = T.ed.questions;
     else if (c.sheetName) { try { qs = await call('tGetSurvey', T.pass, c.sheetName); } catch (e) { box.innerHTML = '<span class="msgline err">' + esc(errText(e)) + '</span>'; return; } }
-    box.innerHTML = qs.length ? '<ol style="margin:0;padding-left:1.4em">' + qs.map(q => '<li><span class="tag">' + TYPE_LABEL[q.type] + '</span>' + esc(plainText(q.text)) + '</li>').join('') + '</ol>' : '質問がありません。';
+    box.innerHTML = qs.length ? '<ol style="margin:0;padding-left:1.4em">' + qs.map(q => '<li><span class="tag">' + (TYPE_LABEL[q.type] || '') + (q.type === 'scale' ? ' ' + scaleSteps(q) + '段階' : '') + '</span>' + esc(plainText(q.text)) + '</li>').join('') + '</ol>' : '質問がありません。';
   }
   v.addEventListener('change', e => { if (e.target.matches('input[name=source], #sheetName')) preview(); else sync(); });
   sync(); preview();
@@ -1346,7 +1421,7 @@ async function startRound() {
   const m = main.querySelector('#runMsg');
   const btn = main.querySelector('#startBtn');
   const say = (t, err) => { if (m) { m.className = 'msgline ' + (err ? 'err' : 'ok'); m.textContent = t; } };
-  if (c.source === 'app' && !T.ed.questions.length) { say('「質問をつくる」タブで質問を作ってください。', true); return; }
+  if (c.source === 'app' && !T.ed.questions.some(q => q.type !== 'message')) { say('「質問をつくる」タブで、答える質問を1つ以上作ってください。', true); return; }
   if (btn) btn.disabled = true;
   say('始めています…');
   try {
@@ -1374,6 +1449,8 @@ async function stopRound() {
 function newQ(type) {
   if (type === 'choice') return { type, text: '', options: ['', ''], multi: false, required: true };
   if (type === 'gauge') return { type, text: '', left: 'よくなかった', right: 'よかった', required: true };
+  if (type === 'scale') return { type, text: '', steps: 5, labels: [], left: 'よくなかった', right: 'よかった', required: true };
+  if (type === 'message') return { type, text: '', required: false };
   return { type: 'free', text: '', required: false };
 }
 function saveEd() { store.set('svy_t_ed', T.ed); }
@@ -1382,13 +1459,14 @@ function renderEdit() {
   const I = T.init;
   const v = setMain('<div class="card"><h2>質問をつくる</h2>' +
     '<p class="help">生徒向けで使うときは、「漢字《かんじ》」と書くとふりがなが付きます（例：感想《かんそう》、｜お弁当《おべんとう》のように｜で区切ることもできます）。大人向けで使うときは《》の部分は表示されません。</p>' +
+    '<p class="help">「メッセージ」は回答のない文だけのページです。途中に置くとその場所に1ページとして出て、いちばん最後に置くと送信したあとの画面に出ます（「ご回答ありがとうございました」など）。</p>' +
     '<div class="row"><label>アンケート名 <input type="text" id="edTitle" style="min-width:260px"></label></div>' +
     '<div class="row" style="margin-top:8px"><span class="help">シートのアンケートを読みこむ：</span>' +
       '<select id="loadName">' + I.surveys.map(s => '<option>' + esc(s.name) + '</option>').join('') + '</select>' +
       '<button id="loadBtn">このアンケートを読みこんで編集する</button></div>' +
     '<div id="qList" style="margin-top:14px"></div>' +
     '<div class="row" style="margin-top:12px"><span>質問を足す：</span>' +
-      '<button data-add="gauge">＋ 評価ゲージ</button><button data-add="choice">＋ 選ぶ</button><button data-add="free">＋ 自由に書く</button></div>' +
+      '<button data-add="gauge">＋ 評価ゲージ</button><button data-add="scale">＋ 段階評価</button><button data-add="choice">＋ 選ぶ</button><button data-add="free">＋ 自由に書く</button><button data-add="message">＋ メッセージ</button></div>' +
     '<div class="field" style="margin-top:14px"><div class="row">' +
       '<button id="draftBtn">下書きとして保存する</button>' +
       '<button class="pri" id="toSheetBtn">シートの「しつもん」タブに保存する</button>' +
@@ -1407,7 +1485,7 @@ function renderEdit() {
     if (T.ed.questions.length && !await confirmBox('いま作っている質問を「' + name + '」に置きかえますか？', '置きかえる')) return;
     try {
       const qs = await call('tGetSurvey', T.pass, name);
-      T.ed = { title: name, questions: qs.map(q => Object.assign({ options: [], left: '', right: '' }, q)) };
+      T.ed = { title: name, questions: qs.map(q => Object.assign({ options: [], labels: [], left: '', right: '' }, q)) };
       saveEd(); renderEdit();
     } catch (e) { say(errText(e), true); }
   });
@@ -1432,6 +1510,8 @@ function renderEdit() {
   });
 }
 
+function clampSteps(v) { return Math.max(2, Math.min(10, Math.round(Number(v) || 5))); }
+
 function drawQList(box) {
   const qs = T.ed.questions;
   if (!qs.length) { box.innerHTML = '<p class="help">まだ質問がありません。下のボタンで足してください。</p>'; return; }
@@ -1443,19 +1523,43 @@ function drawQList(box) {
     } else if (q.type === 'gauge') {
       extra = '<div class="two"><div><label class="blk">左はしの言葉</label><input type="text" data-f="left" value="' + esc(q.left || '') + '" style="width:100%"></div>' +
         '<div><label class="blk">右はしの言葉</label><input type="text" data-f="right" value="' + esc(q.right || '') + '" style="width:100%"></div></div>';
+    } else if (q.type === 'scale') {
+      const lb = scaleLabels(q);
+      extra = '<label class="blk">段階の数（2〜10）</label><div class="num">' +
+          '<button data-act="sdown" aria-label="段階を1つ減らす"' + (lb ? ' disabled' : '') + '>▽</button>' +
+          '<input type="number" inputmode="numeric" min="2" max="10" data-f="steps" value="' + scaleSteps(q) + '"' + (lb ? ' disabled' : '') + '>' +
+          '<button data-act="sup" aria-label="段階を1つ増やす"' + (lb ? ' disabled' : '') + '>△</button>' +
+          '<span class="help lbnote">' + (lb ? '段階ごとの言葉が' + lb.length + '個あるので、' + lb.length + '段階になります。' : '1〜' + scaleSteps(q) + 'の数字のボタンが出ます。') + '</span></div>' +
+        '<div class="two"><div><label class="blk">左はし（1）の言葉</label><input type="text" data-f="left" value="' + esc(q.left || '') + '" style="width:100%"></div>' +
+        '<div><label class="blk">右はし（いちばん大きい数）の言葉</label><input type="text" data-f="right" value="' + esc(q.right || '') + '" style="width:100%"></div></div>' +
+        '<label class="blk">段階ごとの言葉（使うときだけ。1行に1つ、1から順に書くと、数字のかわりにこの言葉のボタンが出ます）</label>' +
+        '<textarea class="t" data-f="labels">' + esc((q.labels || []).join('\n')) + '</textarea>';
     }
-    return '<div class="qcard" data-i="' + i + '"><div class="qhead"><b>質問 ' + (i + 1) + '</b>' +
-      '<select data-f="type">' + Object.keys(TYPE_LABEL).map(t => '<option value="' + t + '"' + (t === q.type ? ' selected' : '') + '>' + TYPE_LABEL[t] + '</option>').join('') + '</select>' +
-      '<div class="chips"><label><input type="checkbox" data-f="required"' + (q.required ? ' checked' : '') + '>答えないと次へ進めない</label></div>' +
+    const isMsg = q.type === 'message';
+    return '<div class="qcard' + (isMsg ? ' msg' : '') + '" data-i="' + i + '"><div class="qhead"><b>' + (i + 1) + '. ' + (isMsg ? 'メッセージ' : '質問') + '</b>' +
+      '<select data-f="type" aria-label="種類">' + Object.keys(TYPE_LABEL).map(t => '<option value="' + t + '"' + (t === q.type ? ' selected' : '') + '>' + TYPE_LABEL[t] + '</option>').join('') + '</select>' +
+      (isMsg ? '<span class="help">回答はありません</span>'
+             : '<div class="chips"><label><input type="checkbox" data-f="required"' + (q.required ? ' checked' : '') + '>答えないと次へ進めない</label></div>') +
       '<div class="tools"><button data-act="up" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>▲</button><button data-act="down" aria-label="下へ"' + (i === qs.length - 1 ? ' disabled' : '') + '>▼</button><button data-act="del">削除</button></div></div>' +
-      '<label class="blk">質問文</label><textarea class="t" data-f="text">' + esc(q.text || '') + '</textarea>' +
+      '<label class="blk">' + (isMsg ? '表示する文' : '質問文') + '</label><textarea class="t" data-f="text">' + esc(q.text || '') + '</textarea>' +
       '<div class="rubyprev">' + (q.text ? rubyText(q.text) : '') + '</div>' + extra + '</div>';
   }).join('');
+
+  // 段階評価：言葉の数に合わせて、段階の数の欄を切りかえる
+  function syncScale(card, q) {
+    const lb = scaleLabels(q);
+    const inp = card.querySelector('input[data-f=steps]');
+    if (!inp) return;
+    inp.value = scaleSteps(q);
+    card.querySelectorAll('[data-act=sup],[data-act=sdown],input[data-f=steps]').forEach(x => x.disabled = !!lb);
+    card.querySelector('.lbnote').textContent = lb ? '段階ごとの言葉が' + lb.length + '個あるので、' + lb.length + '段階になります。' : '1〜' + scaleSteps(q) + 'の数字のボタンが出ます。';
+  }
   box.oninput = e => {
     const card = e.target.closest('.qcard'); if (!card) return;
     const q = qs[+card.dataset.i]; const f = e.target.dataset.f;
     if (f === 'text') { q.text = e.target.value; card.querySelector('.rubyprev').innerHTML = q.text ? rubyText(q.text) : ''; }
     else if (f === 'options') q.options = e.target.value.split('\n').map(x => x.trim()).filter(x => x);
+    else if (f === 'labels') { q.labels = e.target.value.split('\n').map(x => x.trim()).filter(x => x); syncScale(card, q); }
     else if (f === 'left' || f === 'right') q[f] = e.target.value;
     saveEd();
   };
@@ -1468,14 +1572,19 @@ function drawQList(box) {
       const n = newQ(e.target.value); n.text = q.text; qs[i] = n; drawQList(box);
     }
     else if (f === 'options') q.options = e.target.value.split('\n').map(x => x.trim()).filter(x => x);
+    else if (f === 'steps') { q.steps = clampSteps(e.target.value); syncScale(card, q); }
     saveEd();
   };
   box.onclick = async e => {
     const b = e.target.closest('button[data-act]'); if (!b) return;
-    const i = +b.closest('.qcard').dataset.i;
+    const card = b.closest('.qcard'); const i = +card.dataset.i; const q = qs[i];
+    if (b.dataset.act === 'sup' || b.dataset.act === 'sdown') {
+      q.steps = clampSteps(scaleSteps(q) + (b.dataset.act === 'sup' ? 1 : -1));
+      syncScale(card, q); saveEd(); return;
+    }
     if (b.dataset.act === 'up' && i > 0) [qs[i - 1], qs[i]] = [qs[i], qs[i - 1]];
     else if (b.dataset.act === 'down' && i < qs.length - 1) [qs[i + 1], qs[i]] = [qs[i], qs[i + 1]];
-    else if (b.dataset.act === 'del') { if (!await confirmBox('質問 ' + (i + 1) + ' を削除しますか？', '削除する')) return; qs.splice(i, 1); }
+    else if (b.dataset.act === 'del') { if (!await confirmBox((i + 1) + '番目の' + (q.type === 'message' ? 'メッセージ' : '質問') + 'を削除しますか？', '削除する')) return; qs.splice(i, 1); }
     saveEd(); drawQList(box);
   };
 }
@@ -1525,6 +1634,8 @@ function resultsHtml(r) {
     const m = {}; r.answers.forEach(a => { if (!m[a.no]) m[a.no] = { no: a.no, type: a.type, text: a.q, options: [] }; });
     qs = Object.keys(m).sort((a, b) => a - b).map(k => m[k]);
   }
+  qs = qs.filter(q => q.type !== 'message');   // メッセージは結果に出さない
+  qs.forEach((q, k) => { q.label = k + 1; });
   const n = order.length;
   let html = '<div class="kpi"><div><span class="n">' + n + '</span> 人が回答</div>' +
     '<div class="sub">' + esc(plainText(r.title)) + (r.started ? '　' + fmtDate(r.started) + ' ' + fmtTime(r.started) + 'に開始' : '') + (r.open ? '　<span class="pill on">受付中・自動で更新</span>' : '') + '</div></div>';
@@ -1532,7 +1643,7 @@ function resultsHtml(r) {
 
   qs.forEach(q => {
     const list = order.map(id => ({ p: people[id], a: people[id].by[q.no] })).filter(x => x.a);
-    html += '<div class="rq"><div class="qt"><span class="tag">' + q.no + '. ' + TYPE_LABEL[q.type] + '</span>' + esc(plainText(q.text)) + '</div>';
+    html += '<div class="rq"><div class="qt"><span class="tag">' + q.label + '. ' + TYPE_LABEL[q.type] + (q.type === 'scale' ? ' ' + scaleSteps(q) + '段階' : '') + '</span>' + esc(plainText(q.text)) + '</div>';
     if (q.type === 'gauge') {
       const vals = list.filter(x => x.a.value !== null && x.a.value !== '' && !isNaN(x.a.value)).map(x => ({ v: Number(x.a.value), name: x.p.name }));
       const s = stats(vals.map(x => x.v));
@@ -1545,6 +1656,20 @@ function resultsHtml(r) {
         '<span class="am" style="left:' + s.avg + '%"></span><span class="al" style="left:' + s.avg + '%">平均 ' + s.avg.toFixed(1) + '</span></div>' +
         '<div class="plot-ends"><span>0：' + esc(plainText(q.left || '')) + '</span><span>' + esc(plainText(q.right || '')) + '：100</span></div>' +
         '<div class="bands">' + ['0〜19', '20〜39', '40〜59', '60〜79', '80〜100'].map((l, k) => '<div>' + l + '<br><b>' + bands[k] + '人</b></div>').join('') + '</div>' +
+        '<div class="vals">' + vals.map(x => '<span>' + esc(x.name) + '：<b>' + x.v + '</b></span>').join('') + '</div>';
+    } else if (q.type === 'scale') {
+      const steps = scaleSteps(q); const lb = scaleLabels(q);
+      const vals = list.filter(x => x.a.value !== null && x.a.value !== '' && !isNaN(x.a.value)).map(x => ({ v: Number(x.a.value), name: x.p.name }));
+      const s = stats(vals.map(x => x.v));
+      if (!s) { html += '<p class="help">回答がありません。</p></div>'; return; }
+      const cnt = Array(steps + 1).fill(0); vals.forEach(x => { if (x.v >= 1 && x.v <= steps) cnt[x.v]++; });
+      const max = Math.max(1, ...cnt);
+      const stepName = v => lb ? v + '：' + plainText(lb[v - 1]) :
+        String(v) + (v === 1 && q.left ? '（' + plainText(q.left) + '）' : (v === steps && q.right ? '（' + plainText(q.right) + '）' : ''));
+      html += '<div class="avg"><div>平均 <span class="big">' + s.avg.toFixed(1) + '</span> / ' + steps + '</div>' +
+        '<div>中央値 <b>' + (Math.round(s.med * 10) / 10) + '</b></div><div>いちばん低い <b>' + s.min + '</b></div><div>いちばん高い <b>' + s.max + '</b></div><div>' + s.n + '人</div></div>' +
+        '<div class="bars">' + Array.from({ length: steps }, (_, k) => k + 1).map(v =>
+          '<div class="bar"><span>' + esc(stepName(v)) + '</span><div class="b"><i style="width:' + (cnt[v] / max * 100) + '%"></i></div><span><b>' + cnt[v] + '</b>人（' + Math.round(cnt[v] / s.n * 100) + '%）</span></div>').join('') + '</div>' +
         '<div class="vals">' + vals.map(x => '<span>' + esc(x.name) + '：<b>' + x.v + '</b></span>').join('') + '</div>';
     } else if (q.type === 'choice') {
       const opts = (q.options || []).map(plainText);
@@ -1569,14 +1694,14 @@ function resultsHtml(r) {
   // 回答者ごとの一覧
   const gaugeNos = qs.filter(q => q.type === 'gauge').map(q => q.no);
   html += '<div class="rq"><div class="qt">回答者ごとの一覧</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>名前</th><th>時刻</th>' +
-    qs.map(q => '<th>' + q.no + '. ' + esc(plainText(q.text).slice(0, 14)) + '</th>').join('') +
+    qs.map(q => '<th>' + q.label + '. ' + esc(plainText(q.text).slice(0, 14)) + '</th>').join('') +
     (gaugeNos.length > 1 ? '<th>ゲージの平均</th>' : '') + '</tr></thead><tbody>' +
     order.map(id => {
       const p = people[id];
       const gv = gaugeNos.map(no => p.by[no] && p.by[no].value).filter(v => v !== null && v !== undefined && v !== '');
       return '<tr><td>' + esc(p.name) + '</td><td>' + fmtTime(p.time) + '</td>' +
         qs.map(q => { const a = p.by[q.no]; if (!a) return '<td></td>';
-          return q.type === 'gauge' ? '<td class="num">' + (a.value === null ? '' : a.value) + '</td>' : '<td class="wrap">' + esc(a.answer) + '</td>'; }).join('') +
+          return (q.type === 'gauge' || q.type === 'scale') ? '<td class="num">' + (a.value === null ? '' : a.value) + '</td>' : '<td class="wrap">' + esc(a.answer) + '</td>'; }).join('') +
         (gaugeNos.length > 1 ? '<td class="num">' + (gv.length ? (gv.reduce((x, y) => x + Number(y), 0) / gv.length).toFixed(1) : '') + '</td>' : '') + '</tr>';
     }).join('') + '</tbody></table></div></div>';
   return html;
