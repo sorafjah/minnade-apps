@@ -604,7 +604,6 @@ document.addEventListener('touchend', function (e) {
 /* ===== 基本 ===== */
 const RAW_PAGE = '<?!= page ?>';
 const RAW_CODE = '<?!= code ?>';
-const TKEY = '<?= tkey ?>';   // 先生用のURLで開いたときの合いことば（生徒の画面では空）
 const HAS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
 const LETTERS = 'ABCD';
 const SPEED = window.__SPEED || 1;
@@ -632,8 +631,7 @@ function lsSet(k, v) {
 function call(fn, ...args) {
   return new Promise((resolve, reject) => {
     if (HAS_GAS) {
-      const run = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
-      if (TKEY) run.asTeacher(TKEY, fn, args); else run[fn](...args);
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args);
     } else {
       setTimeout(() => {
         try { resolve(MOCK[fn](...args)); } catch (e) { reject(e); }
