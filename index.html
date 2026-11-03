@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>トップ</title>
-<meta name="description" content="みんなで答える授業アプリ：先生が問題を出し、生徒は自分のタブレットで一斉回答。Googleスプレッドシートで動く、授業向けの無料アプリ集。クイズ・マッチング・アンケート。GAS（Google Apps Script）を触ったことがない先生向けの手順つき。">
+<title>アプリ一覧</title>
+<meta name="description" content="みんなで/ひとりずつ/とりくむアプリ集：先生が問題を出し、生徒は自分のタブレットで一斉回答。または、ひとりずつ自分のレベルに合わせて解答できる。Googleスプレッドシートで結果にまとめられる無料のアプリ集です。クイズ・マッチング・時計。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -12,33 +12,25 @@
 </head>
 <body data-root="" data-page="top">
 <main>
-  <h1>生徒のiPadで使える授業アプリを、<br>自分の学校のGoogleアカウントで。</h1>
-  <p class="lead">みんなで答えるクイズ、マッチング、アンケートなどのアプリを無料で配っています。どれも、Googleスプレッドシートにコードを貼りつけて設置すると使えます。</p>
-
-  <div class="flow-box">
-    <p class="flow-title">使うまでの流れは、3つだけです</p>
-    <ol class="flow">
-      <li><span class="flow-n">1</span><strong>アプリを選ぶ</strong><span>下の一覧から、使いたいアプリのページを開きます</span></li>
-      <li><span class="flow-n">2</span><strong>コードを貼る</strong><span><a href="secchi.html">設置の手順</a>にそって、スプレッドシートに貼って公開します（15分ほど）</span></li>
-      <li><span class="flow-n">3</span><strong>先生用の画面を開く</strong><span>設定をして、生徒にQRコードやURLを配ります</span></li>
-    </ol>
-    <p class="flow-foot">はじめから全部読まなくてだいじょうぶです。そのとき必要なところだけ読んでください。GASがはじめての方は、先に <a href="hajimete.html">はじめての方へ</a> をどうぞ。</p>
+  <div class="hero">
+    <h1>みんなで<span class="sl">/</span>ひとりずつ<span class="sl">/</span>とりくむアプリ集</h1>
+    <p id="site-sub"></p>
   </div>
 
-  <div class="card">
-    <h3 style="margin-top:0;">このサイトのアプリでできること</h3>
-    <ul>
-      <li>生徒はQRコードやURLから開くだけ。アプリのインストールはいりません。</li>
-      <li>答えた記録は、先生自身のスプレッドシートに残ります。このサイトにデータが送られることはありません。</li>
-      <li>問題や質問を、先生がスプレッドシートで自由に作れるアプリもあります。</li>
-    </ul>
-  </div>
-
-  <p>自分の学校用に作り変えたいときは <a href="ai.html">AIで作る・直す</a> をどうぞ（AIに渡す指示文を配っています）。</p>
-
-  <h2>アプリ</h2>
+  <h2 class="sec-title">アプリ</h2>
   <div class="apps" id="app-list"></div>
 
+  <h2 class="sec-title">使うまでの流れ</h2>
+  <ol class="flow">
+    <li><strong>アプリを選ぶ</strong><span>上の一覧から、アプリのページを開きます。</span></li>
+    <li><strong>コードを貼る</strong><span><a href="secchi.html">設置の手順</a>のとおり、スプレッドシートに貼って公開します（15分ほど）。</span></li>
+    <li><strong>先生用の画面を開く</strong><span>設定をして、生徒にQRコードを読み取ってもらいます。</span></li>
+  </ol>
+
+  <div class="links">
+    <a href="hajimete.html"><b>はじめての方へ</b><span>しくみと、用意するもの</span></a>
+    <a href="secchi.html#s7"><b>安全に使うために</b><span>名簿や記録のあつかい</span></a>
+  </div>
 </main>
 <script src="assets/apps.js"></script>
 <script src="assets/site.js"></script>
