@@ -12,10 +12,9 @@
   /* ---------- ヘッダー ---------- */
   var nav = [
     ['top', 'index.html', 'アプリ一覧'],
-    ['hajimete', 'hajimete.html', 'はじめての方へ'],
     ['secchi', 'secchi.html', '設置の手順'],
     ['tsumazuki', 'tsumazuki.html', 'うまくいかないとき'],
-    ['ai', 'ai.html', '自分で作る・直す'],
+    ['ai', 'ai.html', '自分用に作る'],
     ['riyou', 'riyou.html', '利用について'],
   ];
   var head = document.createElement('header');
@@ -41,7 +40,7 @@
   foot.className = 'site-foot';
   foot.innerHTML = '<div class="in"><p><a href="' + root + 'riyou.html">利用について</a>' +
     '<a href="' + root + 'tsumazuki.html">うまくいかないとき</a></p>' +
-    '<p>授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。保証やサポートはありません。</p>' +
+    '<p>授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。個人で作っているため、動作の保証や個別のお問い合わせへの対応はむずかしいことを、ご了承ください。</p>' +
     '<p>このサイトにはデータは届きません。記録は、設置した先生のスプレッドシートにだけ残ります。</p></div>';
   document.body.appendChild(foot);
 
