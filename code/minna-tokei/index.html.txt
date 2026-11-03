@@ -492,7 +492,7 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
 
 <div id="guideBg" class="guide-bg hidden"><div id="guide" class="guide"></div></div>
 
-<script>var PAGE = '<?= page ?>' === 'teacher' ? 'teacher' : 'student';</script>
+<script>var PAGE = '<?= page ?>' === 'teacher' ? 'teacher' : 'student'; var TKEY = '<?= tkey ?>';</script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script>
 /* ==================== ジャンル（問題を作る） ====================
@@ -1084,7 +1084,7 @@ function api(name) {
   if (!HAS_GAS) return DEMO.call(name, args);
   return new Promise(function (resolve, reject) {
     var run = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
-    run[name].apply(run, args);
+    if (TKEY) run.asTeacher(TKEY, name, args); else run[name].apply(run, args);   // 先生用のURLで開いたときは合いことばをつける
   });
 }
 
