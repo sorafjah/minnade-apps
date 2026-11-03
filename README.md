@@ -9,7 +9,7 @@ hajimete.html       はじめての方へ
 secchi.html         設置の手順（全アプリ共通）
 tsumazuki.html      うまくいかないとき
 riyou.html          利用について
-ai.html             AIで作る・直す（指示文のコピーボタンつき）
+ai.html             自分で作る・直す（AIに渡す指示文のコピーボタンつき）
 apps/○○.html        アプリごとのページ
 code/○○/Code.gs.txt       アプリのコード（ページのコピーボタンがここを読む）
 code/○○/index.html.txt

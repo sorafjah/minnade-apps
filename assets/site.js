@@ -15,7 +15,7 @@
     ['hajimete', 'hajimete.html', 'はじめての方へ'],
     ['secchi', 'secchi.html', '設置の手順'],
     ['tsumazuki', 'tsumazuki.html', 'うまくいかないとき'],
-    ['ai', 'ai.html', 'AIで作る・直す'],
+    ['ai', 'ai.html', '自分で作る・直す'],
     ['riyou', 'riyou.html', '利用について'],
   ];
   var head = document.createElement('header');
@@ -57,16 +57,14 @@
       if (a.ready) el.href = root + 'apps/' + a.id + '.html';
       var h = document.createElement('h3'); h.textContent = a.name;
       var p = document.createElement('p'); p.textContent = a.desc;
-      var md = document.createElement('div'); md.className = 'modes';
-      (a.modes || []).forEach(function (m) { var s = document.createElement('span'); s.className = 'mode'; s.textContent = m; md.appendChild(s); });
       var tg = document.createElement('div'); tg.className = 'tags';
-      (a.ready ? a.tags : ['準備中'].concat(a.tags)).forEach(function (t, i) {
+      ['準備中'].forEach(function (t, i) {
         var s = document.createElement('span');
         s.className = 'tag' + (!a.ready && i === 0 ? ' wait' : '');
         s.textContent = t;
         tg.appendChild(s);
       });
-      el.appendChild(h); el.appendChild(md); el.appendChild(p); el.appendChild(tg);
+      el.appendChild(h); el.appendChild(p); if (!a.ready) el.appendChild(tg);
       list.appendChild(el);
     });
   }
