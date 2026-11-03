@@ -12,16 +12,30 @@
 <body data-root="" data-page="secchi">
 <main>
   <h1>設置の手順</h1>
-  <p class="lead">どのアプリも、この手順で設置します。コードは各アプリのページにあります。</p>
+  <p class="lead">どのアプリも、この手順で設置します。プログラミングの知識はいりません。コードをコピーして貼りつけ、いくつかボタンを押すだけで、15分ほどでできます。コードは各アプリのページにあります。</p>
   <ul class="toc">
+    <li><a href="#s0">用意するもの</a></li>
     <li><a href="#s1">1. スプレッドシートを作る</a></li>
     <li><a href="#s2">2. コードを貼る</a></li>
     <li><a href="#s3">3. setup を実行する</a></li>
     <li><a href="#s4">4. 公開する</a></li>
     <li><a href="#s5">5. URLを配る</a></li>
     <li><a href="#s6">コードを新しくするとき</a></li>
+    <li><a href="#s8">ことばの説明</a></li>
   </ul>
   <div class="note">GoogleのApps Scriptの画面は、ときどき見た目やボタンの名前が変わります。この手順と少しちがっていたら、近い名前のボタンをさがしてください。<span class="ui">四角で囲んだ文字</span>は、画面に出ているボタンや項目の名前です。</div>
+
+  <h2 id="s0">用意するもの</h2>
+  <ul>
+    <li><strong>Googleアカウント</strong>（学校のGoogle Workspaceのアカウント、または個人のアカウント）</li>
+    <li><strong>パソコン</strong>（設置の作業はパソコンが楽です）</li>
+    <li><strong>生徒の端末</strong>（iPadで使うことを考えて作っています。Chromebookやパソコンでも動きます）</li>
+  </ul>
+
+  <div class="caution">
+    <strong>学校のアカウントで使う前に</strong><br>
+    学校によっては、Google Apps Script の利用や、アプリの公開（だれでも開けるようにする設定）が、管理者によって制限されていることがあります。うまくいかないときは、情報担当の先生に確かめてください。
+  </div>
 
   <h2 id="s1">1. スプレッドシートを作る</h2>
   <ol class="steps">
@@ -55,7 +69,7 @@
     <tr><td><span class="ui">doGet ▾</span> など、関数の名前と ▾</td><td>どの関数を動かすか選ぶところ。はじめは <code>doGet</code> などが出ています</td></tr>
   </table></div>
   <ol class="steps">
-    <li>左のファイルの一覧で <code>コード.gs</code> を押して開く（<code>index.html</code> を開いていると、関数の名前が出てきません）</li>
+    <li>左のファイルの一覧で <code>コード.gs</code> を押す（<code>index.html</code> が選ばれていると、関数の名前が出てきません）</li>
     <li>関数の名前が出ているところの <strong>▾</strong> を押すと、関数の一覧が出ます。その中から <code>setup</code> を選ぶ</li>
     <li><span class="ui">▷ 実行</span> を押す</li>
     <li>はじめての実行のときだけ、<strong>「承認が必要です」</strong>という小さな画面が出ます。<span class="ui">権限を確認</span> を押す</li>
@@ -109,6 +123,15 @@
   <div class="caution">ここで「新しいデプロイ」を選ぶと、<strong>URLが新しくなります</strong>。前のURLやQRコードはそのまま古い中身で動き続けるので、まちがえやすくなります。</div>
   <p>コードを新しくしても、スプレッドシートの名簿や記録はそのまま残ります。新しいタブや見出しが必要なときは、アプリが自動で足します。</p>
 
+  <h2 id="s8">ことばの説明</h2>
+  <div class="tbl-wrap"><table>
+    <tr><th>ことば</th><th>意味</th></tr>
+    <tr><td>GAS（Apps Script）</td><td>スプレッドシートなどのGoogleのサービスで動く、小さなプログラムのしくみ</td></tr>
+    <tr><td>デプロイ</td><td>作ったアプリを、URLで開けるように公開すること</td></tr>
+    <tr><td>ウェブアプリ</td><td>ブラウザで開いて使うアプリ。デプロイの種類として選びます</td></tr>
+    <tr><td>タブ（シート）</td><td>スプレッドシートの下に並んでいる「シート1」などのこと</td></tr>
+    <tr><td>新バージョン</td><td>コードを直したあと、同じURLのまま中身を新しくするときに選ぶもの</td></tr>
+  </table></div>
   <div class="note">使いはじめる前に、<a href="riyou.html#anzen">安全に使うために</a>（名簿・スプレッドシートの共有・URLのあつかい）を読んでおいてください。</div>
 </main>
 <script src="assets/site.js"></script>

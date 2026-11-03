@@ -5,11 +5,10 @@ GitHub Pages に置く、GASアプリの配布・説明サイトです。この�
 ## フォルダのしくみ
 ```
 index.html          トップ（アプリの一覧は assets/apps.js から自動で作る）
-hajimete.html       はじめての方へ
-secchi.html         設置の手順（全アプリ共通）
+secchi.html         設置の手順（用意するもの・ことばの説明もここ。全アプリ共通）
 tsumazuki.html      うまくいかないとき
-riyou.html          利用について
-ai.html             自分で作る・直す（AIに渡す指示文のコピーボタンつき）
+riyou.html          利用について（しくみ・安全に使うためにもここ）
+ai.html             自分用に作る（AIに渡す指示文のコピーボタンつき）
 apps/○○.html        アプリごとのページ
 code/○○/Code.gs.txt       アプリのコード（ページのコピーボタンがここを読む）
 code/○○/index.html.txt
