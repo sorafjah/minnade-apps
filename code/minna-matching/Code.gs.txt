@@ -10,7 +10,7 @@
  *  ・ペアのタブ（「しごと」「くだもの」など）：1行目は Aの絵｜Aの文字｜Bの絵｜Bの文字。1行が1ペア
  *  ・名簿：1行目にグループ名、その下に名前（前の版の「めいぼ」でも読めます）
  *  ・タブ設定：ペアのタブごとの「わける／わけない」とA・Bの名前（前の版の「タブのせってい」でも読めます）
- *  ・生徒設定：「ひとりずつ」のときの、生徒ごとのはじめのレベル
+ *  ・生徒設定：「ひとりずつ」のときの、生徒ごとのはじめのレベルと、レベルの自動上下（あり・なし・空欄＝全体の設定）
  *  ・記録：○○：1問・1回答ごとの記録（前の版の「きろく：○○」にも続けて書きます）
  *  ・まとめ：1回ごとのまとめ
  */
@@ -36,7 +36,7 @@ const SUM_F = [
   ['total', ['問題数']], ['n', ['答えた数']], ['ok', ['正解数']], ['rate', ['正答率']],
   ['lv', ['最終レベル']], ['top', ['多かったまちがい']]
 ];
-const STU_F = [['name', ['名前']], ['lv', ['レベル']]];
+const STU_F = [['name', ['名前']], ['lv', ['レベル']], ['auto', ['自動上下']]];
 
 /* レベル：選択肢の数。問題を作る部分も、先生画面の一覧も、ここだけを見る */
 const LV_N = [2, 3, 4];
@@ -503,8 +503,11 @@ function newRoundId_() { return Utilities.formatDate(new Date(), 'Asia/Tokyo', '
 function newMe_(st, name) {
   const lvmap = load_('lvmap', {});
   const start = lvmap[name] >= 1 ? lvmap[name] : LV_N.length;   // 決めていないときは、いちばん上のレベル（4択）から
-  return { i: 0, lv: start, l0: start, nl: start, ph: 'a', c: -1, fb: '', ok: 0, n: 0, so: 0, sn: 0, ch: [], lg: [], fl: 0, tp: {}, at: Date.now() };
+  const au = load_('automap', {})[name] || '';   // 'on'・'off'・空（全体の設定にしたがう）
+  return { au: au, i: 0, lv: start, l0: start, nl: start, ph: 'a', c: -1, fb: '', ok: 0, n: 0, so: 0, sn: 0, ch: [], lg: [], fl: 0, tp: {}, at: Date.now() };
 }
+// この生徒のレベルの自動上下：生徒設定が「あり」「なし」ならそれ、空なら全体の設定
+function autoOf_(st, me) { return me.au === 'off' ? false : (me.au === 'on' ? true : !!st.auto); }
 function finished_(st, me) { return me.i >= st.total || (me.ph === 'f' && me.i + 1 >= st.total); }
 function seedSelf_(cid, st, i, lv) { return cid + ':' + st.round + ':' + i + ':' + lv; }
 
@@ -553,7 +556,7 @@ function sPoll(cid, code) {
     let me = load_(meKey_(st, cid), null);
     if (!me && st.phase === 'run') { me = newMe_(st, o.myName); save_(meKey_(st, cid), me); }
     if (me) {
-      o.me = { i: me.i, lv: me.lv, ok: me.ok, n: me.n, ph: me.ph, fb: me.fb, nextLv: me.nl, done: me.i >= st.total, auto: !!st.auto, nextN: nOfLv_(me.nl), curN: nOfLv_(me.lv) };
+      o.me = { i: me.i, lv: me.lv, ok: me.ok, n: me.n, ph: me.ph, fb: me.fb, nextLv: me.nl, done: me.i >= st.total, auto: autoOf_(st, me), nextN: nOfLv_(me.nl), curN: nOfLv_(me.lv) };
       if (!o.me.done) {
         const q = loadBig_('qs', [])[me.i];
         if (q) {
@@ -636,7 +639,7 @@ function sAnswerSelf(cid, code, round, i, c) {
   me.fb = '';
   me.nl = me.lv;
   if (ok) { me.so++; me.sn = 0; } else { me.sn++; me.so = 0; }
-  if (st.auto) {
+  if (autoOf_(st, me)) {
     if (ok && me.so >= st.upN && me.lv < LV_N.length) { me.nl = me.lv + 1; me.so = 0; me.fb = 'up'; }
     else if (!ok && me.sn >= st.downN && me.lv > 1) { me.nl = me.lv - 1; me.sn = 0; me.fb = 'down'; }
     if (me.fb) me.ch.push([me.i + 1, me.lv, me.nl]);
@@ -805,9 +808,24 @@ function stuRows_(sh) {
   const v = sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(sh.getLastColumn(), 1)).getValues();
   v.forEach(function (r, i) {
     const n = cell_(r[c.idx.name]);
-    if (n) out.push({ name: n, row: i + 2, lv: lvOf_(r[c.idx.lv]) });
+    if (n) out.push({ name: n, row: i + 2, lv: lvOf_(r[c.idx.lv]), au: autoCode_(c.idx.auto === undefined ? '' : r[c.idx.auto]) });
   });
   return { c: c, out: out };
+}
+function autoCode_(v) {
+  const s = cell_(v);
+  if (/^(あり|オン|on|○|はい)/i.test(s)) return 'on';
+  if (/^(なし|オフ|off|×|いいえ)/i.test(s)) return 'off';
+  return '';
+}
+function autoMap_() {
+  const sh = ss_().getSheetByName(SH.stu);
+  const m = {};
+  if (!sh) return m;
+  const s = stuRows_(sh);
+  if (s.c.idx.name === undefined || s.c.idx.auto === undefined) return m;
+  s.out.forEach(function (x) { if (x.au) m[x.name] = x.au; });
+  return m;
 }
 function stuMap_() {
   const sh = ss_().getSheetByName(SH.stu);
@@ -832,9 +850,9 @@ function tStudents(group) {
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, s.c.width).setValues(rows);
     out = stuRows_(sh).out;
   }
-  const map = {};
-  out.forEach(function (x) { map[x.name] = x.lv; });
-  return { rows: names.map(function (n) { return { name: n, lv: map[n] || 0 }; }), levels: levelList_() };
+  const map = {}, am = {};
+  out.forEach(function (x) { map[x.name] = x.lv; am[x.name] = x.au; });
+  return { rows: names.map(function (n) { return { name: n, lv: map[n] || 0, auto: am[n] || '' }; }), levels: levelList_() };
 }
 function tSaveStudents(rows) {
   checkTeacher_();
@@ -845,8 +863,11 @@ function tSaveStudents(rows) {
     s.out.forEach(function (x) { rowOfName[x.name] = x.row; });
     (rows || []).forEach(function (x) {
       const lv = lvOf_(x.lv);
-      if (rowOfName[x.name]) sh.getRange(rowOfName[x.name], s.c.idx.lv + 1).setValue(lv || '');
-      else sh.getRange(sh.getLastRow() + 1, 1, 1, s.c.width).setValues([rowOf_(s.c, { name: x.name, lv: lv || '' })]);
+      const au = x.auto === 'on' ? 'あり' : (x.auto === 'off' ? 'なし' : '');
+      if (rowOfName[x.name]) {
+        sh.getRange(rowOfName[x.name], s.c.idx.lv + 1).setValue(lv || '');
+        sh.getRange(rowOfName[x.name], s.c.idx.auto + 1).setValue(au);
+      } else sh.getRange(sh.getLastRow() + 1, 1, 1, s.c.width).setValues([rowOf_(s.c, { name: x.name, lv: lv || '', auto: au })]);
     });
     return true;
   });
@@ -945,6 +966,7 @@ function tStart(set) {
   if (!qs.length) throw new Error('ペアが足りません（2組以上必要です）');
   save_('names', namesFor_(s));
   const lvmap = stuMap_();
+  const automap = autoMap_();
   return withLock_(function () {
     const old = state_();
     const pr = props_();
@@ -954,6 +976,7 @@ function tStart(set) {
     saveBig_('qs', qs);
     save_('scores', {});
     save_('lvmap', lvmap);
+    save_('automap', automap);
     const imgs = [];
     const seen = {};
     const add = function (it, si, st2) { const p = pub_(it, si, st2); if (p.img && !seen[p.img]) { seen[p.img] = 1; imgs.push(p.img); } };
