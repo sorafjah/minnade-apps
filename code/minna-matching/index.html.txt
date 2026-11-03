@@ -829,14 +829,18 @@ function teacherApp() {
     (d.stuGroups || d.groups).forEach(function (g) { gs.appendChild(h('option', { value: g, selected: g === ST.group }, g === 'ゲスト' ? 'ゲスト（名前を入れずに参加）' : g)); });
     w.appendChild(h('div', { class: 'panel' }, h('div', { class: 'row' }, h('span', { class: 'lb' }, '名簿のグループ'), gs,
       ST.group === 'ゲスト' ? h('button', { type: 'button', class: 'btn small warn', onclick: function () { var pr = act('tResetGuests'); if (pr) pr.then(function () { ST.rows = null; loadStudents(); note('ゲストの番号をリセットしました'); }).catch(err); } }, 'ゲストの番号をリセットする') : null),
-      h('div', { class: 'note' }, '「ひとりずつ」のとき、受付を始めた時点のレベルから始まります。「自動」は、いちばん上のレベル（選択肢がいちばん多い）から始まります。スプレッドシートの「生徒設定」タブからも変えられます。')));
+      h('div', { class: 'note' }, '「ひとりずつ」のとき、受付を始めた時点のレベルから始まります。「自動」は、いちばん上のレベル（選択肢がいちばん多い）から始まります。「レベルの自動上下」を「自動で上下しない」にした生徒は、決めたレベルのまま進みます（受付を始めた時点の設定が使われます）。スプレッドシートの「生徒設定」タブからも変えられます。')));
     if (!ST.rows) { w.appendChild(h('div', null, 'よみこみ中…')); return w; }
     if (!ST.rows.length) { w.appendChild(h('div', { class: 'note' }, ST.group === 'ゲスト' ? 'まだゲストの参加がありません。生徒が参加すると、ここに「ゲスト1」「ゲスト2」…が出ます。' : '名前がありません')); return w; }
-    var tbd = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, 'はじめのレベル')));
+    var tbd = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, 'はじめのレベル'), h('th', null, 'レベルの自動上下')));
     ST.rows.forEach(function (r) {
       var sel = h('select', { onchange: function () { r.lv = parseInt(sel.value, 10); } }, h('option', { value: '0', selected: !r.lv }, '自動（いちばん上の' + ((ST.levels || [])[(ST.levels || []).length - 1] || { name: '' }).name + 'から）'));
       (ST.levels || []).forEach(function (l) { sel.appendChild(h('option', { value: String(l.lv), selected: r.lv === l.lv }, l.lv + '（' + l.name + '）')); });
-      tbd.appendChild(h('tr', null, h('td', null, plain(r.name)), h('td', null, sel)));
+      var asel = h('select', { onchange: function () { r.auto = asel.value; } },
+        h('option', { value: '', selected: !r.auto }, '全体の設定にしたがう'),
+        h('option', { value: 'on', selected: r.auto === 'on' }, '自動で上下する'),
+        h('option', { value: 'off', selected: r.auto === 'off' }, '自動で上下しない（レベルを動かさない）'));
+      tbd.appendChild(h('tr', null, h('td', null, plain(r.name)), h('td', null, sel), h('td', null, asel)));
     });
     w.appendChild(h('div', { class: 'panel' }, tbd));
     w.appendChild(h('button', { type: 'button', class: 'btn', onclick: function () {
