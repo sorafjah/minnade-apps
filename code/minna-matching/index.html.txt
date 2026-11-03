@@ -108,7 +108,7 @@ th{background:var(--soft);color:var(--mainD)}
 </style>
 </head>
 <body>
-<div id="cfg" data-page="<?= page ?>" data-url="<?= url ?>" data-tkey="<?= tkey ?>" style="display:none"></div>
+<div id="cfg" data-page="<?= page ?>" data-url="<?= url ?>" style="display:none"></div>
 <div id="app"></div>
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.QR_FAIL=1"></script>
@@ -166,11 +166,9 @@ function call(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
   return new Promise(function (res, rej) {
     if (!(window.google && window.google.script && window.google.script.run)) { rej(new Error('サーバーにつながっていません')); return; }
-    var run = window.google.script.run.withSuccessHandler(res).withFailureHandler(function (e) {
+    window.google.script.run.withSuccessHandler(res).withFailureHandler(function (e) {
       rej(e instanceof Error ? e : new Error((e && e.message) || String(e)));
-    });
-    var tkey = CFG ? (CFG.getAttribute('data-tkey') || '') : '';   // 先生用のURLで開いたときの合いことば
-    if (tkey) run.asTeacher(tkey, fn, args); else run[fn].apply(run, args);
+    })[fn].apply(window.google.script.run, args);
   });
 }
 function msgOf(e) { return String((e && e.message) || e || '').replace(/^(Error|Exception):\s*/, ''); }
@@ -227,7 +225,7 @@ function needImgs(names) {
   for (var i = 0; i < list.length; i += 8) chunks.push(list.slice(i, i + 8));
   chunks.reduce(function (pr, ch) {
     return pr.then(function () {
-      return call('getImages', ch, IMGCODE).then(function (o) {
+      return call('getImages', ch, IMGCODE, PAGE).then(function (o) {
         ch.forEach(function (n) { IMG[n] = o[n] || ''; delete IMGBUSY[n]; });
         if (IMGDONE) IMGDONE();
       }).catch(function () { ch.forEach(function (n) { delete IMGBUSY[n]; }); });

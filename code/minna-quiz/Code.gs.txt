@@ -1,7 +1,7 @@
 /**
  * みんなでクイズ（第14版）
  * 使い方：スプレッドシートの「拡張機能 → Apps Script」に貼り、はじめに setup を1回実行する。
- *         生徒用URL＝デプロイしたURL。先生用URL＝スプレッドシートのメニュー「みんなでクイズ」→「先生用のURLを表示」で出るURL
+ *         生徒用URL＝デプロイしたURL、先生用URL＝末尾に ?page=teacher（?p=teacher でもよい）。URLを知っている人だけが開ける
  * 利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
  * （画像のフォルダ＝ドライブを使うため、@OnlyCurrentDoc は付けていません）
  *
@@ -58,17 +58,8 @@ function effLimit_(set) {
 function doGet(e) {
   const p = (e && e.parameter) || {};
   const want = p.page || p.p || '';   // ?page=teacher でも ?p=teacher でも先生画面
-  rememberUrl_();
-  const key = String(p.key || '');
-  const byKey = want === 'teacher' && keyOk_(key);
-  if (want === 'teacher' && !byKey && !ownerOpen_()) {
-    return deniedPage_()
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  }
   const t = HtmlService.createTemplateFromFile('index');
   t.page = want === 'teacher' ? 'teacher' : 'student';
-  t.tkey = byKey ? key : '';
   t.code = String(p.code || '').replace(/\D/g, '').slice(0, 4);
   return t.evaluate()
     .setTitle('みんなでクイズ')
@@ -94,8 +85,6 @@ function setup() {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('みんなでクイズ')
     .addItem('タブを整える（setup）', 'menuSetup')
-    .addItem('先生用のURLを表示', 'menuTeacherUrl')
-    .addItem('先生用のURLを作り直す', 'menuNewTeacherUrl')
     .addItem('テストの記録を消す（配布用）', 'menuClearRecords')
     .addToUi();
 }
@@ -129,107 +118,9 @@ function menuClearRecords() {
 
 /* ---------- 共通 ---------- */
 
-/* ---------- 先生かどうか ----------
- * つぎのどちらかのときだけ、先生用の画面と先生用の操作を使える
- *  1) アプリを作ったアカウントで開いている（ログインのじょうたいによっては、確かめられないことがある）
- *  2) 先生用のURL（合いことばつき）で開いている。URLは、スプレッドシートのメニュー「みんなでクイズ」→「先生用のURLを表示」で出る
- */
-var TEACHER_BY_KEY_ = false;
-
-function ownerOpen_() {
-  try {
-    const owner = Session.getEffectiveUser().getEmail();
-    const user = Session.getActiveUser().getEmail();
-    return !!user && user === owner;
-  } catch (e) { return false; }
-}
-function isTeacher_() { return TEACHER_BY_KEY_ || ownerOpen_(); }
-
-// 先生用の合いことば（はじめて使うときに作る）
-function teacherKey_() {
-  const p = PropertiesService.getScriptProperties();
-  let k = p.getProperty('TEACHER_KEY');
-  if (!k) { k = Utilities.getUuid().replace(/-/g, ''); p.setProperty('TEACHER_KEY', k); }
-  return k;
-}
-function keyOk_(key) {
-  const k = PropertiesService.getScriptProperties().getProperty('TEACHER_KEY');
-  return !!k && typeof key === 'string' && /^[0-9a-f]{32}$/.test(key) && key === k;
-}
-
-// 先生用のURLで開いた画面からの呼び出しは、すべてここを通る（合いことばを確かめてから、その処理をする）
-function asTeacher(key, fn, args) {
-  if (!keyOk_(key)) throw new Error('先生用のURLが新しくなっています。スプレッドシートのメニュー「みんなでクイズ」→「先生用のURLを表示」で出るURLから開き直してください。');
-  fn = String(fn || '');
-  const ng = ['asTeacher', 'doGet', 'onOpen', 'include'];
-  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(fn) || /_$/.test(fn) || ng.indexOf(fn) >= 0 || typeof globalThis[fn] !== 'function') {
-    throw new Error('この操作はできません');
-  }
-  TEACHER_BY_KEY_ = true;
-  return globalThis[fn].apply(null, Array.isArray(args) ? args : []);
-}
-
-// 公開したURL（…/exec）をおぼえておく（メニューで先生用のURLを出すため）
-function rememberUrl_() {
-  try {
-    const u = ScriptApp.getService().getUrl();
-    if (!u || !/\/exec$/.test(u)) return;
-    const p = PropertiesService.getScriptProperties();
-    if (p.getProperty('APP_URL') !== u) p.setProperty('APP_URL', u);
-  } catch (e) { /* わからなくても続ける */ }
-}
-
-// 先生用の画面に入れなかったとき
-function deniedPage_() {
-  return HtmlService.createHtmlOutput(
-    '<div style="font-family:sans-serif;font-size:20px;line-height:1.9;padding:24px;max-width:760px">' +
-    '<p><b>先生用の画面を開けませんでした。</b></p>' +
-    '<p>スプレッドシートを開き、上のメニューの「みんなでクイズ」→「先生用のURLを表示」を押してください。出てきたURLから開くと、先生用の画面になります。</p>' +
-    '<p style="font-size:16px;color:#555">メニューが出ないときは、スプレッドシートを開き直してください。</p></div>')
-    .setTitle('みんなでクイズ');
-}
-
-/* ---------- メニュー：先生用のURL ---------- */
-function menuTeacherUrl() { showTeacherUrl_(false); }
-function menuNewTeacherUrl() {
-  const ui = SpreadsheetApp.getUi();
-  const r = ui.alert('先生用のURLを作り直す',
-    '今までの先生用のURLは使えなくなります（ブックマークも入れなおしになります）。\n生徒用のURLは変わりません。\n作り直してよろしいですか。', ui.ButtonSet.YES_NO);
-  if (r !== ui.Button.YES) return;
-  showTeacherUrl_(true);
-}
-function showTeacherUrl_(renew) {
-  const p = PropertiesService.getScriptProperties();
-  if (renew) p.deleteProperty('TEACHER_KEY');
-  const key = teacherKey_();
-  let base = p.getProperty('APP_URL') || '';
-  if (!base) {
-    try { const u = ScriptApp.getService().getUrl(); if (u && /\/exec$/.test(u)) base = u; } catch (e) { base = ''; }
-  }
-  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  let body;
-  if (base) {
-    const url = base + '?page=teacher&key=' + key;
-    body = '<p>このURLを開くと、先生用の画面になります。ブックマークに入れておくと便利です。</p>' +
-      '<textarea id="u" readonly>' + esc(url) + '</textarea>' +
-      '<p><button onclick="var t=document.getElementById(\'u\');t.select();document.execCommand(\'copy\');this.textContent=\'コピーしました\'">URLをコピーする</button> ' +
-      '<a href="' + esc(url) + '" target="_blank">先生用の画面を開く</a></p>';
-  } else {
-    body = '<p>公開したURLが、まだわかりません。ウェブアプリとして公開（デプロイ）したあと、生徒用のURLを一度開いてから、もう一度このメニューを押してください。</p>' +
-      '<p>または、生徒用のURL（…/exec）の最後に、次の文字をつけて開いてください。</p>' +
-      '<textarea id="u" readonly>?page=teacher&amp;key=' + key + '</textarea>';
-  }
-  const html = HtmlService.createHtmlOutput(
-    '<style>body{font-family:sans-serif;font-size:15px;line-height:1.7;margin:8px}textarea{width:100%;height:84px;box-sizing:border-box;font-size:13px}' +
-    'button{font-size:15px;padding:8px 14px;margin-right:12px}.n{color:#555;font-size:13px}</style>' + body +
-    '<p class="n">このURLは、生徒に見せたり配ったりしないでください。見られてしまったときは、メニューの「先生用のURLを作り直す」を押すと、古いURLは使えなくなります。</p>')
-    .setWidth(560).setHeight(360);
-  SpreadsheetApp.getUi().showModalDialog(html, renew ? '新しい先生用のURL' : '先生用のURL');
-}
-
-function checkTeacher_() {
-  if (!isTeacher_()) throw new Error('先生用の操作は、先生用のURLで開いた画面からだけできます。');
-}
+/* 先生用の画面は、先生用のURL（?page=teacher）を知っている人だけが開く。アカウントの確かめはしない
+   （学校のアカウントでは、ログイン中のアカウントがわからず、作った人でも入れないことがあるため） */
+function checkTeacher_() { /* 確かめない */ }
 
 function myEmail_() { return Session.getActiveUser().getEmail() || ''; }
 
@@ -1760,10 +1651,10 @@ function listImages() {
  * 画像を わたす（data URL）
  * 生徒は いま 画面に 出ている 画像だけ もらえる（ひとりずつ では この回の 問題の 画像）
  */
-function getImage(id, cid) {
+function getImage(id, cid, who) {
   id = String(id || '');
   if (!/^[\w-]{10,}$/.test(id)) throw new Error('画像がありません');
-  if (!isTeacher_()) {
+  if (who !== 'teacher') {
     const pub = getPublic_();
     if (!guard_(cid, pub)) throw new Error('コードを入れてください');
     let ok = JSON.stringify(pub).indexOf('img:' + id) >= 0;
