@@ -3,7 +3,7 @@
  */
 /************************************************************
  * みんなで時計（時計の読み取り・何分前後・何時に出るかな・時刻表）
- *   使い方：はじめに一度だけ setup を実行し、ウェブアプリとしてデプロイ。生徒用はURL、先生用はURLの最後に ?page=teacher
+ *   使い方：はじめに一度だけ setup を実行し、ウェブアプリとしてデプロイ。生徒用はURL、先生用はURLの最後に ?page=teacher（URLを知っている人だけが開ける）
  *   利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
  ************************************************************/
 
@@ -38,31 +38,16 @@ const DEFAULT_SETTINGS = {
 function doGet(e) {
   const p = (e && e.parameter) || {};
   const wantTeacher = p.page === 'teacher' || p.p === 'teacher';
-  let out;
-  if (wantTeacher && !isTeacher_()) {
-    out = HtmlService.createHtmlOutput('<div style="font-family:sans-serif;font-size:20px;line-height:2;padding:30px">先生用の画面は、このアプリを作った人のアカウントでログインしているときだけ開けます。</div>')
-      .setTitle('みんなで時計');
-  } else {
-    const t = HtmlService.createTemplateFromFile('index');
-    t.page = wantTeacher ? 'teacher' : 'student';
-    out = t.evaluate().setTitle(wantTeacher ? 'みんなで時計（先生用）' : 'みんなで時計');
-  }
-  return out
+  const t = HtmlService.createTemplateFromFile('index');
+  t.page = wantTeacher ? 'teacher' : 'student';
+  return t.evaluate().setTitle(wantTeacher ? 'みんなで時計（先生用）' : 'みんなで時計')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// アプリを作った人（＝実行するアカウント）でログインしているときだけ先生
-function isTeacher_() {
-  try {
-    const a = Session.getActiveUser().getEmail();
-    const me = Session.getEffectiveUser().getEmail();
-    return !!a && a === me;
-  } catch (err) { return false; }
-}
-function mustTeacher_() {
-  if (!isTeacher_()) throw new Error('先生用の操作は、アプリを作った人のアカウントでだけできます。');
-}
+// 先生用の画面は、先生用のURL（?page=teacher）を知っている人だけが開く。アカウントの確かめはしない
+// （学校のアカウントでは、ログイン中のアカウントがわからず、作った人でも入れないことがあるため）
+function mustTeacher_() { /* 確かめない */ }
 
 /* ========== はじめに一度だけ実行 ========== */
 function setup() {

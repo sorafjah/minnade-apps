@@ -225,7 +225,7 @@ function needImgs(names) {
   for (var i = 0; i < list.length; i += 8) chunks.push(list.slice(i, i + 8));
   chunks.reduce(function (pr, ch) {
     return pr.then(function () {
-      return call('getImages', ch, IMGCODE).then(function (o) {
+      return call('getImages', ch, IMGCODE, PAGE).then(function (o) {
         ch.forEach(function (n) { IMG[n] = o[n] || ''; delete IMGBUSY[n]; });
         if (IMGDONE) IMGDONE();
       }).catch(function () { ch.forEach(function (n) { delete IMGBUSY[n]; }); });

@@ -1,7 +1,7 @@
 /**
  * みんなでクイズ（第14版）
  * 使い方：スプレッドシートの「拡張機能 → Apps Script」に貼り、はじめに setup を1回実行する。
- *         生徒用URL＝デプロイしたURL、先生用URL＝末尾に ?page=teacher（?p=teacher でもよい。作った人のアカウントでだけ開ける）
+ *         生徒用URL＝デプロイしたURL、先生用URL＝末尾に ?page=teacher（?p=teacher でもよい）。URLを知っている人だけが開ける
  * 利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
  * （画像のフォルダ＝ドライブを使うため、@OnlyCurrentDoc は付けていません）
  *
@@ -59,7 +59,7 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   const want = p.page || p.p || '';   // ?page=teacher でも ?p=teacher でも先生画面
   const t = HtmlService.createTemplateFromFile('index');
-  t.page = (want === 'teacher' && isTeacher_()) ? 'teacher' : 'student';
+  t.page = want === 'teacher' ? 'teacher' : 'student';
   t.code = String(p.code || '').replace(/\D/g, '').slice(0, 4);
   return t.evaluate()
     .setTitle('みんなでクイズ')
@@ -118,15 +118,9 @@ function menuClearRecords() {
 
 /* ---------- 共通 ---------- */
 
-function isTeacher_() {
-  const owner = Session.getEffectiveUser().getEmail();
-  const user = Session.getActiveUser().getEmail();
-  return !!user && user === owner;
-}
-
-function checkTeacher_() {
-  if (!isTeacher_()) throw new Error('先生のアカウントで開いてください');
-}
+/* 先生用の画面は、先生用のURL（?page=teacher）を知っている人だけが開く。アカウントの確かめはしない
+   （学校のアカウントでは、ログイン中のアカウントがわからず、作った人でも入れないことがあるため） */
+function checkTeacher_() { /* 確かめない */ }
 
 function myEmail_() { return Session.getActiveUser().getEmail() || ''; }
 
@@ -1657,10 +1651,10 @@ function listImages() {
  * 画像を わたす（data URL）
  * 生徒は いま 画面に 出ている 画像だけ もらえる（ひとりずつ では この回の 問題の 画像）
  */
-function getImage(id, cid) {
+function getImage(id, cid, who) {
   id = String(id || '');
   if (!/^[\w-]{10,}$/.test(id)) throw new Error('画像がありません');
-  if (!isTeacher_()) {
+  if (who !== 'teacher') {
     const pub = getPublic_();
     if (!guard_(cid, pub)) throw new Error('コードを入れてください');
     let ok = JSON.stringify(pub).indexOf('img:' + id) >= 0;

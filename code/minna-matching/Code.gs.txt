@@ -4,7 +4,7 @@
  * 利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
  *
  * 生徒用URL：デプロイしたURL（…/exec）
- * 先生用URL：末尾に ?page=teacher をつける（?p=teacher でもよい。スプレッドシートの持ち主のアカウントでだけ開けます）
+ * 先生用URL：末尾に ?page=teacher をつける（?p=teacher でもよい）。URLを知っている人だけが開けます
  *
  * スプレッドシートのタブ
  *  ・ペアのタブ（「しごと」「くだもの」など）：1行目は Aの絵｜Aの文字｜Bの絵｜Bの文字。1行が1ペア
@@ -69,7 +69,7 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   const want = p.page || p.p || '';   // ?page=teacher でも ?p=teacher でも先生画面
   const t = HtmlService.createTemplateFromFile('index');
-  t.page = (want === 'teacher' && isTeacher_()) ? 'teacher' : 'student';
+  t.page = want === 'teacher' ? 'teacher' : 'student';
   t.url = ScriptApp.getService().getUrl();
   return t.evaluate()
     .setTitle(APP)
@@ -142,18 +142,10 @@ function setup() {
   return true;
 }
 
-/* ---------- 先生かどうか ---------- */
-
-function isTeacher_() {
-  try {
-    const owner = Session.getEffectiveUser().getEmail();
-    const user = Session.getActiveUser().getEmail();
-    return !!user && user === owner;
-  } catch (e) { return false; }
-}
-function checkTeacher_() {
-  if (!isTeacher_()) throw new Error('先生のアカウントで開いてください');
-}
+/* ---------- 先生用の画面 ----------
+   先生用のURL（?page=teacher）を知っている人だけが開く。アカウントの確かめはしない
+   （学校のアカウントでは、ログイン中のアカウントがわからず、作った人でも入れないことがあるため） */
+function checkTeacher_() { /* 確かめない */ }
 
 /* ---------- 保存（プロパティ＋キャッシュ） ---------- */
 
@@ -725,9 +717,9 @@ function imgId_(name) {
   try { cache_().put(k, id, 21600); } catch (e) {}
   return id;
 }
-function getImages(names, code) {
+function getImages(names, code, who) {
   names = (names || []).slice(0, 8);
-  if (!isTeacher_()) {
+  if (who !== 'teacher') {
     const set = settings_();
     if (!okCode_(set, code)) throw new Error('参加《さんか》コードが^ちがうよ');
     const allow = state_().imgs || [];

@@ -789,7 +789,7 @@ function pumpImg() {
     IMG.running++;
     const delay = active === 'student' ? Math.random() * 800 / SPEED : 0;
     setTimeout(() => {
-      call('getImage', t.slice(4), CID).then(d => {
+      call('getImage', t.slice(4), CID, RAW_PAGE === 'teacher' ? 'teacher' : '').then(d => {
         IMG.cache[t] = d;
         delete IMG.state[t];
         document.querySelectorAll('img[data-img]').forEach(el => { if (el.dataset.img === t) el.src = d; });
