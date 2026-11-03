@@ -2,8 +2,8 @@
    サイト名を変えるときは、下の SITE の2行だけ書きかえる。 */
 (function () {
   var SITE = {
-    name: 'みんなで答える授業アプリ',
-    sub: '先生が問題を出し、生徒は自分のタブレットで一斉回答。Googleスプレッドシートで結果にまとめられる無料のアプリ集です。',
+    name: 'みんなで/ひとりずつ/とりくむアプリ集',
+    sub: '先生が問題を出し、生徒は自分のタブレットで一斉回答。または、ひとりずつ自分のレベルに合わせて解答できる。Googleスプレッドシートで結果にまとめられる無料のアプリ集です。',
   };
 
   var root = document.body.getAttribute('data-root') || '';   // apps/ の中のページは "../"
@@ -11,20 +11,21 @@
 
   /* ---------- ヘッダー ---------- */
   var nav = [
-    ['top', 'index.html', 'トップ'],
+    ['top', 'index.html', 'アプリ一覧'],
     ['hajimete', 'hajimete.html', 'はじめての方へ'],
     ['secchi', 'secchi.html', '設置の手順'],
-    ['ai', 'ai.html', 'AIで作る・直す'],
     ['tsumazuki', 'tsumazuki.html', 'うまくいかないとき'],
+    ['ai', 'ai.html', 'AIで作る・直す'],
     ['riyou', 'riyou.html', '利用について'],
   ];
   var head = document.createElement('header');
   head.className = 'site-head';
   head.innerHTML =
     '<div class="in"><p class="site-name"><a href="' + root + 'index.html"></a></p>' +
-    '<p class="site-sub"></p><nav class="site-nav"></nav></div>';
+    '<nav class="site-nav"></nav></div>';
   head.querySelector('.site-name a').textContent = SITE.name;
-  head.querySelector('.site-sub').textContent = SITE.sub;
+  var subEl = document.getElementById('site-sub');   // トップの大見出しの下に出す説明
+  if (subEl) subEl.textContent = SITE.sub;
   var navEl = head.querySelector('.site-nav');
   nav.forEach(function (n) {
     var a = document.createElement('a');
@@ -40,7 +41,8 @@
   foot.className = 'site-foot';
   foot.innerHTML = '<div class="in"><p><a href="' + root + 'riyou.html">利用について</a>' +
     '<a href="' + root + 'tsumazuki.html">うまくいかないとき</a></p>' +
-    '<p>授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。保証やサポートはありません。</p></div>';
+    '<p>授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。保証やサポートはありません。</p>' +
+    '<p>このサイトにはデータは届きません。記録は、設置した先生のスプレッドシートにだけ残ります。</p></div>';
   document.body.appendChild(foot);
 
   /* ---------- タイトル ---------- */
@@ -55,6 +57,8 @@
       if (a.ready) el.href = root + 'apps/' + a.id + '.html';
       var h = document.createElement('h3'); h.textContent = a.name;
       var p = document.createElement('p'); p.textContent = a.desc;
+      var md = document.createElement('div'); md.className = 'modes';
+      (a.modes || []).forEach(function (m) { var s = document.createElement('span'); s.className = 'mode'; s.textContent = m; md.appendChild(s); });
       var tg = document.createElement('div'); tg.className = 'tags';
       (a.ready ? a.tags : ['準備中'].concat(a.tags)).forEach(function (t, i) {
         var s = document.createElement('span');
@@ -62,7 +66,7 @@
         s.textContent = t;
         tg.appendChild(s);
       });
-      el.appendChild(h); el.appendChild(p); el.appendChild(tg);
+      el.appendChild(h); el.appendChild(md); el.appendChild(p); el.appendChild(tg);
       list.appendChild(el);
     });
   }

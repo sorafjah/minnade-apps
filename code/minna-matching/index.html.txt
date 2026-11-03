@@ -1,1139 +1,969 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<base target="_top">
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>みんなでマッチング</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <style>
-:root{
-  --bg:#f4f8fb; --card:#fff; --ink:#1f2b36; --sub:#56636f; --line:#c8d5e1;
-  --main:#2b8bd3; --mainD:#1d6aa3; --choice:#e2f2fb; --ok:#23884a; --okbg:#e3f5e8;
-  --warn:#b35a00; --gray:#8794a1;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
-  font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN",sans-serif;
-  touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-  -webkit-tap-highlight-color:transparent}
-input,select{font-family:inherit;-webkit-user-select:text;user-select:text}
-ruby rt{font-size:.5em}
-#app{position:fixed;inset:0}
-.screen{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px}
-.wrap{max-width:960px;margin:0 auto}
-h1{font-size:1.6rem;margin:4px 0 12px}
-h2{font-size:1.25rem;margin:0 0 10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
-
-.btn{min-height:48px;min-width:48px;padding:8px 18px;border-radius:12px;border:2px solid var(--main);
-  background:#fff;color:var(--mainD);font:inherit;font-weight:700;font-size:1.05rem;cursor:pointer}
-.btn.main{background:var(--main);color:#fff}
-.btn.big{min-height:60px;font-size:1.3rem;padding:10px 28px}
-.btn:disabled{opacity:.4}
-.btn:active{transform:scale(.97)}
-.btns{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #e6edf3}
-.row:last-child{border-bottom:none}
-.row>.lab{width:10.5em;font-weight:700}
-.row .note{color:var(--sub);font-size:.95rem}
-.seg{display:inline-flex;border:2px solid var(--main);border-radius:12px;overflow:hidden;flex-wrap:wrap}
-.seg button{min-height:46px;min-width:56px;padding:6px 14px;border:none;border-right:1px solid var(--main);
-  background:#fff;color:var(--mainD);font:inherit;font-weight:700;font-size:1rem}
-.seg button:last-child{border-right:none}
-.seg button.on{background:var(--main);color:#fff}
-.seg button:disabled{color:#aab4bd}
-select{min-height:48px;font-size:1.05rem;padding:6px 10px;border:2px solid var(--main);border-radius:12px;background:#fff;color:var(--ink);max-width:100%}
-.num{display:inline-flex;align-items:center;gap:6px}
-.num input{width:4.2em;height:48px;font-size:1.2rem;text-align:center;border:2px solid var(--main);border-radius:10px}
-.num button{width:48px;height:48px;border-radius:10px;border:2px solid var(--main);background:#fff;color:var(--mainD);font-size:1.1rem;font-weight:700}
-input.txt{height:48px;font-size:1.1rem;padding:6px 10px;border:2px solid var(--line);border-radius:10px;width:100%}
-
-/* 絵と文字 */
-.item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;height:100%;min-height:0}
-.pic{flex:1;min-height:0;width:100%;position:relative}
-.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.pic.miss::after{content:"え が みつからないよ";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:.9rem}
-.pic.miss img{display:none}
-.item .t{font-weight:700;text-align:center;line-height:1.6;font-size:clamp(1rem,2.4vw,1.6rem)}
-.item.only .t{font-size:clamp(1.4rem,4vw,2.6rem)}
-
-/* せんたくし */
-.choices{display:grid;gap:12px;min-height:0}
-.choices.n2{grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr)}
-.choices.n3{grid-template-columns:1fr 1fr 1fr;grid-template-rows:minmax(0,1fr)}
-.choices.n4{grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
-.choice{position:relative;background:var(--choice);border:3px solid var(--line);border-radius:16px;
-  padding:36px 10px 10px;min-height:0;display:flex;font:inherit;color:inherit;cursor:pointer;text-align:left}
-.choice .no{position:absolute;left:8px;top:6px;width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid var(--main);
-  color:var(--mainD);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:1rem}
-.choice .tag{position:absolute;right:8px;top:6px;padding:2px 10px;border-radius:999px;font-weight:700;font-size:.95rem;background:#fff;border:2px solid currentColor}
-.choice.mine{border-color:var(--main);border-width:5px}
-.choice.mine .tag{color:var(--mainD)}
-.choice.correct{border-color:var(--ok);border-width:7px;background:var(--okbg);animation:pop .45s ease-out both}
-.choice.correct .tag{color:#fff;background:var(--ok);border-color:var(--ok);font-size:1.15rem;padding:3px 14px}
-.choice.dim{opacity:.35}
-.choice .tag2{position:absolute;left:8px;bottom:6px;padding:2px 10px;border-radius:999px;font-weight:700;font-size:.95rem;background:#fff;border:2px solid var(--mainD);color:var(--mainD)}
-.choice .cnt{position:absolute;right:8px;bottom:6px;background:#fff;border:2px solid var(--line);border-radius:10px;padding:0 10px;font-weight:700;font-size:1.1rem}
-
-/* ペアの表示 */
-.qbox{background:#fff;border:3px solid var(--line);border-radius:16px;padding:10px;min-height:0;display:flex}
-.pair{display:flex;gap:12px;height:100%;min-height:0;align-items:stretch}
-.pair .qbox{flex:1}
-.pair .qbox.ans{border-color:var(--ok);animation:slidein .7s ease-out both}
-@keyframes slidein{from{transform:translateX(45%) scale(.85);opacity:0}to{transform:none;opacity:1}}
-.pairlab{text-align:center;font-weight:700;font-size:1.5rem;color:var(--ok);animation:pop .5s .6s both}
-@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
-.prompt{font-weight:700;font-size:1.3rem;text-align:center}
-
-/* 時間のバー */
-.tbar{height:12px;background:#e3eaf0;border-radius:6px;overflow:hidden}
-.tbar>div{height:100%;background:var(--main);width:100%}
-.timeup{color:var(--warn);font-weight:700}
-
-/* 先生：すすめる画面 */
-.play{display:flex;flex-direction:column;gap:10px;height:100%;padding:12px 16px}
-.topbar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-weight:700;font-size:1.15rem}
-.topbar .code{margin-left:auto;color:var(--sub)}
-.stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,.9fr) minmax(0,1.1fr);gap:14px}
-.qside{display:flex;flex-direction:column;gap:8px;min-height:0}
-.qside .pair,.qside>.qbox{flex:1}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{padding:4px 12px;border-radius:999px;border:2px solid var(--line);background:#fff;font-weight:700}
-.chip.done{border-color:var(--main);background:var(--choice)}
-.chip.done::before{content:"✓ ";color:var(--mainD)}
-
-/* ロビー */
-.lobby{display:grid;grid-template-columns:minmax(260px,1fr) 1.4fr;gap:16px}
-.bigcode{text-align:center}
-.bigcode .c{font-size:4.5rem;font-weight:700;letter-spacing:.15em;color:var(--mainD)}
-.qr{max-width:280px;margin:8px auto}
-.qr svg{width:100%;height:auto;display:block}
-.url{font-size:.75rem;color:var(--sub);word-break:break-all;text-align:center;-webkit-user-select:text;user-select:text}
-@media (orientation:portrait){.lobby{grid-template-columns:1fr}}
-
-/* ペアをつくる */
-.maker{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.mbox{display:flex;flex-direction:column;gap:8px}
-.mlab{font-weight:700;font-size:1.15rem}
-.drop{height:min(34vh,280px);border:3px dashed var(--line);border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;color:var(--sub);font-weight:700}
-.drop img{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);object-fit:contain}
-.plist{display:flex;flex-direction:column;gap:10px}
-.prow{display:grid;grid-template-columns:3em 1fr 1fr auto;gap:10px;align-items:stretch;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}
-.prow .no{font-weight:700;color:var(--sub);align-self:center;text-align:center}
-.prow .cell{height:130px;border:2px solid #e3eaf0;border-radius:10px;padding:6px;display:flex}
-.prow .cell.empty{background:#f2f4f6;align-items:center;justify-content:center;color:var(--gray)}
-.prow .del{align-self:center}
-.tabrow{display:grid;grid-template-columns:1fr auto 1fr 1fr;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #e6edf3}
-@media (max-width:700px){.tabrow{grid-template-columns:1fr 1fr}.prow{grid-template-columns:2em 1fr 1fr}.prow .del{grid-column:1/-1}}
-
+:root{--bg:#f1f9fd;--ink:#1f3340;--sub:#587383;--main:#1a8fc7;--mainD:#12709f;--soft:#dcf0fa;--line:#b9dbec;--acc:#f2a33a;--accSoft:#fff2dc;--ok:#23926a;--okSoft:#ddf4ea;--ng:#b8662a;--ngSoft:#fdeee0;--white:#fff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:'BIZ UDPGothic','Hiragino Sans','Meiryo',sans-serif;background:var(--bg);color:var(--ink);font-size:18px;line-height:1.6;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-text-size-adjust:100%}
+input,textarea,select{-webkit-user-select:text;user-select:text;font-family:inherit}
+ruby rt{font-size:.5em;font-weight:400}
+button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:980px;margin:0 auto;padding:12px 14px 40px}
+.top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.top h1{font-size:22px;margin:0;color:var(--mainD);flex:1 1 auto}
+.chip{display:inline-block;min-height:36px;padding:4px 14px;border-radius:18px;background:var(--soft);color:var(--mainD);font-weight:700;border:0}
+.chip.acc{background:var(--accSoft);color:#8a5200}
+.btn{min-width:44px;min-height:48px;padding:8px 20px;border-radius:12px;border:2px solid var(--main);background:var(--main);color:#fff;font-weight:700}
+.btn.sub{background:#fff;color:var(--mainD)}
+.btn.warn{background:#fff;color:var(--ng);border-color:var(--ng)}
+.btn.big{min-height:60px;font-size:22px;padding:10px 28px}
+.btn.small{min-height:40px;padding:4px 14px;font-size:16px}
+.btn[disabled]{opacity:.45}
+.panel{background:var(--white);border:2px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.panel h2{font-size:20px;margin:0 0 8px;color:var(--mainD)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fld{margin:0 0 14px}
+.lb{display:block;font-weight:700;margin-bottom:4px}
+.note{font-size:15px;color:var(--sub);margin-top:2px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.segb{min-height:44px;min-width:60px;padding:6px 16px;border-radius:10px;border:2px solid var(--line);background:#fff}
+.segb.on{background:var(--main);border-color:var(--main);color:#fff;font-weight:700}
+.step{display:inline-flex;align-items:center;gap:6px}
+.step button{width:48px;height:48px;border-radius:10px;border:2px solid var(--main);background:#fff;color:var(--mainD);font-size:20px;font-weight:700}
+.step input{width:84px;height:48px;text-align:center;font-size:20px;border:2px solid var(--line);border-radius:10px}
+.step .unit{color:var(--sub)}
+input[type=text],input[type=password],select,textarea{min-height:44px;font-size:18px;padding:6px 10px;border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);max-width:100%}
+textarea{width:100%;min-height:110px}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top;font-size:16px}
+th{background:var(--soft);color:var(--mainD)}
+.err{background:var(--ngSoft);color:var(--ng);border-radius:10px;padding:8px 12px;margin:8px 0;font-weight:700}
+.okmsg{background:var(--okSoft);color:var(--ok);border-radius:10px;padding:8px 12px;margin:8px 0;font-weight:700}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);max-width:92vw;background:#1f3340;color:#fff;padding:10px 18px;border-radius:14px;z-index:50;display:none;font-size:18px}
 /* 生徒 */
-.center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:100%;text-align:center}
-.msg{font-size:1.6rem;font-weight:700;line-height:1.7}
-.sub{color:var(--sub);font-size:1.1rem}
-.digits{display:flex;gap:10px}
-.digits div{width:64px;height:76px;border:3px solid var(--main);border-radius:12px;background:#fff;font-size:2.6rem;font-weight:700;display:flex;align-items:center;justify-content:center}
-.pad{display:grid;grid-template-columns:repeat(3,84px);gap:10px}
-.pad button{height:72px;font-size:1.8rem;white-space:nowrap;padding:4px}
-.pad button.del{font-size:1.2rem}
-.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;width:100%;max-width:900px}
-.names button{min-height:64px;font-size:1.3rem}
-.names button small{display:block;font-size:.8rem;font-weight:400}
-.splay{display:flex;flex-direction:column;gap:10px;height:100%;padding:12px}
-.sstage{flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,.75fr) minmax(0,1.25fr);gap:12px}
-.sstage>.qbox,.sstage>.pairwrap{min-height:0}
-.pairwrap{display:flex;flex-direction:column;gap:6px;min-height:0}
-.pairwrap .pair{flex:1}
-.status{text-align:center;font-weight:700;font-size:1.25rem;min-height:1.6em}
-.result{text-align:center;font-weight:700;font-size:1.6rem}
-.result.ok{color:var(--ok)}
-.score{font-size:3rem;font-weight:700;color:var(--mainD)}
-
-#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#24313d;color:#fff;padding:12px 22px;border-radius:12px;font-weight:700;font-size:1.1rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90vw;text-align:center}
-#toast.on{opacity:.95}
-#net{position:fixed;top:0;left:0;right:0;background:#fff4e0;color:var(--warn);text-align:center;font-weight:700;padding:4px;display:none;z-index:40}
-/* つかいかた */
-.btn.help{min-height:44px;font-size:.95rem;padding:4px 14px}
-.helpfix{position:absolute;top:10px;right:12px;z-index:5}
-.modal[hidden]{display:none}
-.modal{position:fixed;inset:0;background:rgba(20,30,40,.45);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px}
-.mbody{background:#fff;border-radius:16px;max-width:760px;width:100%;max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 20px}
-.mbody h3{font-size:1.15rem;margin:14px 0 6px;color:var(--mainD)}
-.mbody p,.mbody li{line-height:1.8;font-size:1.05rem}
-.mbody ol,.mbody ul{padding-left:1.4em}
-.mbody .big li{font-size:1.3rem;line-height:2}
-/* まとめて とうろく */
-.brow{display:grid;grid-template-columns:2.4em 1fr 1fr auto;gap:10px;align-items:start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}
-.brow .no{font-weight:700;color:var(--sub);text-align:center;padding-top:50px}
-.bside{display:flex;flex-direction:column;gap:6px}
-.bcell{height:130px;border:3px solid #e3eaf0;border-radius:10px;position:relative;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--gray)}
-.bcell img{position:absolute;inset:4px;width:calc(100% - 8px);height:calc(100% - 8px);object-fit:contain}
-.bcell.sel{border-color:var(--warn);border-style:dashed}
-.bcell.sel::after{content:"いれかえる さきを タップしてね";position:absolute;left:4px;right:4px;bottom:4px;background:#fff4e0;color:var(--warn);font-size:.8rem;font-weight:700;text-align:center;border-radius:6px;padding:2px}
-.brow .ops{display:flex;flex-direction:column;gap:6px;padding-top:30px}
-.prog{font-weight:700;color:var(--mainD)}
-@media (max-width:700px){.brow{grid-template-columns:2em 1fr 1fr}.brow .ops{grid-column:1/-1;flex-direction:row;padding-top:0}.brow .no{padding-top:0}}
-#pvbar[hidden]{display:none}
-#pvbar{position:fixed;right:8px;bottom:8px;z-index:60;background:#fff;border:2px solid var(--line);border-radius:12px;padding:6px;display:flex;gap:6px;align-items:center;font-size:.9rem}
-#pvbar .btn{min-height:40px;font-size:.95rem;padding:4px 12px}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.nbtn{min-height:60px;border-radius:14px;border:2px solid var(--main);background:#fff;font-size:20px;font-weight:700;color:var(--mainD);padding:6px}
+.nbtn[disabled]{background:#eee;border-color:#ccc;color:#888}
+.nbtn small{display:block;font-size:13px;font-weight:400}
+.msgbig{text-align:center;font-size:26px;font-weight:700;margin:40px 10px;color:var(--mainD)}
+.codein{display:flex;gap:10px;justify-content:center;align-items:center;margin:20px 0}
+.codein input{width:170px;height:70px;font-size:40px;text-align:center;letter-spacing:6px}
+.prog{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.timer{height:14px;background:var(--soft);border-radius:7px;overflow:hidden;flex:1 1 160px;min-width:120px}
+.timer div{height:100%;background:var(--acc);width:100%}
+.qcard{background:#fff;border:3px solid var(--main);border-radius:16px;padding:12px;text-align:center;margin:8px 0 12px}
+.qcard .ask{font-size:16px;color:var(--sub);margin-bottom:6px}
+.cardin img{max-width:100%;max-height:34vh;object-fit:contain;border-radius:8px}
+.cardin .ctext{font-size:30px;font-weight:700;line-height:1.7}
+.imgph{color:var(--sub);padding:14px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px}
+.choice{position:relative;min-height:96px;border-radius:14px;border:3px solid var(--line);background:#fff;padding:8px;text-align:center}
+.choice .cardin img{max-height:22vh}
+.choice .cardin .ctext{font-size:26px}
+.choice.mine{border-color:var(--main);background:var(--soft)}
+.choice.right{border-color:var(--ok);background:var(--okSoft)}
+.choice.wrongmine{border-color:var(--ng);background:var(--ngSoft)}
+.choice[disabled]{opacity:1}
+.badge{display:inline-block;margin-top:4px;padding:1px 12px;border-radius:12px;font-size:16px;font-weight:700;background:var(--main);color:#fff}
+.badge.ok{background:var(--ok)}
+.badge.ng{background:var(--ng)}
+.fb{border-radius:14px;padding:12px 16px;margin:12px 0;text-align:center;font-size:24px;font-weight:700}
+.fb.ok{background:var(--okSoft);color:var(--ok)}
+.fb.ng{background:var(--ngSoft);color:var(--ng)}
+.fb.up{background:var(--accSoft);color:#8a5200}
+.fb.down{background:var(--soft);color:var(--mainD)}
+.fb.plain{background:var(--soft);color:var(--mainD)}
+/* 先生 */
+.qrbox{background:#fff;padding:10px;border:2px solid var(--line);border-radius:14px;display:inline-block;width:min(100%,300px)}
+.qrbox svg{width:100%;height:auto;display:block}
+.bigover{position:fixed;left:0;top:0;right:0;bottom:0;background:#fff;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:10px}
+.bigover .qrbox{width:min(92vw,86vh);border:0;padding:0}
+.bigcode{font-size:56px;font-weight:700;letter-spacing:10px;color:var(--mainD)}
+.pill{display:inline-block;padding:2px 12px;margin:2px;border-radius:14px;background:var(--soft)}
+.pill.done{background:var(--okSoft);color:var(--ok);font-weight:700}
+.pairlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.pairrow{display:flex;gap:8px;align-items:center;border:2px solid var(--line);border-radius:12px;padding:6px 8px;background:#fff}
+.pairrow .half{flex:1 1 0;text-align:center;min-width:0;font-size:16px}
+.pairrow img{max-width:100%;max-height:60px}
+.cnt{font-size:22px;font-weight:700}
+.bar{height:16px;background:var(--main);border-radius:8px;min-width:2px}
+.hide{display:none}
+.helpov{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(31,51,64,.55);z-index:45;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
+.helpbox{background:#fff;border:3px solid var(--main);border-radius:18px;padding:16px 18px;width:min(100%,640px);max-height:96vh;overflow:auto}
+.helpbox h2{margin:0 0 6px;font-size:24px;color:var(--mainD)}
+.helpbody{font-size:21px;margin:8px 0}
+.helpdemo{background:var(--bg);border:2px dashed var(--line);border-radius:14px;padding:10px;margin:8px 0;text-align:center}
+.mini{display:inline-block;min-width:110px;margin:4px;padding:8px 14px;border:3px solid var(--line);border-radius:12px;background:#fff;font-size:22px;font-weight:700}
+.mini.on{border-color:var(--main);background:var(--soft)}
+.helpbtns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
+.helpbox ol{margin:6px 0;padding-left:24px;font-size:17px}
+.helpbox li{margin-bottom:6px}
+@media (max-width:600px){body{font-size:17px}.cardin .ctext{font-size:26px}}
 </style>
 </head>
 <body>
-<div id="cfg" hidden data-page="<?= page ?>" data-url="<?= url ?>"></div>
+<div id="cfg" data-page="<?= page ?>" data-url="<?= url ?>" style="display:none"></div>
 <div id="app"></div>
-<div id="net">つながりを たしかめているよ…</div>
 <div id="toast"></div>
-<div id="modal" class="modal" hidden onclick="if(event.target===this)closeHelp()"><div class="mbody" id="mbody"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.QR_FAIL=1"></script>
 <script>
-// うまく うごかないときに、りゆうを がめんに だす
-window.addEventListener('error', function (e) {
-  var a = document.getElementById('app');
-  if (a && !a.innerHTML) a.innerHTML = '<div style="padding:20px;font-size:18px;line-height:1.8">うまく ひらけなかったよ。<br>せんせいへ：' +
-    String(e.message || e).replace(/</g, '&lt;') + '（' + (e.lineno || '') + 'ぎょうめ）</div>';
-});
-window.addEventListener('unhandledrejection', function (e) {
-  var a = document.getElementById('app');
-  if (a && !a.innerHTML) a.innerHTML = '<div style="padding:20px;font-size:18px">うまく ひらけなかったよ。<br>せんせいへ：' + String(e.reason && e.reason.message || e.reason).replace(/</g, '&lt;') + '</div>';
-});
-setTimeout(function () {
-  var a = document.getElementById('app');
-  if (a && !a.innerHTML) a.innerHTML = '<div style="padding:20px;font-size:18px">うまく ひらけなかったよ（プログラムが うごいていないよ）。</div>';
-}, 4000);
-</script>
-<div id="pvbar" hidden>プレビュー
-  <button class="btn" data-pv="teacher">せんせい</button>
-  <button class="btn" data-pv="student">せいと</button>
-</div>
+(function () {
+'use strict';
+var CFG = document.getElementById('cfg');
+var PAGE = CFG.getAttribute('data-page') === 'teacher' ? 'teacher' : 'student';
+var BASEURL = CFG.getAttribute('data-url') || '';
+var APP = document.getElementById('app');
 
-<script>
-/* ============================================================
-   きほん
-   ============================================================ */
-const HAS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
-const CFG = document.getElementById('cfg');
-let PAGE = HAS_GAS ? CFG.getAttribute('data-page') : 'teacher';
-const STUDENT_URL = HAS_GAS ? CFG.getAttribute('data-url') : '（ここに せいとようの アドレスが でるよ）';
-const app = document.getElementById('app');
-
-function call(fn, ...args) {
-  return new Promise((resolve, reject) => {
-    const fail = e => reject(new Error(String((e && e.message) || e).replace(/^(Error|Exception):\s*/, '')));
-    if (HAS_GAS) {
-      google.script.run.withSuccessHandler(resolve).withFailureHandler(fail)[fn](...args);
-    } else {
-      setTimeout(() => {
-        try { resolve(JSON.parse(JSON.stringify(MOCK[fn](...args)))); } catch (e) { fail(e); }
-      }, 120);
-    }
+/* ---------- 画面の部品 ---------- */
+function add(el, c) {
+  if (c == null || c === false) return;
+  if (Array.isArray(c)) { c.forEach(function (x) { add(el, x); }); return; }
+  if (c.nodeType) el.appendChild(c); else el.appendChild(document.createTextNode(String(c)));
+}
+function h(tag, props) {
+  var el = document.createElement(tag), val = null;
+  if (props) {
+    Object.keys(props).forEach(function (k) {
+      var v = props[k];
+      if (v == null || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'style') el.style.cssText = v;
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+      else if (k === 'value') val = v;
+      else if (k === 'checked' || k === 'disabled' || k === 'selected') el[k] = true;
+      else el.setAttribute(k, v === true ? '' : v);
+    });
+  }
+  for (var i = 2; i < arguments.length; i++) add(el, arguments[i]);
+  if (val !== null) el.value = val;
+  return el;
+}
+function swap(node) { APP.replaceChildren(node); }   // 要素ごと入れかえる（iOSで消した文字が残らないように）
+var KJ = '[\\u4e00-\\u9fff\\u3005\\u3007]+';
+function rb(s, hira) {   // 漢字《よみ》 を、ふりがな付き（または ひらがな）にする。^ は ひらがなのときの すきま
+  var f = document.createDocumentFragment(), re = new RegExp('(' + KJ + ')《([^》]*)》', 'g'), last = 0, m;
+  s = String(s == null ? '' : s);
+  function part(t) { t = t.replace(/\^/g, hira ? ' ' : ''); if (t) f.appendChild(document.createTextNode(t)); }
+  while ((m = re.exec(s))) {
+    part(s.slice(last, m.index));
+    if (hira) f.appendChild(document.createTextNode(m[2]));
+    else { var r = document.createElement('ruby'); r.appendChild(document.createTextNode(m[1])); var rt = document.createElement('rt'); rt.appendChild(document.createTextNode(m[2])); r.appendChild(rt); f.appendChild(r); }
+    last = re.lastIndex;
+  }
+  part(s.slice(last));
+  return f;
+}
+function plain(s) { return String(s == null ? '' : s).replace(new RegExp('(' + KJ + ')《[^》]*》', 'g'), '$1').replace(/\^/g, ''); }
+function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} }
+function call(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  return new Promise(function (res, rej) {
+    if (!(window.google && window.google.script && window.google.script.run)) { rej(new Error('サーバーにつながっていません')); return; }
+    window.google.script.run.withSuccessHandler(res).withFailureHandler(function (e) {
+      rej(e instanceof Error ? e : new Error((e && e.message) || String(e)));
+    })[fn].apply(window.google.script.run, args);
   });
 }
-
-function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-let CID = lsGet('mm_cid');
-if (!CID) { CID = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); lsSet('mm_cid', CID); }
-let CODE = lsGet('mm_code') || '';
-
-function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function msgOf(e) { return String((e && e.message) || e || '').replace(/^(Error|Exception):\s*/, ''); }
+function isNet(e) { return (typeof navigator !== 'undefined' && navigator.onLine === false) || /Failed to fetch|NetworkError|network|timeout|timed out|Load failed|つながっていません/i.test(msgOf(e)); }
+var toastTimer = null;
+function toast(node) {
+  var t = document.getElementById('toast');
+  t.replaceChildren(typeof node === 'string' ? document.createTextNode(node) : node);
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.style.display = 'none'; }, 3500);
 }
-// 「漢字《かんじ》」「｜文字列《もじれつ》」をふりがなにする
-function rb(s) {
-  return esc(s)
-    .replace(/[｜|]([^｜|《》]+?)《([^》]+)》/g, '<ruby>$1<rt>$2</rt></ruby>')
-    .replace(/([\u4E00-\u9FFF々〆ヶ]+)《([^》]+)》/g, '<ruby>$1<rt>$2</rt></ruby>');
-}
-let toastTimer;
-function toast(m) {
-  const t = document.getElementById('toast');
-  t.textContent = m; t.classList.add('on');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 2400);
-}
-function net(on) { document.getElementById('net').style.display = on ? 'block' : 'none'; }
 
-/* ---------- ズームなどを止める ---------- */
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('touchmove', e => {
-  if (e.touches.length > 1 || !e.target.closest('.screen,.mbody')) e.preventDefault();
+/* ---------- iPad：ズーム防止・音のロック解除 ---------- */
+document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+var lastTouch = 0;
+document.addEventListener('touchend', function (e) {
+  var now = Date.now();
+  var t = e.target, ok = false;
+  while (t && t.nodeType === 1) { if (/^(BUTTON|INPUT|SELECT|TEXTAREA|A|LABEL)$/.test(t.tagName)) { ok = true; break; } t = t.parentNode; }
+  if (!ok && now - lastTouch <= 300) e.preventDefault();
+  lastTouch = now;
 }, { passive: false });
-let lastTouchEnd = 0;
-document.addEventListener('touchend', e => {
-  const now = Date.now();
-  if (now - lastTouchEnd < 300 && !e.target.closest('button,input,select,label')) e.preventDefault();
-  lastTouchEnd = now;
-}, { passive: false });
-
-/* ---------- 効果音 ---------- */
-let AC = null, soundOn = true;
-function unlockAudio() {
+var AC = null;
+function unlock() {
   try {
-    if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (C) AC = new C(); }
+    if (!AC) { var C = window.AudioContext || window.webkitAudioContext; if (C) AC = new C(); }
     if (AC && AC.state === 'suspended') AC.resume();
   } catch (e) {}
 }
-document.addEventListener('pointerdown', unlockAudio);
-function tone(f, t0, d, v) {
-  const o = AC.createOscillator(), g = AC.createGain();
-  o.type = 'sine'; o.frequency.value = f;
-  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + 0.02);
-  g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
-  o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + 0.05);
-}
-function sfx(kind) {
-  if (!soundOn || !AC) return;
-  const t = AC.currentTime;
-  if (kind === 'tap') tone(560, t, 0.08, 0.08);
-  if (kind === 'ok') { tone(660, t, 0.15, 0.18); tone(880, t + 0.14, 0.3, 0.18); }
-  if (kind === 'ng') tone(392, t, 0.35, 0.1);
-  if (kind === 'pair') { tone(523, t, 0.12, 0.16); tone(659, t + 0.12, 0.12, 0.16); tone(784, t + 0.24, 0.35, 0.16); }
-}
-
-/* ---------- 絵 ---------- */
-const IMG = {}, IMGP = {};
-function ensureImages(names) {
-  const need = [...new Set(names || [])].filter(n => n && !(n in IMG) && !IMGP[n]);
-  let p = Promise.resolve();
-  for (let i = 0; i < need.length; i += 4) {
-    const ch = need.slice(i, i + 4);
-    ch.forEach(n => IMGP[n] = 1);
-    p = p.then(() => call('getImages', ch, CODE))
-      .then(m => { ch.forEach(n => { IMG[n] = m[n] || ''; delete IMGP[n]; }); fillImgs(); })
-      .catch(() => { ch.forEach(n => delete IMGP[n]); });
-  }
-  return p;
-}
-function fillImgs() {
-  document.querySelectorAll('img[data-img]').forEach(im => {
-    const n = im.dataset.img;
-    if (!(n in IMG)) return;
-    if (IMG[n]) { if (im.getAttribute('src') !== IMG[n]) im.src = IMG[n]; }
-    else im.parentNode.classList.add('miss');
-  });
-}
-function itemHTML(it) {
-  const pic = it.img ? `<div class="pic"><img data-img="${esc(it.img)}" alt=""></div>` : '';
-  const t = it.text ? `<div class="t">${rb(it.text)}</div>` : '';
-  return `<div class="item${it.img ? '' : ' only'}">${pic}${t}</div>`;
-}
-function itemNames(v) {
-  if (!v || !v.q) return [];
-  return [v.q.item.img].concat(v.q.choices.map(c => c.img)).filter(Boolean);
-}
-function promptText(split, la, lb, side) {
-  if (!split || (la === 'A' && lb === 'B')) return 'ペアに なる えは どれかな？';
-  const to = side === 'a' ? lb : la;
-  return `ペアに なる「${rb(to)}」は どれかな？`;
-}
-
-/* ---------- 時間のバー（時刻の差で動かすので、画面の速さに左右されない） ---------- */
-let clockOffset = 0, timerInfo = null;
-function timeLeft(q) {
-  if (!q || !q.limit) return Infinity;
-  return q.limit - (Date.now() + clockOffset - q.openedAt) / 1000;
-}
-function timerLoop() {
-  const bar = document.getElementById('tbar');
-  if (bar && timerInfo) {
-    const left = timeLeft(timerInfo);
-    bar.style.width = Math.max(0, Math.min(100, left / timerInfo.limit * 100)) + '%';
-    const lab = document.getElementById('tlab');
-    if (lab) lab.textContent = left <= 0 ? 'じかん！' : 'のこり ' + Math.ceil(left) + 'びょう';
-    if (left <= 0 && !timerInfo.fired) { timerInfo.fired = true; if (PAGE === 'student') sRender(true); }
-  }
-  requestAnimationFrame(timerLoop);
-}
-requestAnimationFrame(timerLoop);
-function timerHTML(q) {
-  if (!q || !q.limit) return '';
-  return `<div><div class="tbar"><div id="tbar"></div></div><div id="tlab" class="sub" style="text-align:right"></div></div>`;
-}
-
-/* ============================================================
-   先生の画面
-   ============================================================ */
-const T = { init: null, set: null, screen: 'home', view: null, sig: '', poll: null, busy: false, saveT: null,
-  makeTab: '', listTab: '', pend: { a: null, b: null }, recent: [], pairs: null, delArm: -1 };
-
-async function tBoot() {
-  app.innerHTML = '<div class="screen"><div class="center"><div class="msg">読み込んでいます…</div></div></div>';
+document.addEventListener('touchstart', unlock, { passive: true });
+document.addEventListener('click', unlock);
+function beep(kind) {
   try {
-    T.init = await call('tInit');
-    T.set = T.init.set;
-    if (!T.init.tabs.some(t => t.name === T.set.tab) && T.init.tabs.length) T.set.tab = T.init.tabs[0].name;
-    soundOn = T.set.sound;
-    T.view = T.init.view;
-    T.screen = (T.view.st.phase === 'idle') ? 'home' : 'play';
-    tRender();
-  } catch (e) {
-    app.innerHTML = `<div class="screen"><div class="center"><div class="msg">${esc(e.message)}</div></div></div>`;
-  }
-}
-function tabOf(name) { return (T.init.tabs || []).find(t => t.name === name) || null; }
-
-function tRender() {
-  clearTimeout(T.poll);
-  if (T.screen === 'home') tHome();
-  else if (T.screen === 'make') tMake();
-  else if (T.screen === 'list') tList();
-  else if (T.screen === 'tabs') tTabs();
-  else if (T.screen === 'bulk') tBulk();
-  else if (T.screen === 'play') { T.sig = ''; tPlay(); tPollLoop(); }
-}
-
-/* ---- ホーム（せってい） ---- */
-function seg(key, opts) {
-  return `<div class="seg">${opts.map(o => `<button class="${T.set[key] === o[0] ? 'on' : ''}" ${o[2] ? 'disabled' : ''}
-    onclick='setOpt(${JSON.stringify(key)},${JSON.stringify(o[0])})'>${o[1]}</button>`).join('')}</div>`;
-}
-function numBox(key, min, max, step, unit) {
-  return `<div class="num"><input inputmode="numeric" value="${T.set[key]}" onchange="numSet('${key}',this.value,${min},${max})">
-    <button onclick="numStep('${key}',${step},${min},${max})">△</button><button onclick="numStep('${key}',${-step},${min},${max})">▽</button>
-    <span>${unit}</span></div>`;
-}
-function setOpt(k, v) { T.set[k] = v; if (k === 'sound') soundOn = v; saveSoon(); tHome(); }
-function numSet(k, v, min, max) { const n = parseInt(String(v).replace(/[^\d]/g, ''), 10); T.set[k] = isNaN(n) ? min : Math.max(min, Math.min(max, n)); saveSoon(); tHome(); }
-function numStep(k, d, min, max) { T.set[k] = Math.max(min, Math.min(max, (parseInt(T.set[k], 10) || 0) + d)); saveSoon(); tHome(); }
-function saveSoon() {
-  clearTimeout(T.saveT);
-  T.saveT = setTimeout(() => call('tSaveSettings', T.set).catch(e => toast(e.message)), 600);
-}
-
-function tHome() {
-  const s = T.set, I = T.init, tab = tabOf(s.tab);
-  const tabsOpt = I.tabs.map(t => `<option value="${esc(t.name)}" ${t.name === s.tab ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
-  let tabNote = 'ペアのタブがまだありません。「ペアを作る」から作ってください';
-  if (tab) {
-    tabNote = `ペア ${tab.pairs}組` + (tab.dummy ? `・ダミー ${tab.dummy}個` : '') + '　' +
-      (tab.split ? `分ける（A：${rb(tab.la)}／B：${rb(tab.lb)}）` : '分けない');
-  }
-  const la = tab ? tab.la : 'A', lb = tab ? tab.lb : 'B';
-  const groupOpt = I.groups.map(g => `<option ${g === s.rosterGroup ? 'selected' : ''}>${esc(g)}</option>`).join('');
-  const offNote = side => (s['img' + side] === false && s['text' + side] === false) ? '<span class="note">絵も文字も出さないときは、文字を出します</span>' : '';
-  app.innerHTML = `<div class="screen"><div class="wrap">
-    <div class="btns" style="justify-content:space-between;margin-bottom:8px"><h1>みんなでマッチング</h1>${HB()}</div>
-    <div class="card">
-      <div class="row"><div class="lab">タブ</div>
-        <select onchange="setOpt('tab',this.value)">${tabsOpt}</select><span class="note">${tabNote}</span></div>
-      <div class="row"><div class="lab">進め方</div>${seg('pace', [['together', '一斉'], ['self', '自分のペース（準備中）', true]])}</div>
-      <div class="row"><div class="lab">問題の数</div>${numBox('count', 1, 50, 1, '問')}
-        ${tab && tab.pairs < s.count ? `<span class="note">ペアが${tab.pairs}組なので、${tab.pairs}問になります</span>` : ''}</div>
-      <div class="row"><div class="lab">選択肢の数</div>${seg('nChoices', [[2, '2'], [3, '3'], [4, '4']])}</div>
-      ${tab && tab.split ? `<div class="row"><div class="lab">向き</div>${seg('dir', [['ab', `${rb(la)} → ${rb(lb)}`], ['ba', `${rb(lb)} → ${rb(la)}`], ['mix', 'まぜる']])}</div>` : ''}
-      <div class="row"><div class="lab">問題の絵</div>${seg('imgQ', [[true, '出す'], [false, '出さない']])}</div>
-      <div class="row"><div class="lab">問題の文字</div>${seg('textQ', [[true, '出す'], [false, '出さない']])}${offNote('Q')}</div>
-      <div class="row"><div class="lab">選択肢の絵</div>${seg('imgC', [[true, '出す'], [false, '出さない']])}</div>
-      <div class="row"><div class="lab">選択肢の文字</div>${seg('textC', [[true, '出す'], [false, '出さない']])}${offNote('C')}</div>
-      <div class="row"><div class="lab">制限時間</div>${numBox('limit', 0, 300, 5, '秒')}<span class="note">0のときは時間制限なし</span></div>
-      <div class="row"><div class="lab">名前の選び方</div>${seg('nameMode', [['roster', '名簿'], ['chara', 'キャラ']])}
-        ${s.nameMode === 'roster' ? (I.groups.length ? `<select onchange="setOpt('rosterGroup',this.value)"><option value="">（選択）</option>${groupOpt}</select>`
-          : '<span class="note">「めいぼ」タブがありません</span>') : ''}</div>
-      <div class="row"><div class="lab">参加コード</div>${seg('codeOn', [[true, '使う'], [false, '使わない']])}
-        ${s.codeOn ? `<b style="font-size:1.4rem;letter-spacing:.1em">${esc(I.code)}</b><button class="btn" onclick="newCode()">変更</button>` : ''}</div>
-      <div class="row"><div class="lab">効果音</div>${seg('sound', [[true, 'あり'], [false, 'なし']])}</div>
-    </div>
-    <div class="btns" style="margin-bottom:12px">
-      <button class="btn main big" onclick="tStartClick()" ${tab && tab.pairs >= 2 ? '' : 'disabled'}>はじめる</button>
-      <button class="btn" onclick="goT('make')">ペアを作る</button>
-      <button class="btn" onclick="goT('bulk')">まとめて登録</button>
-      <button class="btn" onclick="goT('list')">ペア一覧</button>
-      <button class="btn" onclick="goT('tabs')">タブの設定</button>
-    </div>
-    <div class="card note" style="line-height:1.8">
-      ・「はじめる」を押すと、参加コードとQRコードが出ます。生徒はQRコードから入り、名前を選びます<br>
-      ・答えはタブごとに「きろく：タブ名」のシートに残ります<br>
-      ・「絵を出さない」を選ぶと、文字だけのカードになります（絵と文字のマッチングに使えます）
-    </div>
-  </div></div>`;
-}
-async function newCode() {
-  try { T.init.code = await call('tNewCode'); tHome(); } catch (e) { toast(e.message); }
-}
-function goT(screen) {
-  if (screen === 'make') { T.makeTab = T.makeTab || T.set.tab; T.pend = { a: null, b: null }; }
-  if (screen === 'bulk') { T.bulkTab = T.bulkTab || T.set.tab; T.bulk = T.bulk || []; T.bsel = null; }
-  if (screen === 'list') { T.listTab = T.listTab || T.set.tab; T.pairs = null; }
-  T.screen = screen; tRender();
-}
-async function tStartClick() {
-  if (T.busy) return;
-  T.busy = true;
-  try {
-    clearTimeout(T.saveT);
-    if (T.set.nameMode === 'roster' && !T.set.rosterGroup && T.init.groups.length) T.set.rosterGroup = T.init.groups[0];
-    T.view = await call('tStart', T.set);
-    T.screen = 'play'; tRender();
-  } catch (e) { toast(e.message); }
-  T.busy = false;
-}
-
-/* ---- すすめる画面 ---- */
-function tPollLoop(wait) {
-  clearTimeout(T.poll);
-  T.poll = setTimeout(async () => {
-    if (T.screen !== 'play' || PAGE !== 'teacher') return;
-    const t0 = Date.now();
-    try { const v = await call('tView'); net(false); if (PAGE !== 'teacher' || T.screen !== 'play') return; if (!T.busy) { T.view = v; tPlay(); } }
-    catch (e) { net(true); }
-    tPollLoop(Math.max(300, 1500 - (Date.now() - t0)));
-  }, wait == null ? 1500 : wait);
-}
-async function tAct(fn) {
-  if (T.busy) return;
-  T.busy = true;
-  try { T.view = await call(fn); tPlay(); } catch (e) { toast(e.message); }
-  T.busy = false;
-}
-async function tResetNames() {
-  if (T.busy) return;
-  T.busy = true;
-  try { T.view = await call('tResetPeople'); T.sig = ''; tPlay(); toast('なまえを リセットしたよ'); } catch (e) { toast(e.message); }
-  T.busy = false;
-}
-
-function tPlay() {
-  const v = T.view, st = v.st;
-  clockOffset = v.now - Date.now();
-  if (st.phase === 'idle') { T.screen = 'home'; tRender(); return; }
-  const sig = [st.round, st.phase, st.index].join('|');
-  if (sig !== T.sig) {
-    const first = T.sig !== '';
-    T.sig = sig;
-    if (st.phase === 'wait') app.innerHTML = lobbyHTML(v);
-    else if (st.phase === 'q' || st.phase === 'reveal') {
-      app.innerHTML = tQHTML(v);
-      timerInfo = st.phase === 'q' ? { limit: st.limit, openedAt: st.openedAt } : null;
-      if (st.phase === 'reveal' && first) sfx('pair');
-      ensureImages(itemNames(v));
-      fillImgs();
-    }
-    else if (st.phase === 'end') app.innerHTML = tEndHTML(v);
-    if (st.phase === 'wait') ensureImages(st.imgs || []);
-  }
-  // 人数などだけを書きかえる
-  const pc = document.getElementById('people');
-  if (pc) {
-    pc.innerHTML = v.people.length ? v.people.map(n => `<span class="chip">${esc(n)}</span>`).join('') : '<span class="note">まだ だれも いないよ</span>';
-    document.getElementById('pcount').textContent = v.people.length + 'にん';
-  }
-  const an = document.getElementById('ansNames');
-  if (an && v.answered) {
-    an.innerHTML = v.people.map(n => `<span class="chip ${v.answered.indexOf(n) >= 0 ? 'done' : ''}">${esc(n)}</span>`).join('');
-    document.getElementById('ansn').textContent = `こたえた ひと ${v.answered.length} / ${v.people.length}にん`;
-  }
-}
-
-function lobbyHTML(v) {
-  const s = T.set;
-  let qr = '';
-  try { const q = qrcode(0, 'M'); q.addData(STUDENT_URL); q.make(); qr = q.createSvgTag(6, 2); } catch (e) {}
-  return `<div class="screen"><div class="wrap lobby">
-    <div class="card">
-      ${s.codeOn ? `<div class="bigcode"><div class="sub">さんかコード</div><div class="c">${esc(v.code)}</div></div>` : ''}
-      <div class="qr">${qr}</div>
-      <div class="url">${esc(STUDENT_URL)}</div>
-    </div>
-    <div class="card">
-      <div class="btns" style="justify-content:space-between"><h2>さんかしている ひと <span id="pcount"></span></h2>${HB()}</div>
-      <div class="chips" id="people" style="margin-bottom:16px"></div>
-      <p class="note" style="margin-bottom:12px">タブ：${esc(v.st.tab)}　${v.st.total}もん</p>
-      <div class="btns">
-        <button class="btn main big" onclick="tAct('tOpen')">1もんめを だす</button>
-        <button class="btn" onclick="tResetNames()">なまえを リセット</button>
-        <button class="btn" onclick="tAct('tStop')">やめる</button>
-      </div>
-    </div>
-  </div></div>`;
-}
-
-function tQHTML(v) {
-  const st = v.st, q = v.q, rev = st.phase === 'reveal';
-  const n = q.choices.length;
-  const ch = q.choices.map((c, i) => {
-    let cls = 'choice', tag = '';
-    if (rev) { if (i === v.correct) { cls += ' correct'; tag = '<span class="tag">○ せいかい</span>'; } else cls += ' dim'; }
-    const cnt = rev ? `<span class="cnt">${v.counts[i]}にん</span>` : '';
-    return `<div class="${cls}"><span class="no">${i + 1}</span>${tag}${itemHTML(c)}${cnt}</div>`;
-  }).join('');
-  const left = `<div class="qbox">${itemHTML(q.item)}</div>`;
-  const last = st.index + 1 >= st.total;
-  const btns = rev
-    ? `<button class="btn main big" onclick="tAct('tNext')">${last ? 'けっかを みる' : 'つぎへ'}</button><button class="btn" onclick="tAct('tFinish')">おわる</button>`
-    : `<button class="btn main big" onclick="tAct('tReveal')">こたえ</button><button class="btn" onclick="tAct('tFinish')">おわる</button>`;
-  return `<div class="play">
-    <div class="topbar"><span>${st.index + 1} / ${st.total}もんめ</span><span id="ansn"></span>
-      ${T.set.codeOn ? `<span class="code">さんかコード ${esc(v.code)}</span>` : ''}</div>
-    ${rev ? '' : timerHTML({ limit: st.limit })}
-    <div class="prompt">${promptText(st.split, st.la, st.lb, q.side)}</div>
-    <div class="stage"><div class="qside">${left}</div><div class="choices n${n}">${ch}</div></div>
-    <div class="chips" id="ansNames"></div>
-    <div class="btns">${btns}</div>
-  </div>`;
-}
-
-function tEndHTML(v) {
-  const list = (v.scores || []).map(s => `<div class="chip" style="font-size:1.2rem;padding:8px 16px">${esc(s.name)}　${s.ok} / ${v.st.total}</div>`).join('');
-  return `<div class="screen"><div class="wrap">
-    <h1>おわり！</h1>
-    <div class="card"><h2>せいかいの かず</h2><div class="chips">${list || '<span class="note">さんかした ひとは いなかったよ</span>'}</div></div>
-    <div class="btns">
-      <button class="btn main big" onclick="tStartClick()">もういちど</button>
-      <button class="btn" onclick="tAct('tStop')">おわる</button>
-    </div>
-  </div></div>`;
-}
-
-/* ---- ペアをつくる ---- */
-function tabSelect(cur, fn) {
-  return `<select onchange="${fn}(this.value)">${T.init.tabs.map(t => `<option value="${esc(t.name)}" ${t.name === cur ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`;
-}
-function tMake() {
-  const tab = tabOf(T.makeTab);
-  const la = tab && tab.split ? tab.la : 'A', lb = tab && tab.split ? tab.lb : 'B';
-  const box = (side, lab) => {
-    const p = T.pend[side];
-    return `<div class="mbox">
-      <div class="mlab">${side.toUpperCase()}${lab !== side.toUpperCase() ? '：' + rb(lab) : ''}</div>
-      <label class="drop" for="f_${side}">${p && p.data ? `<img src="${p.data}" alt="">` : 'タップして絵を選ぶ'}</label>
-      <input type="file" id="f_${side}" accept="image/*" hidden onchange="pickImg('${side}',this)">
-      <input class="txt" id="t_${side}" placeholder="文字（なくてもよい）" value="${esc(p ? p.text : '')}" oninput="setPendText('${side}',this.value)">
-      <button class="btn" onclick="clearSide('${side}')">${side.toUpperCase()}を消す</button>
-    </div>`;
-  };
-  const recent = T.recent.map(r => `<div class="prow"><div class="no">✓</div>
-      <div class="cell">${r.a.img || r.a.text ? itemHTML(r.a) : ''}</div><div class="cell">${r.b.img || r.b.text ? itemHTML(r.b) : ''}</div><div></div></div>`).join('');
-  app.innerHTML = `<div class="screen"><div class="wrap">
-    <div class="btns" style="justify-content:space-between;margin-bottom:8px"><h1>ペアを作る</h1><div class="btns">${HB()}<button class="btn" onclick="backHome()">戻る</button></div></div>
-    <div class="card">
-      <div class="row"><div class="lab">タブ</div>${T.init.tabs.length ? tabSelect(T.makeTab, 'setMakeTab') : '<span class="note">まだありません</span>'}</div>
-      <div class="row"><div class="lab">新しいタブ</div><input class="txt" id="newTab" placeholder="例：しごと" style="max-width:14em"><button class="btn" onclick="newTab()">作る</button></div>
-    </div>
-    ${tab ? `<div class="card">
-      <div class="maker">${box('a', la)}${box('b', lb)}</div>
-      <p class="note" style="margin:10px 0">・片方だけ入れると、まちがいの選択肢専用の「ダミー」になります<br>・文字にふりがなをつけるときは、漢字《かんじ》のように書きます</p>
-      <button class="btn main big" id="addBtn" onclick="addPair()">登録</button>
-    </div>` : ''}
-    ${recent ? `<h2>登録したペア</h2><div class="plist">${recent}</div>` : ''}
-  </div></div>`;
-  fillImgs();
-}
-function setMakeTab(v) { T.makeTab = v; tMake(); }
-function setPendText(side, v) { T.pend[side] = Object.assign(T.pend[side] || {}, { text: v }); }
-function clearSide(side) { T.pend[side] = null; tMake(); }
-async function newTab() {
-  const name = document.getElementById('newTab').value.trim();
-  if (!name) return toast('タブの名前を入れてください');
-  try { T.init = Object.assign(T.init, await call('tNewTab', name)); T.makeTab = name; toast('タブを作りました'); tMake(); }
-  catch (e) { toast(e.message); }
-}
-function resizeFile(file) {
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      const im = new Image();
-      im.onload = () => {
-        const M = 720, k = Math.min(1, M / Math.max(im.width, im.height));
-        const w = Math.max(1, Math.round(im.width * k)), h = Math.max(1, Math.round(im.height * k));
-        const c = document.createElement('canvas'); c.width = w; c.height = h;
-        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
-        res(c.toDataURL('image/jpeg', 0.85));
-      };
-      im.onerror = () => rej(new Error('絵を読み込めませんでした'));
-      im.src = fr.result;
-    };
-    fr.onerror = () => rej(new Error('絵を読み込めませんでした'));
-    fr.readAsDataURL(file);
-  });
-}
-async function pickImg(side, input) {
-  const f = input.files && input.files[0];
-  if (!f) return;
-  try {
-    const data = await resizeFile(f);
-    const text = document.getElementById('t_' + side).value;
-    T.pend[side] = { data, text };
-    tMake();
-  } catch (e) { toast(e.message); }
-}
-async function addPair() {
-  if (T.busy) return;
-  const a = T.pend.a || {}, b = T.pend.b || {};
-  a.text = document.getElementById('t_a').value.trim();
-  b.text = document.getElementById('t_b').value.trim();
-  if (!a.data && !a.text && !b.data && !b.text) return toast('絵か文字を入れてください');
-  T.busy = true;
-  const btn = document.getElementById('addBtn');
-  btn.disabled = true; btn.textContent = '登録しています…';
-  try {
-    const side = async p => {
-      let img = '';
-      if (p.data) { img = await call('tUpload', p.data); IMG[img] = p.data; }
-      return { img, text: p.text || '' };
-    };
-    const ra = await side(a), rb2 = await side(b);
-    await call('tAddPair', T.makeTab, ra, rb2);
-    T.recent.unshift({ a: ra, b: rb2 });
-    const tab = tabOf(T.makeTab);
-    if (tab) { if ((ra.img || ra.text) && (rb2.img || rb2.text)) tab.pairs++; else tab.dummy++; }
-    T.pend = { a: null, b: null };
-    toast('登録しました');
-  } catch (e) { toast(e.message); }
-  T.busy = false;
-  tMake();
-}
-function backHome() { if (T.bulkBusy) return; T.recent = []; T.screen = 'home'; tRender(); }
-
-/* ---- ペアいちらん ---- */
-async function tList() {
-  const tab = tabOf(T.listTab);
-  const body = !tab ? '<p class="note">タブがありません</p>' : !T.pairs ? '<p class="note">読み込んでいます…</p>' :
-    !T.pairs.length ? '<p class="note">まだペアがありません</p>' :
-      T.pairs.map((p, i) => {
-        const cell = it => (it.img || it.text) ? `<div class="cell">${itemHTML(it)}</div>` : '<div class="cell empty">ダミー</div>';
-        return `<div class="prow"><div class="no">${i + 1}</div>${cell(p.a)}${cell(p.b)}
-          <button class="btn del" onclick="delPair(${i})">${T.delArm === i ? '本当に消す？' : '消す'}</button></div>`;
-      }).join('');
-  const lab = tab ? (tab.split ? `A：${rb(tab.la)}　B：${rb(tab.lb)}` : '分けない') : '';
-  app.innerHTML = `<div class="screen"><div class="wrap">
-    <div class="btns" style="justify-content:space-between;margin-bottom:8px"><h1>ペア一覧</h1><div class="btns">${HB()}<button class="btn" onclick="backHome()">戻る</button></div></div>
-    <div class="card"><div class="row"><div class="lab">タブ</div>${T.init.tabs.length ? tabSelect(T.listTab, 'setListTab') : ''}<span class="note">${lab}</span></div></div>
-    <div class="plist">${body}</div>
-  </div></div>`;
-  fillImgs();
-  if (tab && !T.pairs) {
-    try {
-      T.pairs = await call('tPairs', T.listTab);
-      if (T.screen === 'list') { tList(); ensureImages(T.pairs.flatMap(p => [p.a.img, p.b.img])); }
-    } catch (e) { toast(e.message); }
-  }
-}
-function setListTab(v) { T.listTab = v; T.pairs = null; T.delArm = -1; tList(); }
-let delTimer;
-async function delPair(i) {
-  if (T.delArm !== i) {
-    T.delArm = i; tList();
-    clearTimeout(delTimer); delTimer = setTimeout(() => { T.delArm = -1; if (T.screen === 'list') tList(); }, 3000);
-    return;
-  }
-  T.delArm = -1;
-  const p = T.pairs[i];
-  const check = [p.a.img, p.a.text, p.b.img, p.b.text].join('|');
-  try {
-    T.pairs = await call('tDelPair', T.listTab, p.row, check);
-    const tab = tabOf(T.listTab);
-    if (tab) { tab.pairs = T.pairs.filter(x => (x.a.img || x.a.text) && (x.b.img || x.b.text)).length; tab.dummy = T.pairs.length - tab.pairs; }
-    toast('消しました');
-  } catch (e) { toast(e.message); T.pairs = null; }
-  tList();
-}
-
-/* ---- タブのせってい ---- */
-function tTabs() {
-  const rows = T.init.tabs.map((t, i) => `<div class="tabrow">
-      <b>${esc(t.name)}</b>
-      <div class="seg"><button class="${t.split ? 'on' : ''}" onclick="tabSplit(${i},true)">分ける</button><button class="${t.split ? '' : 'on'}" onclick="tabSplit(${i},false)">分けない</button></div>
-      <input class="txt" placeholder="Aの名前" value="${esc(t.la === 'A' ? '' : t.la)}" ${t.split ? '' : 'disabled'} oninput="tabLab(${i},'la',this.value)">
-      <input class="txt" placeholder="Bの名前" value="${esc(t.lb === 'B' ? '' : t.lb)}" ${t.split ? '' : 'disabled'} oninput="tabLab(${i},'lb',this.value)">
-    </div>`).join('');
-  app.innerHTML = `<div class="screen"><div class="wrap">
-    <div class="btns" style="justify-content:space-between;margin-bottom:8px"><h1>タブの設定</h1><div class="btns">${HB()}<button class="btn" onclick="backHome()">戻る</button></div></div>
-    <div class="card">
-      <p class="note" style="line-height:1.8;margin-bottom:6px">
-        ・分ける：Aが問題なら、選択肢はBだけになります（例：A＝ひと、B＝どうぐ）<br>
-        ・分けない：AとBに違いがありません（例：スイカの左と右、同じ色）<br>
-        ・名前を入れないと「A」「B」のままになります（生徒の画面の「ペアになる○○はどれかな？」に使われます）</p>
-      ${rows || '<p class="note">タブがありません</p>'}
-    </div>
-    <button class="btn main big" onclick="saveTabs()">保存</button>
-  </div></div>`;
-}
-function tabSplit(i, v) { T.init.tabs[i].split = v; tTabs(); }
-function tabLab(i, k, v) { T.init.tabs[i][k] = v.trim() || (k === 'la' ? 'A' : 'B'); }
-async function saveTabs() {
-  try {
-    const list = T.init.tabs.map(t => ({ name: t.name, split: t.split, la: t.la, lb: t.lb }));
-    const r = await call('tSaveTabs', list);
-    T.init.tabs = r.tabs;
-    toast('保存しました');
-  } catch (e) { toast(e.message); }
-}
-
-
-/* ============================================================
-   つかいかた
-   ============================================================ */
-function HB() { return `<button class="btn help" onclick="showHelp()">？ ${PAGE === 'teacher' ? '使い方' : 'つかいかた'}</button>`; }
-const HELP_T = `
-<h2>みんなでマッチングの使い方</h2>
-<h3>準備</h3>
-<ol>
-  <li>「ペアを作る」でタブ（「しごと」「くだもの」など）を作り、AとBの絵を1組ずつ入れます</li>
-  <li>たくさん入れるときは「まとめて登録」を使います。絵を一度に選ぶと、選んだ順に A・B・A・B… と並びます。ファイル名が「○○_1」「○○_2」のときは名前でペアにします。絵を2つ順にタップすると入れかえられます</li>
-  <li>「タブの設定」で、AとBを「分ける」か「分けない」かを決めます<br>
-    分ける：Aが問題なら選択肢はBだけ（例：A＝ひと、B＝どうぐ）<br>
-    分けない：AとBに違いがない（例：スイカの左と右、同じ色）</li>
-  <li>「ペア一覧」で、組み合わせを確かめたり消したりできます</li>
-</ol>
-<h3>授業で使う</h3>
-<ol>
-  <li>タブと設定を選んで「はじめる」を押します</li>
-  <li>参加コードとQRコードが出ます。生徒はQRコードから入り、コードと名前を入れます</li>
-  <li>そろったら「1もんめを だす」を押します</li>
-  <li>答えた生徒には ✓ がつきます。「こたえ」を押すと、ペアの絵がくっついて、正解と人数が出ます</li>
-  <li>「つぎへ」で次の問題へ。最後は「けっかを みる」で正解数が出ます</li>
-</ol>
-<h3>設定のこと</h3>
-<ul>
-  <li>まちがいの選択肢は、同じタブのほかのペアから自動で選ばれます。片方だけの「ダミー」も使われます</li>
-  <li>4択にするときは、ペアとダミーを合わせて4つ以上必要です</li>
-  <li>「問題の絵」「選択肢の絵」を「出さない」にすると、文字だけのカードになります。たとえば「問題の絵：出す」「選択肢の絵：出さない」にすると、絵と文字のマッチングになります。絵も文字も出さないときは、文字を出します。文字が入っていないカードは、絵を出します</li>
-  <li>制限時間が0のときは、時間のバーが出ません</li>
-  <li>文字にふりがなをつけるときは、漢字《かんじ》のように書きます</li>
-  <li>授業中に大型ディスプレイに映る画面（参加・問題・結果）は、生徒向けにひらがなで表示します</li>
-</ul>
-<h3>スプレッドシート</h3>
-<ul>
-  <li>ペアのタブ：1行目は Aのえ・Aのもじ・Bのえ・Bのもじ。1行が1組のペアです。「え」の列には、ドライブの「みんなでマッチング_がぞう」フォルダにある絵のファイル名が入ります</li>
-  <li>めいぼ：1行目にグループ名、その下に名前</li>
-  <li>きろく：タブごとに「きろく：タブ名」が自動で作られます</li>
-</ul>
-<h3>困ったとき</h3>
-<ul>
-  <li>名前をまちがえて選んだ：参加の画面で「なまえを リセット」を押すと、選び直せます</li>
-  <li>知らない人が入らないようにしたい：「参加コード」の「変更」で新しいコードにします</li>
-  <li>絵が出ない：「ペア一覧」で絵が出るか確かめます。「え が みつからないよ」と出るときは、ドライブの絵のファイル名とスプレッドシートの名前が違っています</li>
-  <li>画面が白いまま、または「うまく ひらけなかったよ」と出る：Apps Script の「index」の中身が最後（&lt;/html&gt;）まで貼られているか、デプロイで「新バージョン」を選んだかを確かめます</li>
-</ul>`;
-const HELP_S = `
-<h2>つかいかた</h2>
-<ol class="big">
-  <li>せんせいの がめんに でている 4つの すうじ（さんかコード）を いれてね</li>
-  <li>じぶんの なまえを えらんでね</li>
-  <li>うえの えと ペアに なる えを、したから えらんで タップしてね</li>
-  <li>えらびなおしは 1かいだけ できるよ</li>
-  <li>せんせいが こたえを だすと、せいかいが でるよ</li>
-</ol>`;
-function showHelp() {
-  document.getElementById('mbody').innerHTML = (PAGE === 'teacher' ? HELP_T : HELP_S).replace(/漢字《かんじ》/g, '<ruby>漢字<rt>かんじ</rt></ruby>《かんじ》')
-    + '<div class="btns" style="margin-top:16px;justify-content:center"><button class="btn main big" onclick="closeHelp()">とじる</button></div>';
-  document.getElementById('modal').hidden = false;
-  document.getElementById('mbody').scrollTop = 0;
-}
-function closeHelp() { document.getElementById('modal').hidden = true; }
-
-/* ============================================================
-   まとめて とうろく
-   ============================================================ */
-// ファイルの なまえから もじを つくる（カメラの なまえは つかわない）
-function baseName(n) { return String(n || '').replace(/\.[^.]+$/, '').trim(); }
-function textFromName(n) {
-  const b = baseName(n);
-  if (!b || /^(img|image|dsc|pxl|photo|screenshot|スクリーンショット|写真)/i.test(b) || /^[\d_\-\s.]+$/.test(b)) return '';
-  return b;
-}
-const PAIR_RULE = /^(.+?)[_\-－＿ ]?([12１２abAB])$/;
-function suffixSide(s) { return /[1１aA]/.test(s) ? 'a' : 'b'; }
-
-function tBulk() {
-  const tab = tabOf(T.bulkTab);
-  const la = tab && tab.split ? tab.la : 'A', lb = tab && tab.split ? tab.lb : 'B';
-  const cell = (i, side) => {
-    const it = T.bulk[i][side];
-    const sel = T.bsel && T.bsel.i === i && T.bsel.side === side ? ' sel' : '';
-    return `<div class="bside">
-      <div class="bcell${sel}" onclick="bTap(${i},'${side}')">${it && it.data ? `<img src="${it.data}" alt="">` : '絵なし'}</div>
-      <input class="txt" placeholder="文字" value="${esc(it ? it.text : '')}" oninput="bText(${i},'${side}',this.value)">
-    </div>`;
-  };
-  const rows = T.bulk.map((p, i) => `<div class="brow"><div class="no">${i + 1}</div>${cell(i, 'a')}${cell(i, 'b')}
-      <div class="ops"><button class="btn" onclick="bSwap(${i})">AとBを入れかえ</button><button class="btn" onclick="bDel(${i})">消す</button></div></div>`).join('');
-  app.innerHTML = `<div class="screen"><div class="wrap">
-    <div class="btns" style="justify-content:space-between;margin-bottom:8px"><h1>まとめて登録</h1><div class="btns">${HB()}<button class="btn" onclick="backHome()">戻る</button></div></div>
-    <div class="card">
-      <div class="row"><div class="lab">タブ</div>${T.init.tabs.length ? tabSelect(T.bulkTab, 'setBulkTab') : '<span class="note">「ペアを作る」でタブを作ってください</span>'}
-        ${tab ? `<span class="note">${tab.split ? `A：${rb(la)}　B：${rb(lb)}` : '分けない'}</span>` : ''}</div>
-      <div class="row">
-        <label class="btn main" for="fm" style="display:inline-flex;align-items:center">絵をまとめて選ぶ</label>
-        <input type="file" id="fm" accept="image/*" multiple hidden onchange="bulkPick(this)">
-        ${T.bulk.length ? '<button class="btn" onclick="bClear()">全部消す</button>' : ''}
-        <span class="prog" id="bprog"></span>
-      </div>
-      <p class="note" style="line-height:1.8">
-        ・選んだ順に A・B・A・B… と並びます<br>
-        ・ファイル名が「うんてんしゅ_1」「うんてんしゅ_2」のように 1と2（AとB）で終わるときは、名前でペアにします<br>
-        ・ファイル名が文字に入ります（IMG_1234 のような名前は入りません）<br>
-        ・絵を2つ順にタップすると、入れかえられます</p>
-    </div>
-    ${rows ? `<div class="plist">${rows}</div>
-    <div class="btns" style="margin:14px 0 30px">
-      <button class="btn main big" id="bAdd" onclick="bAddAll()" ${tab ? '' : 'disabled'}>全部登録（${T.bulk.length}組）</button>
-    </div>` : ''}
-  </div></div>`;
-}
-function setBulkTab(v) { T.bulkTab = v; tBulk(); }
-function bText(i, side, v) { T.bulk[i][side] = Object.assign(T.bulk[i][side] || { data: '' }, { text: v }); }
-function bSwap(i) { const p = T.bulk[i]; [p.a, p.b] = [p.b, p.a]; T.bsel = null; tBulk(); }
-function bDel(i) { T.bulk.splice(i, 1); T.bsel = null; tBulk(); }
-function bClear() { T.bulk = []; T.bsel = null; tBulk(); }
-function bTap(i, side) {
-  if (T.bulkBusy) return;
-  if (!T.bsel) { T.bsel = { i, side }; }
-  else if (T.bsel.i === i && T.bsel.side === side) T.bsel = null;
-  else {
-    const s = T.bsel, x = T.bulk[s.i][s.side];
-    T.bulk[s.i][s.side] = T.bulk[i][side];
-    T.bulk[i][side] = x;
-    T.bsel = null;
-  }
-  tBulk();
-}
-async function bulkPick(input) {
-  const files = Array.from(input.files || []);
-  input.value = '';
-  if (!files.length) return;
-  const prog = document.getElementById('bprog');
-  const items = [];
-  for (let k = 0; k < files.length; k++) {
-    if (prog) prog.textContent = `読み込んでいます ${k + 1} / ${files.length}`;
-    try { items.push({ name: files[k].name, data: await resizeFile(files[k]) }); }
-    catch (e) { toast(files[k].name + ' を読み込めませんでした'); }
-  }
-  // なまえの きまり（○○_1・○○_2）で ぜんぶ ペアに なるか しらべる
-  const groups = {};
-  let ruleOK = items.length >= 2;
-  items.forEach(it => {
-    const m = baseName(it.name).match(PAIR_RULE);
-    if (!m) { ruleOK = false; return; }
-    const g = groups[m[1]] = groups[m[1]] || {};
-    const side = suffixSide(m[2]);
-    if (g[side]) ruleOK = false;
-    g[side] = { data: it.data, text: textFromName(m[1]) };
-  });
-  if (ruleOK) {
-    Object.keys(groups).sort().forEach(k => T.bulk.push({ a: groups[k].a || null, b: groups[k].b || null }));
-    toast('ファイル名でペアにしました');
-  } else {
-    items.forEach(it => {
-      const v = { data: it.data, text: textFromName(it.name) };
-      const last = T.bulk[T.bulk.length - 1];
-      if (last && last.a && !last.b) last.b = v;
-      else T.bulk.push({ a: v, b: null });
+    if (!AC || AC.state !== 'running') return;
+    var notes = kind === 'ok' ? [[660, 0], [880, 0.12]] : kind === 'up' ? [[660, 0], [880, 0.12], [1100, 0.24]] : [[392, 0], [349, 0.12]];
+    notes.forEach(function (n) {
+      var o = AC.createOscillator(), g = AC.createGain(), t0 = AC.currentTime + n[1];
+      o.type = 'sine'; o.frequency.value = n[0];
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+      o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + 0.2);
     });
-    toast('選んだ順に並べました');
-  }
-  T.bsel = null;
-  tBulk();
-}
-async function bAddAll() {
-  if (T.bulkBusy) return;
-  const has = it => it && (it.data || (it.text || '').trim());
-  const list = T.bulk.filter(p => has(p.a) || has(p.b));
-  if (!list.length) return toast('絵か文字を入れてください');
-  T.bulkBusy = true;
-  const btn = document.getElementById('bAdd'), prog = document.getElementById('bprog');
-  btn.disabled = true;
-  let done = 0, err = '';
-  const total = list.length;
-  try {
-    while (T.bulk.length) {
-      const chunk = T.bulk.slice(0, 5).filter(p => has(p.a) || has(p.b));
-      const out = [];
-      for (const p of chunk) {
-        const datas = [p.a && p.a.data || '', p.b && p.b.data || ''];
-        const names = await call('tUploadMany', datas);
-        datas.forEach((d, k) => { if (names[k]) IMG[names[k]] = d; });
-        out.push({ a: { img: names[0], text: ((p.a && p.a.text) || '').trim() }, b: { img: names[1], text: ((p.b && p.b.text) || '').trim() } });
-        done++;
-        btn.textContent = `登録しています ${done} / ${total}`;
-      }
-      if (out.length) await call('tAddPairs', T.bulkTab, out);
-      T.bulk.splice(0, 5);
-      const tab = tabOf(T.bulkTab);
-      if (tab) out.forEach(r => { if ((r.a.img || r.a.text) && (r.b.img || r.b.text)) tab.pairs++; else tab.dummy++; });
-    }
-  } catch (e) { err = e.message; }
-  T.bulkBusy = false;
-  T.bsel = null;
-  tBulk();
-  if (err) toast('途中で止まりました（' + err + '）。残りをもう一度登録してください');
-  else toast(total + '組 登録しました');
+  } catch (e) {}
 }
 
-/* ============================================================
+/* ---------- 絵の読みこみ（まとめて8まいずつ） ---------- */
+var IMG = {}, IMGBUSY = {}, IMGCODE = '', IMGDONE = null;
+function needImgs(names) {
+  var list = names.filter(function (n) { return n && IMG[n] === undefined && !IMGBUSY[n]; });
+  list = list.filter(function (n, i) { return list.indexOf(n) === i; });
+  if (!list.length) return;
+  list.forEach(function (n) { IMGBUSY[n] = 1; });
+  var chunks = [];
+  for (var i = 0; i < list.length; i += 8) chunks.push(list.slice(i, i + 8));
+  chunks.reduce(function (pr, ch) {
+    return pr.then(function () {
+      return call('getImages', ch, IMGCODE).then(function (o) {
+        ch.forEach(function (n) { IMG[n] = o[n] || ''; delete IMGBUSY[n]; });
+        if (IMGDONE) IMGDONE();
+      }).catch(function () { ch.forEach(function (n) { delete IMGBUSY[n]; }); });
+    });
+  }, Promise.resolve());
+}
+function cardNode(it, hira, tch) {
+  var box = h('div', { class: 'cardin' });
+  if (it.img) {
+    var d = IMG[it.img];
+    if (d) box.appendChild(h('img', { src: d, alt: '' }));
+    else if (d === undefined) box.appendChild(h('div', { class: 'imgph' }, tch ? 'よみこみ中…' : rb('読《よ》みこみ中《ちゅう》…', hira)));
+  }
+  if (it.text) box.appendChild(h('div', { class: 'ctext' }, tch ? plain(it.text) : rb(it.text, hira)));
+  return box;
+}
+
+/* =====================================================================
    生徒の画面
-   ============================================================ */
-const S = { o: null, sig: '', poll: null, typed: '', busy: false, pre: -1, last: null };
+   ===================================================================== */
+function studentApp() {
+  var cid = lsGet('mm_cid');
+  if (!cid) { cid = 'c' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); lsSet('mm_cid', cid); }
+  var S = { cid: cid, code: lsGet('mm_code') || '', p: null, off: 0, sig: '', busy: false, snd: null, fail: 0, codeErr: false, help: null, helpKey: '' };
+  var OUT = [];
+  try { OUT = JSON.parse(lsGet('mm_out') || '[]'); } catch (e) { OUT = []; }
+  function saveOut() { lsSet('mm_out', JSON.stringify(OUT)); }
+  IMGCODE = S.code;
 
-function sBoot() { S.sig = ''; S.o = null; app.innerHTML = '<div class="screen"><div class="center"><div class="msg">つないでいるよ…</div></div></div>'; sTick(); }
-async function sTick() {
-  clearTimeout(S.poll);
-  const t0 = Date.now();
-  try {
-    const o = await call('sPoll', CID, CODE);
-    net(false);
-    if (PAGE !== 'student') return;
-    if (!S.busy) sApply(o);
-  } catch (e) { net(true); }
-  if (PAGE === 'student') S.poll = setTimeout(sTick, Math.max(300, 1500 - (Date.now() - t0)));
-}
-function sApply(o) {
-  clockOffset = o.now - Date.now();
-  soundOn = o.sound;
-  const prev = S.o;
-  S.o = o;
-  if (o.imgs && S.pre !== o.round) { S.pre = o.round; ensureImages(o.imgs); }
-  if (o.phase === 'reveal' && o.q && prev && prev.phase === 'q' && prev.index === o.index) {
-    if (o.mine >= 0) sfx(o.mine === o.correct ? 'ok' : 'ng'); else sfx('pair');
+  /* タイマー（requestAnimationFrame。1/30秒より長い間は、1/30秒として数える） */
+  var tm = { on: false, left: 0, total: 0, last: 0, sync: 0, fill: null, txt: null, openedAt: 0, onEnd: null };
+  function tmLeft() { return tm.total - ((Date.now() + S.off) - tm.openedAt) / 1000; }
+  function tmStop() { tm.on = false; }
+  function tmStart(total, openedAt, fillEl, txtEl, onEnd) {
+    tm.total = total; tm.openedAt = openedAt; tm.fill = fillEl; tm.txt = txtEl; tm.onEnd = onEnd;
+    tm.left = Math.max(0, tmLeft()); tm.last = 0; tm.sync = 0;
+    if (!tm.on) { tm.on = true; requestAnimationFrame(tmLoop); }
+    tmDraw();
   }
-  sRender();
-}
-function sRender(force) {
-  const o = S.o;
-  if (!o) return;
-  let sig, html;
-  if (o.needCode) { sig = 'code|' + S.typed; html = codeHTML(); }
-  else if (!o.myName) {
-    sig = 'name|' + JSON.stringify(o.names);
-    html = nameHTML(o);
-  } else if ((o.phase === 'q' || o.phase === 'reveal') && o.q) {
-    const up = timeLeft(o.q) <= 0;
-    sig = ['q', o.round, o.phase, o.index, o.mine, o.changed, up].join('|');
-    html = sPlayHTML(o, up);
-  } else if (o.phase === 'end') {
-    sig = 'end|' + o.round + '|' + o.score; html = sEndHTML(o);
-  } else {
-    sig = 'wait|' + o.myName + '|' + o.phase; html = sWaitHTML(o);
+  function tmDraw() {
+    if (tm.fill) tm.fill.style.width = Math.max(0, Math.min(100, tm.left / tm.total * 100)) + '%';
+    if (tm.txt) tm.txt.textContent = Math.ceil(Math.max(0, tm.left)) + ' びょう';
   }
-  if (sig === S.sig && !force) return;
-  S.sig = sig;
-  app.innerHTML = html;
-  timerInfo = (o.phase === 'q' && o.q && o.myName) ? { limit: o.q.limit, openedAt: o.q.openedAt, fired: timeLeft(o.q) <= 0 } : null;
-  if (o.q) ensureImages(itemNames(o));
-  fillImgs();
+  function tmLoop(ts) {
+    if (!tm.on) return;
+    var dt = tm.last ? Math.min((ts - tm.last) / 1000, 1 / 30) : 0;
+    tm.last = ts;
+    tm.left -= dt;
+    tm.sync += dt;
+    if (tm.sync >= 1) { tm.sync = 0; tm.left = tmLeft(); }
+    tmDraw();
+    if (tm.left <= 0) { tm.on = false; tm.left = 0; tmDraw(); if (tm.onEnd) tm.onEnd(); return; }
+    requestAnimationFrame(tmLoop);
+  }
+
+  /* 送れなかった答えは ためておいて、つながったら送りなおす */
+  function submit(fn, args) {
+    return call.apply(null, [fn].concat(args)).catch(function (e) {
+      if (isNet(e)) { OUT.push({ fn: fn, args: args }); saveOut(); S.fail = 2; var er = new Error('queued'); er.queued = true; throw er; }
+      throw e;
+    });
+  }
+  function flushOutbox() {
+    if (!OUT.length) return Promise.resolve();
+    var it = OUT[0];
+    return call.apply(null, [it.fn].concat(it.args)).then(function () { OUT.shift(); saveOut(); return flushOutbox(); }, function (e) {
+      if (isNet(e)) throw e;
+      OUT.shift(); saveOut(); return flushOutbox();
+    });
+  }
+
+  var inflight = null;
+  function doTick() {
+    if (inflight) return inflight;
+    inflight = flushOutbox().then(function () { return call('sPoll', S.cid, S.code); }).then(function (o) {
+      S.off = o.now - Date.now(); S.p = o; S.fail = 0;
+      if (S.snd === null) { var v = lsGet('mm_snd'); S.snd = v === null ? o.sound !== false : v === '1'; }
+      if (o.needCode) S.codeErr = !!S.code;
+      IMGCODE = S.code;
+      if (o.imgs) needImgs(o.imgs);
+      sRender();
+    }).catch(function () { S.fail++; if (S.fail === 2) sRender(true); }).then(function () { inflight = null; });
+    return inflight;
+  }
+  function loop() {
+    doTick().then(function () {
+      var p = S.p, d = 4000;
+      if (p && (p.phase === 'q' || p.phase === 'reveal') && p.pace !== 'self') d = 2500;
+      else if (p && p.phase === 'run') d = 5000;
+      setTimeout(loop, d);
+    });
+  }
+  window.addEventListener('online', function () { doTick(); });
+  IMGDONE = function () { sRender(true); };
+
+  function t(s) { return rb(s, S.p && S.p.hira); }
+  function head() {
+    var p = S.p, hira = p && p.hira;
+    var bar = h('div', { class: 'top' }, h('h1', null, 'みんなでマッチング'));
+    if (p && p.phase !== 'idle' && p.myName) bar.appendChild(h('span', { class: 'chip acc' }, p.pace === 'self' ? 'ひとりずつ' : 'みんなで'));
+    if (p && p.myName) bar.appendChild(h('span', { class: 'chip' }, rb(p.myName, hira)));
+    bar.appendChild(h('button', { type: 'button', class: 'chip', onclick: function () { unlock(); S.help = { slide: 0 }; sRender(true); } }, t('つかいかた')));
+    bar.appendChild(h('button', { type: 'button', class: 'chip', onclick: function () { S.snd = !S.snd; lsSet('mm_snd', S.snd ? '1' : '0'); unlock(); sRender(true); } }, 'おと ', S.snd ? 'あり' : 'なし'));
+    return bar;
+  }
+  function offline() {
+    if (S.fail >= 2 || OUT.length) return h('div', { class: 'err' }, t(OUT.length ? 'つうしんが^きれたよ。つながったら^おくるね' : 'つうしんが^うまくいかないよ。そのまま^まっていてね'));
+    return null;
+  }
+
+  function sRender(force) {
+    var p = S.p;
+    if (!p) { swap(h('div', { class: 'wrap' }, h('div', { class: 'msgbig' }, rb('読《よ》みこみ中《ちゅう》…', false)))); return; }
+    if (p.myName && !p.needCode) {   // はじめて使う端末（または「毎回出す」の設定）では、つかいかたを自動で出す
+      var hk = p.helpMode === 'always' ? 'r' + (p.round || '') : 'first';
+      if (S.helpKey !== hk) {
+        S.helpKey = hk;
+        if (p.helpMode === 'always' || lsGet('mm_help_done') !== '1') S.help = { slide: 0 };
+      }
+    }
+    var sig = JSON.stringify([p, S.busy, S.snd, S.fail >= 2, OUT.length, S.codeErr, S.help], function (k, v) { return k === 'now' ? undefined : v; });
+    if (!force && sig === S.sig) return;
+    S.sig = sig;
+    tmStop();
+    S.timerFn = null;
+    var wrap = h('div', { class: 'wrap' }, head(), offline());
+    if (p.needCode) wrap.appendChild(codeScreen());
+    else if (!p.myName) wrap.appendChild(nameScreen());
+    else if (p.pace === 'self' && (p.phase === 'run' || p.phase === 'end') && p.me) wrap.appendChild(p.me.done ? endScreen() : playScreen());
+    else if (p.pace !== 'self' && (p.phase === 'q' || p.phase === 'reveal') && p.q) wrap.appendChild(playScreen());
+    else if (p.phase === 'end') wrap.appendChild(endScreen());
+    else wrap.appendChild(h('div', { class: 'msgbig' }, t(p.phase === 'idle' ? 'はじまるまで^まっていてね' : 'もうすぐ^はじまるよ')));
+    if (S.help) wrap.appendChild(helpOverlay());
+    swap(wrap);
+    if (S.timerFn) { var tf = S.timerFn; S.timerFn = null; tf(); }
+  }
+
+  function helpSlides() {
+    var p = S.p || {}, self = p.pace === 'self', playing = p.phase && p.phase !== 'idle' && p.phase !== 'wait';
+    var second = self ? 'えらぶと、すぐに「せいかい！」か「おしい！」が^出《で》るよ。「つぎへ」を^おすと、つぎの^問題《もんだい》に^すすむよ。'
+      : playing ? 'えらんだあとも、1回《いっかい》だけ^変《か》えられるよ。先生《せんせい》が^こたえを^見《み》せるまで、まっていてね。'
+      : '「みんなで」の^ときは、えらんだあとも^1回《いっかい》だけ^変《か》えられるよ。「ひとりずつ」の^ときは、えらぶと^すぐに^こたえが^出《で》るよ。';
+    return [
+      { title: 'ペアを^さがすよ', body: 'うえに^カードが^出《で》るよ。ペアに^なる^カードを、したから^えらんでね。', demo: 'q' },
+      { title: 'えらびかた', body: second, demo: 'pick' },
+      { title: 'まちがえても^だいじょうぶ', body: 'まちがえても、だいじょうぶ。「おしい！」と^こたえが^出《で》るから、つぎに^いかそうね。', demo: 'fb' },
+      { title: '音《おと》と^つかいかた', body: '「おと」の^ボタンで、音《おと》を^オン・オフ できるよ。わからなく なったら、「つかいかた」の^ボタンで、また^見《み》られるよ。' }
+    ];
+  }
+  function helpOverlay() {
+    var sl = helpSlides(), i = Math.max(0, Math.min(sl.length - 1, S.help.slide)), it = sl[i], last = i === sl.length - 1;
+    function close() { S.help = null; lsSet('mm_help_done', '1'); sRender(true); }
+    var demo = null;
+    if (it.demo === 'q') demo = h('div', { class: 'helpdemo' }, h('div', { class: 'mini' }, t('りんご')), h('div', null, h('span', { class: 'mini' }, t('赤《あか》')), h('span', { class: 'mini' }, t('青《あお》'))));
+    if (it.demo === 'pick') demo = h('div', { class: 'helpdemo' }, h('span', { class: 'mini on' }, t('赤《あか》')), h('span', { class: 'mini' }, t('青《あお》')), h('div', null, h('span', { class: 'badge' }, t('えらんだよ'))));
+    if (it.demo === 'fb') demo = h('div', { class: 'helpdemo' }, h('div', { class: 'fb ok', style: 'margin:4px 0' }, t('せいかい！')), h('div', { class: 'fb ng', style: 'margin:4px 0' }, t('おしい！^こたえは^ここだよ')));
+    return h('div', { class: 'helpov' }, h('div', { class: 'helpbox' },
+      h('div', { class: 'chip' }, (i + 1) + ' / ' + sl.length),
+      h('h2', null, t(it.title)), h('div', { class: 'helpbody' }, t(it.body)), demo,
+      h('div', { class: 'helpbtns' },
+        last ? null : h('button', { type: 'button', class: 'btn sub', onclick: close }, t('とばす')),
+        last ? h('button', { type: 'button', class: 'btn big', onclick: close }, t('とじる'))
+          : h('button', { type: 'button', class: 'btn big', onclick: function () { S.help = { slide: i + 1 }; sRender(true); } }, t('つぎへ')))));
+  }
+
+  function codeScreen() {
+    var inp = h('input', { type: 'text', inputmode: 'numeric', maxlength: '4', pattern: '[0-9]*', autocomplete: 'off', value: '' });
+    function go() {
+      unlock();
+      var v = inp.value.replace(/[^0-9]/g, '');
+      if (v.length < 4) { toast(t('4けたの^数字《すうじ》を^入《い》れてね')); return; }
+      S.code = v; lsSet('mm_code', v); S.codeErr = false; doTick();
+    }
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    return h('div', null,
+      h('div', { class: 'msgbig' }, t('参加《さんか》コードを^入《い》れてね')),
+      S.codeErr ? h('div', { class: 'err' }, t('コードが^ちがうよ。もういちど^入《い》れてね')) : null,
+      h('div', { class: 'codein' }, inp, h('button', { type: 'button', class: 'btn big', onclick: go }, t('はいる'))));
+  }
+  function nameScreen() {
+    var p = S.p, box = h('div', { class: 'names' });
+    (p.names || []).forEach(function (o) {
+      box.appendChild(h('button', {
+        type: 'button', class: 'nbtn', disabled: o.t,
+        onclick: function () {
+          unlock();
+          call('sName', S.cid, S.code, o.n).then(function () { return doTick(); }).catch(function (e) {
+            toast(isNet(e) ? t('つうしんが^うまくいかないよ') : t(msgOf(e)));
+            doTick();
+          });
+        }
+      }, rb(o.n, p.hira), o.t ? h('small', null, t('えらばれているよ')) : null));
+    });
+    if (!p.names || !p.names.length) return h('div', { class: 'msgbig' }, t('はじまるまで^まっていてね'));
+    return h('div', null, h('div', { class: 'msgbig', style: 'margin:14px 0' }, t('じぶんの^名前《なまえ》を^おしてね')), box);
+  }
+
+  function playScreen() {
+    var p = S.p, self = p.pace === 'self', q = p.q, hira = p.hira;
+    var idx = self ? p.me.i : p.index;
+    var reveal = self ? p.me.ph === 'f' : p.phase === 'reveal';
+    var mine = typeof p.mine === 'number' ? p.mine : -1;
+    var items = [q.item].concat(q.choices);
+    needImgs(items.map(function (x) { return x.img; }));
+    var timeUp = false;
+    if (q.limit > 0 && !reveal) { tm.total = q.limit; tm.openedAt = q.openedAt; timeUp = tmLeft() <= 0; }
+    var locked = reveal || S.busy || timeUp || (self ? false : (mine >= 0 && p.changed >= 1)) || OUT.length > 0;
+    var wrap = h('div', null);
+    var prog = h('div', { class: 'prog' }, h('span', { class: 'chip' }, t('問題《もんだい》'), ' ', String(idx + 1), ' / ', String(p.total)));
+    var fill = null, txt = null;
+    if (q.limit > 0 && !reveal) {
+      fill = h('div'); txt = h('span', { class: 'chip acc' }, '');
+      prog.appendChild(h('div', { class: 'timer' }, fill)); prog.appendChild(txt);
+    }
+    wrap.appendChild(prog);
+    var ask = q.split ? (q.side === 'a' ? q.la : q.lb) : '';
+    wrap.appendChild(h('div', { class: 'qcard' },
+      h('div', { class: 'ask' }, ask ? [t(ask), t(' の ペアに^なるのは^どれかな？')] : t('ペアに^なるのは^どれかな？')),
+      cardNode(q.item, hira)));
+    var grid = h('div', { class: 'choices' });
+    q.choices.forEach(function (c, i) {
+      var cls = 'choice', badge = null;
+      if (reveal && i === p.correct) { cls += ' right'; badge = h('span', { class: 'badge ok' }, t('こたえ')); }
+      else if (reveal && i === mine) { cls += ' wrongmine'; badge = h('span', { class: 'badge ng' }, t('あなたの^えらんだもの')); }
+      else if (!reveal && i === mine) { cls += ' mine'; badge = h('span', { class: 'badge' }, t('えらんだよ')); }
+      if (reveal && i === p.correct && i === mine) badge = h('span', { class: 'badge ok' }, t('こたえ・あなたも^これだよ'));
+      grid.appendChild(h('button', {
+        type: 'button', class: cls, disabled: locked || (!self && i === mine),
+        onclick: function () { pick(i); }
+      }, cardNode(c, hira), badge));
+    });
+    wrap.appendChild(grid);
+    // ことば（色や音だけにたよらない）
+    if (!reveal) {
+      if (S.busy || OUT.length) wrap.appendChild(h('div', { class: 'fb plain' }, t('おくっているよ…')));
+      else if (timeUp) wrap.appendChild(h('div', { class: 'fb plain' }, t('時間《じかん》だよ')));
+      else if (!self && mine >= 0) wrap.appendChild(h('div', { class: 'fb plain' }, t(p.changed >= 1 ? 'こたえたよ！^つぎまで^まっていてね' : 'こたえたよ！^もう^1回《いっかい》だけ^変《か》えられるよ')));
+    } else if (self) {
+      var ok = mine >= 0 && mine === p.correct;
+      wrap.appendChild(h('div', { class: 'fb ' + (ok ? 'ok' : 'ng') }, t(ok ? 'せいかい！' : (mine < 0 ? '時間《じかん》だよ。こたえは^ここだよ' : 'おしい！^こたえは^ここだよ'))));
+      var last = idx + 1 >= p.total;
+      wrap.appendChild(h('div', { style: 'text-align:center' }, h('button', {
+        type: 'button', class: 'btn big', disabled: S.busy,
+        onclick: function () {
+          unlock(); S.busy = true; sRender(true);
+          call('sNext', S.cid, S.code, p.round).catch(function () {}).then(function () { S.busy = false; return doTick(); }).then(function () { sRender(true); });
+        }
+      }, t(last ? 'おわる' : 'つぎへ'))));
+    } else {
+      var ok2 = mine >= 0 && mine === p.correct;
+      wrap.appendChild(h('div', { class: 'fb ' + (ok2 ? 'ok' : 'ng') }, t(ok2 ? 'せいかい！' : (mine < 0 ? 'こたえは^ここだよ' : 'おしい！^こたえは^ここだよ'))));
+      wrap.appendChild(h('div', { class: 'fb plain' }, t('つぎの^問題《もんだい》まで^まっていてね')));
+    }
+    S.timerFn = function () {
+      if (fill) tmStart(q.limit, q.openedAt, fill, txt, function () {
+        if (self && p.me.ph === 'a' && !S.busy) pick(-1); else sRender(true);
+      });
+    };
+    return wrap;
+
+    function pick(i) {
+      if (S.busy) return;
+      unlock(); S.busy = true; sRender(true);
+      var pr;
+      if (self) pr = submit('sAnswerSelf', [S.cid, S.code, p.round, idx, i]);
+      else pr = submit('sAnswer', [S.cid, S.code, i, p.round, idx]);
+      pr.then(function (res) {
+        if (S.snd) { if (self && res) beep(res.ok ? 'ok' : 'soft'); else beep('ok'); }
+      }).catch(function (e) {
+        if (!e.queued) toast(t(msgOf(e)));
+      }).then(function () { S.busy = false; return doTick(); }).then(function () { sRender(true); });
+    }
+  }
+
+  function endScreen() {
+    var p = S.p, hira = p.hira;
+    var w = h('div', null, h('div', { class: 'msgbig' }, t('おつかれさま！')));
+    if (p.showScore && typeof p.score === 'number') w.appendChild(h('div', { class: 'fb ok' }, String(p.score), t(' 問《もん》^せいかい')));
+    w.appendChild(h('div', { class: 'fb plain' }, t('つぎが^はじまるまで^まっていてね')));
+    return w;
+  }
+
+  loop();
 }
 
-function codeHTML() {
-  const d = [0, 1, 2, 3].map(i => `<div>${esc(S.typed[i] || '')}</div>`).join('');
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'けす', '0', ''];
-  return `<div class="screen"><div class="helpfix">${HB()}</div><div class="center">
-    <div class="msg">さんかコードを いれてね</div>
-    <div class="digits">${d}</div>
-    <div class="pad">${keys.map(k => k ? `<button class="btn${k === 'けす' ? ' del' : ''}" onclick="sKey('${k}')">${k}</button>` : '<span></span>').join('')}</div>
-  </div></div>`;
-}
-async function sKey(k) {
-  sfx('tap');
-  if (k === 'けす') S.typed = S.typed.slice(0, -1);
-  else if (S.typed.length < 4) S.typed += k;
-  sRender();
-  if (S.typed.length === 4) {
-    S.busy = true;
-    CODE = S.typed;
+/* =====================================================================
+   先生の画面
+   ===================================================================== */
+function teacherApp() {
+  var T = { init: null, view: null, set: null, screen: 'home', big: false, help: false, sig: '', lastRun: false, msg: null, ok: null, busy: false };
+  var P = { tab: '', rows: null, a: { text: '', data: '' }, b: { text: '', data: '' }, bulk: '', newTab: '', del: null };
+  var ST = { group: '', rows: null };
+  var RP = { today: true, data: null };
+  IMGCODE = '';
+  IMGDONE = function () { if (T.screen === 'pairs' || runMode()) renderT(true); };
+
+  function runMode() { return !!(T.view && T.view.st && T.view.st.phase !== 'idle'); }
+  function err(e) { T.msg = msgOf(e); T.ok = null; renderT(true); }
+  function note(s) { T.ok = s; T.msg = null; renderT(true); }
+  function go(screen) { T.screen = screen; T.msg = null; T.ok = null; renderT(true); }
+  function act(fn) {   // サーバーを呼ぶボタン用
+    if (T.busy) return;
+    T.busy = true;
+    var args = Array.prototype.slice.call(arguments, 1);
+    return call.apply(null, [fn].concat(args)).then(function (v) { T.busy = false; return v; }, function (e) { T.busy = false; throw e; });
+  }
+  function setView(v) { T.view = v; T.msg = null; renderT(true); }
+
+  function load() {
+    call('tInit').then(function (d) {
+      T.init = d; T.set = JSON.parse(JSON.stringify(d.set)); T.view = d.view;
+      if (!T.set.tab && d.tabs.length) T.set.tab = d.tabs[0].name;
+      renderT(true); poll();
+    }).catch(function (e) {
+      swap(h('div', { class: 'wrap' }, h('div', { class: 'err' }, isNet(e) ? 'サーバーにつながっていません' : msgOf(e))));
+    });
+  }
+  function poll() {
+    setTimeout(function () {
+      if (T.busy || document.hidden) { poll(); return; }
+      call('tView').then(function (v) {
+        var was = runMode(); T.view = v;
+        if (runMode() || was) renderT(false);
+      }).catch(function () {}).then(poll);
+    }, runMode() ? 4000 : 10000);
+  }
+
+  var scrollY = 0;
+  function renderT(force) {
+    if (!T.init) return;
+    var run = runMode();
+    var sig = run ? JSON.stringify([T.view, T.big, T.msg, T.ok, T.help], function (k, v) { return k === 'now' ? undefined : v; }) : 'form';
+    if (!force && sig === T.sig) return;
+    T.sig = sig;
+    scrollY = window.scrollY || 0;
+    var body;
+    if (run) body = runScreen();
+    else if (T.screen === 'pairs') body = pairsScreen();
+    else if (T.screen === 'tabs') body = tabsScreen();
+    else if (T.screen === 'students') body = studentsScreen();
+    else if (T.screen === 'report') body = reportScreen();
+    else body = homeScreen();
+    if (T.help && body.className !== 'bigover') body.appendChild(teacherHelp());
+    swap(body);
+    window.scrollTo(0, scrollY);
+  }
+  function msgs() { return [T.msg ? h('div', { class: 'err' }, T.msg) : null, T.ok ? h('div', { class: 'okmsg' }, T.ok) : null]; }
+  function topbar(title, back) {
+    return h('div', { class: 'top' }, back ? h('button', { type: 'button', class: 'btn sub small', onclick: function () { go('home'); } }, '← もどる') : null, h('h1', null, title),
+      h('button', { type: 'button', class: 'btn sub small', onclick: function () { T.help = true; renderT(true); } }, '使い方'));
+  }
+  function teacherHelp() {
+    var steps = [
+      '「ペアをつくる・ふやす」で、ペアを入れます（絵か文字。ふりがなは 漢字《よみ》 の形で書きます）。',
+      '設定を決めて「この設定で受付を始める」を押すと、QRコードが出ます。「QRコードを大きく表示する」で、教室の大きな画面に映せます。',
+      '生徒がQRコードを読み取って参加します。参加のしかたは「名簿から選ぶ」「キャラで参加」「名前を入れずに参加」から選びます。参加コードを「あり」にしたときは、4けたの数字も伝えます。',
+      '人が集まったら「この人数ではじめる」を押します。',
+      '「みんなで」のときは、答えがそろったら「答えを見せる」、つづけて「つぎの問題へ」を押します。「ひとりずつ」のときは、生徒が自分で進みます。全員が終わったら「終わりにして結果を見る」を押します。',
+      '「設定にもどる（つぎの回へ）」で、つぎの回を始められます。「記録を見る」で、正答率とまちがいの型が見られます。生徒ごとのレベルは「生徒ごとのレベル」で決めます。'
+    ];
+    return h('div', { class: 'helpov' }, h('div', { class: 'helpbox' }, h('h2', null, '使い方'), h('ol', null, steps.map(function (x) { return h('li', null, x); })),
+      h('div', { class: 'helpbtns' }, h('button', { type: 'button', class: 'btn big', onclick: function () { T.help = false; renderT(true); } }, 'とじる'))));
+  }
+
+  /* ----- 部品 ----- */
+  function fld(label, node, nt) { return h('div', { class: 'fld' }, h('span', { class: 'lb' }, label), node, nt ? h('div', { class: 'note' }, nt) : null); }
+  function seg(key, opts) {
+    var box = h('div', { class: 'seg' });
+    opts.forEach(function (o) {
+      box.appendChild(h('button', { type: 'button', class: 'segb' + (T.set[key] === o[0] ? ' on' : ''), onclick: function () { T.set[key] = o[0]; renderT(true); } }, o[1]));
+    });
+    return box;
+  }
+  function stepper(key, min, max, unit) {
+    var wrap = h('div', { class: 'step' });
+    function build() {
+      var inp = h('input', { type: 'text', inputmode: 'numeric', value: String(T.set[key]) });
+      function put(v) { v = parseInt(v, 10); if (isNaN(v)) v = T.set[key]; T.set[key] = Math.max(min, Math.min(max, v)); wrap.replaceChildren.apply(wrap, build()); }
+      inp.addEventListener('change', function () { put(inp.value); });
+      return [
+        h('button', { type: 'button', 'aria-label': '1へらす', onclick: function () { put(T.set[key] - 1); } }, '▽'),
+        inp,
+        h('button', { type: 'button', 'aria-label': '1ふやす', onclick: function () { put(T.set[key] + 1); } }, '△'),
+        unit ? h('span', { class: 'unit' }, unit) : null
+      ].filter(Boolean);
+    }
+    wrap.replaceChildren.apply(wrap, build());
+    return wrap;
+  }
+
+  /* ----- はじめの画面（設定） ----- */
+  function homeScreen() {
+    var d = T.init, s = T.set, self = s.pace === 'self';
+    var w = h('div', { class: 'wrap' }, topbar('みんなでマッチング（先生用）'), msgs());
+    var nav = h('div', { class: 'row', style: 'margin-bottom:12px' },
+      h('button', { type: 'button', class: 'btn sub', onclick: function () { loadPairs(); go('pairs'); } }, 'ペアをつくる・ふやす'),
+      h('button', { type: 'button', class: 'btn sub', onclick: function () { go('tabs'); } }, 'タブの設定'),
+      h('button', { type: 'button', class: 'btn sub', onclick: function () { ST.rows = null; loadStudents(); go('students'); } }, '生徒ごとのレベル'),
+      h('button', { type: 'button', class: 'btn sub', onclick: function () { loadReport(); go('report'); } }, '記録を見る'));
+    w.appendChild(nav);
+
+    var p1 = h('div', { class: 'panel' }, h('h2', null, '1. 何をやるか'));
+    if (!d.tabs.length) p1.appendChild(h('div', { class: 'err' }, 'ペアのタブがありません。「ペアをつくる・ふやす」から作ってください。'));
+    var sel = h('select', { onchange: function () { s.tab = sel.value; } });
+    d.tabs.forEach(function (tb) { sel.appendChild(h('option', { value: tb.name, selected: tb.name === s.tab }, tb.name + '（' + tb.pairs + 'ペア' + (tb.dummy ? '＋ペアのないカード' + tb.dummy : '') + '）')); });
+    p1.appendChild(fld('ペアのタブ', sel));
+    p1.appendChild(fld('問題の数', stepper('count', 1, 50, '問')));
+    p1.appendChild(fld('進め方', seg('pace', [['together', 'みんなで'], ['self', 'ひとりずつ']]),
+      s.pace === 'self' ? '生徒が自分で答えて、自分で次の問題に進みます。終わった生徒は結果画面で待ちます。' : '先生が「次の問題へ」を押すまで、生徒は同じ問題で待ちます。'));
+    if (!self) p1.appendChild(fld('選択肢の数', seg('nChoices', [[2, '2つ'], [3, '3つ'], [4, '4つ']]), '初期設定は4つです。'));
+    p1.appendChild(fld('問題の向き', seg('dir', [['ab', 'A → B'], ['ba', 'B → A'], ['mix', 'まぜる']]), 'タブの設定で「分けない」にしているタブは、まざって出ます。'));
+    p1.appendChild(fld('問題に出すもの', h('div', { class: 'row' }, seg('imgQ', [[true, '絵あり'], [false, '絵なし']]), seg('textQ', [[true, '文字あり'], [false, '文字なし']]))));
+    p1.appendChild(fld('選択肢に出すもの', h('div', { class: 'row' }, seg('imgC', [[true, '絵あり'], [false, '絵なし']]), seg('textC', [[true, '文字あり'], [false, '文字なし']]))));
+    p1.appendChild(fld('1問の制限時間', stepper('limit', 0, 300, '秒'), '0にすると、時間の制限はありません。'));
+    w.appendChild(p1);
+
+    if (self) {
+      var pl = h('div', { class: 'panel' }, h('h2', null, '2. レベルの自動上下（ひとりずつ）'));
+      pl.appendChild(fld('レベルの自動上下', seg('auto', [[true, 'オン'], [false, 'オフ']]), 'オフのときは、「生徒ごとのレベル」で決めたレベルのまま進みます。自動で決まったレベルは、生徒ごとの設定には書きこまず、記録に残ります。'));
+      if (s.auto) {
+        pl.appendChild(fld('つづけて正解したら1つ上がる', stepper('upN', 1, 20, '問')));
+        pl.appendChild(fld('つづけてまちがえたら1つ下がる', stepper('downN', 1, 20, '問')));
+      }
+      w.appendChild(pl);
+    }
+
+    var p3 = h('div', { class: 'panel' }, h('h2', null, (self ? '3' : '2') + '. 参加のしかた'));
+    p3.appendChild(fld('参加のしかた', seg('nameMode', [['roster', '名簿から選ぶ'], ['chara', 'キャラで参加'], ['guest', '名前を入れずに参加']]), s.nameMode === 'guest' ? '名前を選ぶ画面は出ません。端末ごとに「ゲスト1」「ゲスト2」…の番号がつき、記録の名前の列に入ります。同じ端末なら、つぎの回も同じ番号です。' : null));
+    if (s.nameMode === 'roster') {
+      var gs = h('select', { onchange: function () { s.rosterGroup = gs.value; } });
+      d.groups.forEach(function (g) { gs.appendChild(h('option', { value: g, selected: g === s.rosterGroup }, g)); });
+      if (!s.rosterGroup && d.groups.length) s.rosterGroup = d.groups[0];
+      p3.appendChild(fld('名簿のグループ', gs, '「名簿」タブの1行目のグループ名です。'));
+    }
+    p3.appendChild(fld('参加コード（4けた）', seg('codeOn', [[false, 'なし'], [true, 'あり']]), 'ありにすると、生徒は4けたの数字を入れないと参加できません。'));
+    w.appendChild(p3);
+
+    var p4 = h('div', { class: 'panel' }, h('h2', null, (self ? '4' : '3') + '. 生徒の画面'));
+    p4.appendChild(fld('文字', seg('hira', [[false, '漢字にふりがな'], [true, 'ひらがなだけ']]), '漢字がむずかしいグループは「ひらがなだけ」にします。'));
+    p4.appendChild(fld('使い方の説明', seg('helpMode', [['first', 'はじめて使う端末だけ'], ['always', '毎回出す']]), '生徒の画面の「つかいかた」ボタンから、いつでも見られます。'));
+    p4.appendChild(fld('効果音', seg('sound', [[true, 'あり'], [false, 'なし']]), '生徒の画面にも、おと のオン・オフのボタンがあります。'));
+    p4.appendChild(fld('最後の画面に正解数を出す', seg('result', [[false, '出さない'], [true, '出す']])));
+    if (!self) p4.appendChild(fld('答えた人の見せ方（先生の画面）', seg('live', [['num', '人数だけ'], ['names', '名前も出す'], ['none', '出さない']])));
+    w.appendChild(p4);
+
+    w.appendChild(h('div', { style: 'margin:14px 0' }, h('button', {
+      type: 'button', class: 'btn big', onclick: function () {
+        if (!s.tab) { T.msg = 'ペアのタブを選んでください'; renderT(true); return; }
+        T.msg = null; T.ok = null;
+        var pr = act('tStart', s);
+        if (pr) pr.then(function (v) { T.big = false; setView(v); }).catch(err);
+      }
+    }, 'この設定で受付を始める')));
+
+    var lv = h('div', { class: 'panel' }, h('h2', null, 'レベルごとの内容（ひとりずつ）'));
+    var tb = h('table', null, h('tr', null, h('th', null, 'レベル'), h('th', null, '名前'), h('th', null, 'どんな問題が出るか')));
+    d.levels.forEach(function (l) { tb.appendChild(h('tr', null, h('td', null, String(l.lv)), h('td', null, l.name), h('td', null, l.desc))); });
+    lv.appendChild(tb);
+    lv.appendChild(h('div', { class: 'note', style: 'margin-top:6px' }, 'まちがいの型：' + Object.keys(d.whys).map(function (k) { return d.whys[k]; }).join(' ／ ')));
+    w.appendChild(lv);
+
+    return w;
+  }
+
+  /* ----- ペアをつくる ----- */
+  function loadPairs() {
+    if (!P.tab && T.init.tabs.length) P.tab = T.init.tabs[0].name;
+    if (!P.tab) { P.rows = []; return; }
+    P.rows = null;
+    call('tPairs', P.tab).then(function (r) {
+      P.rows = r; P.del = null;
+      var names = []; r.forEach(function (x) { [x.a.img, x.b.img].forEach(function (n) { if (n) names.push(n); }); });
+      needImgs(names.slice(0, 64));
+      if (T.screen === 'pairs') renderT(true);
+    }).catch(err);
+  }
+  function readImg(file) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () {
+        var im = new Image();
+        im.onload = function () {
+          var m = 480, s = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(im.width * s)); c.height = Math.max(1, Math.round(im.height * s));
+          var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+          res(c.toDataURL('image/jpeg', 0.82));
+        };
+        im.onerror = function () { rej(new Error('絵を読みこめませんでした')); };
+        im.src = fr.result;
+      };
+      fr.onerror = function () { rej(new Error('絵を読みこめませんでした')); };
+      fr.readAsDataURL(file);
+    });
+  }
+  function sideForm(label, side) {
+    var o = P[side];
+    var ti = h('input', { type: 'text', value: o.text, placeholder: '文字（なくてもよい）', style: 'width:100%', oninput: function () { o.text = ti.value; } });
+    var fi = h('input', { type: 'file', accept: 'image/*', onchange: function () {
+      if (!fi.files || !fi.files[0]) { o.data = ''; return; }
+      readImg(fi.files[0]).then(function (d) { o.data = d; T.msg = null; renderT(true); }).catch(err);
+    } });
+    return h('div', { style: 'flex:1 1 240px' }, h('span', { class: 'lb' }, label), ti, h('div', { style: 'margin-top:6px' }, fi),
+      o.data ? h('div', null, h('img', { src: o.data, alt: '', style: 'max-height:70px;margin-top:4px' }), ' ', h('button', { type: 'button', class: 'btn small warn', onclick: function () { o.data = ''; renderT(true); } }, '絵をやめる')) : null);
+  }
+  function pairsScreen() {
+    var d = T.init, w = h('div', { class: 'wrap' }, topbar('ペアをつくる・ふやす', true), msgs());
+    var sel = h('select', { onchange: function () { P.tab = sel.value; loadPairs(); renderT(true); } });
+    d.tabs.forEach(function (tb) { sel.appendChild(h('option', { value: tb.name, selected: tb.name === P.tab }, tb.name)); });
+    var nt = h('input', { type: 'text', value: P.newTab, placeholder: '新しいタブの名前', oninput: function () { P.newTab = nt.value; } });
+    w.appendChild(h('div', { class: 'panel' }, h('h2', null, 'タブ'), h('div', { class: 'row' }, d.tabs.length ? sel : null,
+      nt, h('button', { type: 'button', class: 'btn sub', onclick: function () {
+        var nm = P.newTab.trim(); if (!nm) { T.msg = 'タブの名前を入れてください'; renderT(true); return; }
+        var pr = act('tNewTab', nm); if (pr) pr.then(function (r) { T.init = r; P.tab = nm; P.newTab = ''; loadPairs(); note('タブ「' + nm + '」を作りました'); }).catch(err);
+      } }, 'このタブをつくる'))));
+    if (!P.tab) return w;
+    var info = null; d.tabs.forEach(function (tb) { if (tb.name === P.tab) info = tb; });
+    var add = h('div', { class: 'panel' }, h('h2', null, 'ペアを1つふやす'),
+      h('div', { class: 'row', style: 'align-items:flex-start' }, sideForm(info ? 'A（' + plain(info.la) + '）' : 'A', 'a'), sideForm(info ? 'B（' + plain(info.lb) + '）' : 'B', 'b')),
+      h('div', { class: 'note' }, '片方だけ入れると、「ペアのないカード」（まちがい用）になります。絵は、小さくしてから保存します。'),
+      h('div', { style: 'margin-top:8px' }, h('button', { type: 'button', class: 'btn', onclick: addPair }, 'このペアを入れる')));
+    w.appendChild(add);
+    var bk = h('textarea', { placeholder: '1行に1ペア。Aの文字とBの文字を、カンマ（,）かタブで区切ります\nりんご,赤《あか》\nバナナ,黄色《きいろ》', oninput: function () { P.bulk = bk.value; } });
+    bk.value = P.bulk;
+    w.appendChild(h('div', { class: 'panel' }, h('h2', null, '文字のペアをまとめて入れる'), bk,
+      h('div', { style: 'margin-top:8px' }, h('button', { type: 'button', class: 'btn sub', onclick: addBulk }, 'まとめて入れる'))));
+    var lst = h('div', { class: 'panel' }, h('h2', null, 'いまのペア' + (P.rows ? '（' + P.rows.length + '）' : '')));
+    if (!P.rows) lst.appendChild(h('div', null, 'よみこみ中…'));
+    else if (!P.rows.length) lst.appendChild(h('div', { class: 'note' }, 'まだありません'));
+    else {
+      var g = h('div', { class: 'pairlist' });
+      P.rows.slice(0, 120).forEach(function (r) {
+        var chk = [r.a.img, r.a.text, r.b.img, r.b.text].join('|');
+        var confirming = P.del === r.row;
+        g.appendChild(h('div', { class: 'pairrow' }, halfNode(r.a), '⇔', halfNode(r.b),
+          h('button', { type: 'button', class: 'btn small ' + (confirming ? '' : 'warn'), onclick: function () {
+            if (!confirming) { P.del = r.row; renderT(true); return; }
+            var pr = act('tDelPair', P.tab, r.row, chk); if (pr) pr.then(function (rows) { P.rows = rows; P.del = null; note('消しました'); }).catch(function (e) { P.del = null; err(e); });
+          } }, confirming ? '本当に消す' : '消す')));
+      });
+      lst.appendChild(g);
+      if (P.rows.length > 120) lst.appendChild(h('div', { class: 'note' }, '最初の120件だけ表示しています'));
+    }
+    w.appendChild(lst);
+    return w;
+  }
+  function halfNode(it) {
+    var n = h('div', { class: 'half' });
+    if (it.img) { var d = IMG[it.img]; if (d) n.appendChild(h('img', { src: d, alt: '' })); else if (d === undefined) n.appendChild(document.createTextNode('絵…')); }
+    if (it.text) n.appendChild(h('div', null, plain(it.text)));
+    if (!it.img && !it.text) n.appendChild(h('div', { class: 'note' }, '（なし）'));
+    return n;
+  }
+  function addPair() {
+    var a = { text: P.a.text.trim(), img: '' }, b = { text: P.b.text.trim(), img: '' }, imgs = [P.a.data || '', P.b.data || ''];
+    if (!a.text && !b.text && !imgs[0] && !imgs[1]) { T.msg = '絵か文字を入れてください'; renderT(true); return; }
+    T.msg = '保存しています…'; renderT(true);
+    var pr = act('tUploadMany', imgs); if (!pr) return;
+    pr.then(function (n) { a.img = n[0] || ''; b.img = n[1] || ''; T.busy = true; return call('tAddPair', P.tab, a, b).then(function (v) { T.busy = false; return v; }, function (e) { T.busy = false; throw e; }); })
+      .then(function () {
+        P.a = { text: '', data: '' }; P.b = { text: '', data: '' };
+        return call('tInit');
+      }).then(function (d) { T.init = d; loadPairs(); note('ペアを入れました'); }).catch(err);
+  }
+  function addBulk() {
+    var list = P.bulk.split(/\r?\n/).map(function (ln) {
+      var m = ln.split(/[,\t，、]/); return { a: { text: (m[0] || '').trim() }, b: { text: (m.slice(1).join(',') || '').trim() } };
+    }).filter(function (x) { return x.a.text || x.b.text; });
+    if (!list.length) { T.msg = '入れる行がありません'; renderT(true); return; }
+    var pr = act('tAddPairs', P.tab, list); if (!pr) return;
+    pr.then(function (n) { P.bulk = ''; return call('tInit').then(function (d) { T.init = d; loadPairs(); note(n + '個のペアを入れました'); }); }).catch(err);
+  }
+
+  /* ----- タブの設定 ----- */
+  function tabsScreen() {
+    var d = T.init, w = h('div', { class: 'wrap' }, topbar('タブの設定', true), msgs());
+    var list = d.tabs.map(function (tb) { return { name: tb.name, split: tb.split, la: tb.la, lb: tb.lb }; });
+    w.appendChild(h('div', { class: 'note', style: 'margin-bottom:8px' }, '「分ける」にすると、AとBが別の種類のカード（例：くだもの と 色）になり、問題の向きを決められます。「分けない」は、AもBも同じ種類のカードのときに使います。'));
+    var tbd = h('table', null, h('tr', null, h('th', null, 'タブ'), h('th', null, '分け方'), h('th', null, 'Aの名前'), h('th', null, 'Bの名前')));
+    list.forEach(function (it) {
+      var a = h('input', { type: 'text', value: it.la, style: 'width:140px', oninput: function () { it.la = a.value; } });
+      var b = h('input', { type: 'text', value: it.lb, style: 'width:140px', oninput: function () { it.lb = b.value; } });
+      var sp = h('select', { onchange: function () { it.split = sp.value === 'y'; } },
+        h('option', { value: 'y', selected: it.split }, 'わける'), h('option', { value: 'n', selected: !it.split }, 'わけない'));
+      tbd.appendChild(h('tr', null, h('td', null, it.name), h('td', null, sp), h('td', null, a), h('td', null, b)));
+    });
+    w.appendChild(h('div', { class: 'panel', style: 'overflow-x:auto' }, tbd));
+    w.appendChild(h('button', { type: 'button', class: 'btn', onclick: function () {
+      var pr = act('tSaveTabs', list); if (pr) pr.then(function (r) { T.init = r; note('保存しました'); }).catch(err);
+    } }, '保存する'));
+    return w;
+  }
+
+  /* ----- 生徒ごとのレベル ----- */
+  function loadStudents() {
+    if (!ST.group) ST.group = T.set.nameMode === 'guest' ? 'ゲスト' : (T.set.rosterGroup || T.init.groups[0] || 'ゲスト');
+    call('tStudents', ST.group).then(function (r) { ST.rows = r.rows; ST.levels = r.levels; if (T.screen === 'students') renderT(true); }).catch(err);
+  }
+  function studentsScreen() {
+    var d = T.init, w = h('div', { class: 'wrap' }, topbar('生徒ごとのレベル', true), msgs());
+    var gs = h('select', { onchange: function () { ST.group = gs.value; ST.rows = null; loadStudents(); renderT(true); } });
+    (d.stuGroups || d.groups).forEach(function (g) { gs.appendChild(h('option', { value: g, selected: g === ST.group }, g === 'ゲスト' ? 'ゲスト（名前を入れずに参加）' : g)); });
+    w.appendChild(h('div', { class: 'panel' }, h('div', { class: 'row' }, h('span', { class: 'lb' }, '名簿のグループ'), gs,
+      ST.group === 'ゲスト' ? h('button', { type: 'button', class: 'btn small warn', onclick: function () { var pr = act('tResetGuests'); if (pr) pr.then(function () { ST.rows = null; loadStudents(); note('ゲストの番号をリセットしました'); }).catch(err); } }, 'ゲストの番号をリセットする') : null),
+      h('div', { class: 'note' }, '「ひとりずつ」のとき、受付を始めた時点のレベルから始まります。「自動」は、いちばん上のレベル（選択肢がいちばん多い）から始まります。スプレッドシートの「生徒設定」タブからも変えられます。')));
+    if (!ST.rows) { w.appendChild(h('div', null, 'よみこみ中…')); return w; }
+    if (!ST.rows.length) { w.appendChild(h('div', { class: 'note' }, ST.group === 'ゲスト' ? 'まだゲストの参加がありません。生徒が参加すると、ここに「ゲスト1」「ゲスト2」…が出ます。' : '名前がありません')); return w; }
+    var tbd = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, 'はじめのレベル')));
+    ST.rows.forEach(function (r) {
+      var sel = h('select', { onchange: function () { r.lv = parseInt(sel.value, 10); } }, h('option', { value: '0', selected: !r.lv }, '自動（いちばん上の' + ((ST.levels || [])[(ST.levels || []).length - 1] || { name: '' }).name + 'から）'));
+      (ST.levels || []).forEach(function (l) { sel.appendChild(h('option', { value: String(l.lv), selected: r.lv === l.lv }, l.lv + '（' + l.name + '）')); });
+      tbd.appendChild(h('tr', null, h('td', null, plain(r.name)), h('td', null, sel)));
+    });
+    w.appendChild(h('div', { class: 'panel' }, tbd));
+    w.appendChild(h('button', { type: 'button', class: 'btn', onclick: function () {
+      var pr = act('tSaveStudents', ST.rows); if (pr) pr.then(function () { note('保存しました'); }).catch(err);
+    } }, '保存する'));
+    return w;
+  }
+
+  /* ----- 記録を見る ----- */
+  function loadReport() {
+    RP.data = null;
+    call('tReport', RP.today).then(function (r) { RP.data = r; if (T.screen === 'report') renderT(true); }).catch(err);
+  }
+  function reportScreen() {
+    var w = h('div', { class: 'wrap' }, topbar('記録を見る', true), msgs());
+    w.appendChild(h('div', { class: 'panel' }, h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'segb' + (RP.today ? ' on' : ''), onclick: function () { RP.today = true; loadReport(); renderT(true); } }, '今日だけ'),
+      h('button', { type: 'button', class: 'segb' + (!RP.today ? ' on' : ''), onclick: function () { RP.today = false; loadReport(); renderT(true); } }, 'すべて'))));
+    if (!RP.data) { w.appendChild(h('div', null, 'よみこみ中…')); return w; }
+    var r = RP.data;
+    if (!r.rows.length) { w.appendChild(h('div', { class: 'note' }, '記録がありません')); return w; }
+    var tbd = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, '答えた数'), h('th', null, '正解'), h('th', null, '正答率'), h('th', null, '多かったまちがい')));
+    r.rows.forEach(function (x) {
+      tbd.appendChild(h('tr', null, h('td', null, plain(x.name)), h('td', null, String(x.n)), h('td', null, String(x.ok)), h('td', null, x.n ? Math.round(x.ok / x.n * 100) + '%' : ''),
+        h('td', null, x.types.map(function (t) { return t.type + '（' + t.n + '）'; }).join('、'))));
+    });
+    w.appendChild(h('div', { class: 'panel', style: 'overflow-x:auto' }, tbd));
+    if (r.types.length) w.appendChild(h('div', { class: 'panel' }, h('h2', null, 'まちがいの型（全体）'), r.types.map(function (t) { return h('div', null, t.type + '：' + t.n + '回'); })));
+    return w;
+  }
+
+  /* ----- 受付・すすめる・結果 ----- */
+  function stuUrl() { return BASEURL || (location.href.split('?')[0]); }
+  function qrNode() {
+    var box = h('div', { class: 'qrbox' });
     try {
-      const o = await call('sPoll', CID, CODE);
-      if (o.needCode) { toast('コードが ちがうよ。もういちど いれてね'); S.typed = ''; }
-      else { lsSet('mm_code', CODE); S.typed = ''; }
-      S.busy = false; sApply(o);
-    } catch (e) { S.busy = false; S.typed = ''; toast(e.message); sRender(true); }
+      if (!window.qrcode) throw new Error('no qr');
+      var q = window.qrcode(0, 'M'); q.addData(stuUrl()); q.make();
+      box.innerHTML = q.createSvgTag(6, 2);
+    } catch (e) { box.appendChild(h('div', { style: 'word-break:break-all;padding:10px' }, 'QRコードを作れませんでした。URLを生徒に伝えてください：', h('br'), stuUrl())); }
+    return box;
   }
-}
-function nameHTML(o) {
-  if (!o.names || !o.names.length) {
-    return `<div class="screen"><div class="helpfix">${HB()}</div><div class="center"><div class="msg">せんせいが じゅんびするまで まってね</div></div></div>`;
+  function runScreen() {
+    var v = T.view, st = v.st, self = st.pace === 'self';
+    var w = h('div', { class: 'wrap' }, topbar('みんなでマッチング（' + (self ? 'ひとりずつ' : 'みんなで') + '）'), msgs());
+    var codeOn = T.set && T.set.codeOn;
+    if (st.phase === 'wait') {
+      if (T.big) {
+        return h('div', { class: 'bigover' }, qrNode(), codeOn ? h('div', { class: 'bigcode' }, '参加コード ' + v.code) : null,
+          h('div', null, '参加した人：' + v.people.length + '人'),
+          h('button', { type: 'button', class: 'btn big sub', onclick: function () { T.big = false; renderT(true); } }, 'ふつうの表示にもどす'));
+      }
+      var p = h('div', { class: 'panel' }, h('h2', null, '参加を受け付けています'), qrNode(),
+        h('div', { class: 'note' }, stuUrl()),
+        codeOn ? h('div', { class: 'bigcode', style: 'font-size:40px' }, '参加コード ' + v.code) : null,
+        h('div', { class: 'row', style: 'margin-top:8px' },
+          h('button', { type: 'button', class: 'btn sub', onclick: function () { T.big = true; renderT(true); } }, 'QRコードを大きく表示する'),
+          codeOn ? h('button', { type: 'button', class: 'btn sub', onclick: function () { var pr = act('tNewCode'); if (pr) pr.then(function () { return call('tView'); }).then(setView).catch(err); } }, '参加コードを新しくする') : null));
+      w.appendChild(p);
+      w.appendChild(h('div', { class: 'panel' }, h('h2', null, '参加した人（' + v.people.length + '人）'), v.people.length ? v.people.map(function (n) { return h('span', { class: 'pill' }, plain(n)); }) : h('div', { class: 'note' }, 'まだだれも参加していません')));
+      w.appendChild(h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tOpen'); if (pr) pr.then(setView).catch(err); } }, 'この人数ではじめる'),
+        h('button', { type: 'button', class: 'btn sub', onclick: function () { var pr = act('tResetPeople'); if (pr) pr.then(setView).catch(err); } }, '参加した人をリセットする'),
+        h('button', { type: 'button', class: 'btn warn', onclick: function () { var pr = act('tStop'); if (pr) pr.then(function () { return call('tInit'); }).then(function (d) { T.init = d; T.screen = 'home'; return call('tView'); }).then(setView).catch(err); } }, '受付をやめて設定にもどる')));
+      return w;
+    }
+    if (st.phase === 'end') {
+      var rows = (v.scores || []).slice().sort(function (a, b) { return b.ok - a.ok; });
+      var tb = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, '答えた数'), h('th', null, '正解')));
+      rows.forEach(function (r) { tb.appendChild(h('tr', null, h('td', null, plain(r.name)), h('td', null, String(r.ans)), h('td', null, String(r.ok)))); });
+      w.appendChild(h('div', { class: 'panel' }, h('h2', null, '結果（全' + st.total + '問）'), rows.length ? tb : h('div', { class: 'note' }, '答えた人がいませんでした')));
+      if (self && v.rows) w.appendChild(levelTable(v.rows, st));
+      w.appendChild(h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tStop'); if (pr) pr.then(function () { return call('tInit'); }).then(function (d) { T.init = d; T.screen = 'home'; return call('tView'); }).then(setView).catch(err); } }, '設定にもどる（つぎの回へ）'),
+        h('button', { type: 'button', class: 'btn sub', onclick: function () { var pr = act('tStop'); if (pr) pr.then(function () { return call('tView'); }).then(function (x) { T.view = x; loadReport(); go('report'); }).catch(err); } }, '記録を見る')));
+      return w;
+    }
+    if (self) {
+      var alld = v.rows.length > 0 && v.rows.every(function (r) { return r.done; });
+      w.appendChild(h('div', { class: 'panel' }, h('h2', null, '取り組み中（' + v.rows.filter(function (r) { return r.done; }).length + ' / ' + v.rows.length + '人が終わり）'), alld ? h('div', { class: 'okmsg' }, '全員が終わりました') : null));
+      w.appendChild(levelTable(v.rows, st));
+      w.appendChild(h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(setView).catch(err); } }, '終わりにして結果を見る'));
+      return w;
+    }
+    // みんなで
+    var q = v.q, reveal = st.phase === 'reveal';
+    var all = [q.item].concat(q.choices);
+    needImgs(all.map(function (x) { return x.img; }));
+    var ask = st.split ? plain(q.side === 'a' ? st.la : st.lb) : '';
+    w.appendChild(h('div', { class: 'panel' }, h('div', { class: 'row' }, h('span', { class: 'chip' }, (st.index + 1) + ' / ' + st.total + '問'),
+      st.limit > 0 ? h('span', { class: 'chip acc' }, '制限時間 ' + st.limit + '秒') : null),
+      h('div', { class: 'qcard' }, ask ? h('div', { class: 'ask' }, ask + ' のペアになるのは？') : null, cardNode(q.item, false, true))));
+    var grid = h('div', { class: 'choices' });
+    q.choices.forEach(function (c, i) {
+      grid.appendChild(h('div', { class: 'choice' + (reveal && i === v.correct ? ' right' : '') }, cardNode(c, false, true),
+        reveal && i === v.correct ? h('span', { class: 'badge ok' }, 'こたえ') : null,
+        reveal ? h('div', { class: 'cnt' }, v.counts[i] + '人') : null));
+    });
+    w.appendChild(grid);
+    var done = v.answered.length, tot = v.people.length;
+    var p2 = h('div', { class: 'panel', style: 'margin-top:12px' }, h('h2', null, done + ' / ' + tot + ' 人が答えました'));
+    if (st.live === 'names') {
+      v.people.forEach(function (n) { p2.appendChild(h('span', { class: 'pill' + (v.answered.indexOf(n) >= 0 ? ' done' : '') }, plain(n) + (v.answered.indexOf(n) >= 0 ? ' ✓' : ''))); });
+    }
+    w.appendChild(p2);
+    var last = st.index + 1 >= st.total;
+    w.appendChild(h('div', { class: 'row' },
+      !reveal ? h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tReveal'); if (pr) pr.then(setView).catch(err); } }, '答えを見せる')
+        : h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tNext'); if (pr) pr.then(setView).catch(err); } }, last ? '結果を見る' : 'つぎの問題へ'),
+      h('button', { type: 'button', class: 'btn warn', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(setView).catch(err); } }, 'ここで終わりにする')));
+    return w;
   }
-  const btns = o.names.map(x => `<button class="btn" ${x.t ? 'disabled' : ''} onclick='sPickName(${JSON.stringify(x.n)})'>${esc(x.n)}${x.t ? '<small>つかっているよ</small>' : ''}</button>`).join('');
-  return `<div class="screen"><div class="helpfix">${HB()}</div><div class="center" style="justify-content:flex-start;padding-top:56px">
-    <div class="msg">じぶんの なまえを えらんでね</div>
-    <div class="names">${btns}</div>
-  </div></div>`;
-}
-async function sPickName(n) {
-  if (S.busy) return;
-  S.busy = true;
-  try { await call('sName', CID, CODE, n); sfx('ok'); S.o.myName = n; } catch (e) { toast(e.message); }
-  S.busy = false;
-  sTick();
-}
-function sWaitHTML(o) {
-  return `<div class="screen"><div class="helpfix">${HB()}</div><div class="center">
-    <div class="msg">${esc(o.myName)} さん</div>
-    <div class="msg">${o.phase === 'wait' ? 'もうすぐ はじまるよ。まってね' : 'せんせいが はじめるまで まってね'}</div>
-  </div></div>`;
-}
-function sPlayHTML(o, up) {
-  const q = o.q, rev = o.phase === 'reveal';
-  const n = q.choices.length;
-  const ch = q.choices.map((c, i) => {
-    let cls = 'choice', tag = '';
-    if (rev) {
-      if (i === o.correct) { cls += ' correct'; tag = '<span class="tag">○ せいかい</span>' + (i === o.mine ? '<span class="tag2">えらんだ</span>' : ''); }
-      else if (i === o.mine) { cls += ' mine dim'; tag = '<span class="tag">えらんだ</span>'; }
-      else cls += ' dim';
-    } else if (i === o.mine) { cls += ' mine'; tag = '<span class="tag">えらんだ</span>'; }
-    return `<button class="${cls}" onclick="sPick(${i})"><span class="no">${i + 1}</span>${tag}${itemHTML(c)}</button>`;
-  }).join('');
-  let status;
-  if (rev) {
-    status = o.mine < 0 ? '<div class="result">こたえは これだよ</div>'
-      : o.mine === o.correct ? '<div class="result ok">○ せいかい！</div>'
-        : '<div class="result">ざんねん。こたえは これだよ</div>';
-  } else if (up) status = '<div class="status timeup">じかんだよ。せんせいの こたえを まってね</div>';
-  else if (o.mine < 0) status = '<div class="status">えを タップして えらんでね</div>';
-  else if (o.changed < 1) status = '<div class="status">こたえたよ。1かいだけ かえられるよ</div>';
-  else status = '<div class="status">こたえたよ。せんせいの こたえを まってね</div>';
-  const top = `<div class="qbox">${itemHTML(q.item)}</div>`;
-  return `<div class="splay">
-    <div class="topbar"><span>${o.index + 1} / ${o.total}もんめ</span><span style="margin-left:auto">${esc(o.myName)}</span>${HB()}</div>
-    ${rev ? '' : timerHTML(q)}
-    <div class="prompt">${promptText(q.split, q.la, q.lb, q.side)}</div>
-    <div class="sstage">${top}<div class="choices n${n}">${ch}</div></div>
-    ${status}
-  </div>`;
-}
-async function sPick(i) {
-  const o = S.o;
-  if (!o || o.phase !== 'q' || S.busy) return;
-  if (timeLeft(o.q) <= 0) return toast('じかんが おわったよ');
-  if (o.mine === i) return;
-  if (o.mine >= 0 && o.changed >= 1) return toast('もう かえられないよ');
-  S.busy = true;
-  sfx('tap');
-  const oldMine = o.mine, oldCh = o.changed;
-  o.changed = (o.mine >= 0) ? o.changed + 1 : o.changed; o.mine = i;
-  sRender();
-  try {
-    const r = await call('sAnswer', CID, CODE, i);
-    o.mine = r.mine; o.changed = r.changed;
-  } catch (e) { o.mine = oldMine; o.changed = oldCh; toast(e.message); }
-  S.busy = false;
-  sRender();
-}
-function sEndHTML(o) {
-  return `<div class="screen"><div class="helpfix">${HB()}</div><div class="center">
-    <div class="msg">おわり！ ${esc(o.myName)} さん</div>
-    <div class="score">${o.score} / ${o.total}</div>
-    <div class="msg">もん せいかい</div>
-  </div></div>`;
+  function levelTable(rows, st) {
+    var tb = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, '答えた数'), h('th', null, '正解'), h('th', null, 'はじめ'), h('th', null, 'いま'), h('th', null, 'レベルの変化'), h('th', null, '多かったまちがい')));
+    rows.forEach(function (r) {
+      var chs = (r.ch || []).map(function (c) { return c[0] + '問め：' + c[1] + '→' + c[2]; }).join('、');
+      tb.appendChild(h('tr', null, h('td', null, plain(r.name)), h('td', null, r.n + ' / ' + st.total), h('td', null, String(r.ok)),
+        h('td', null, r.joined ? String(r.l0) : '-'), h('td', null, r.joined ? String(r.lv) : '-'), h('td', null, chs || '（なし）'), h('td', null, r.top || '')));
+    });
+    return h('div', { class: 'panel', style: 'overflow-x:auto' }, h('h2', null, '生徒ごとのようす'), tb);
+  }
+
+  load();
 }
 
-const MOCK = null;  /* プレビュー用のにせサーバーは preview.html にだけ入っている */
-
-/* ============================================================
-   はじめる
-   ============================================================ */
-function boot() {
-  clearTimeout(T.poll); clearTimeout(S.poll); timerInfo = null;
-  if (PAGE === 'teacher') tBoot(); else sBoot();
-}
-if (!HAS_GAS) {
-  const bar = document.getElementById('pvbar');
-  bar.hidden = false;
-  bar.querySelectorAll('[data-pv]').forEach(b => b.addEventListener('click', () => { PAGE = b.dataset.pv; boot(); }));
-}
-boot();
+if (PAGE === 'teacher') teacherApp(); else studentApp();
+})();
 </script>
 </body>
 </html>
