@@ -1033,3 +1033,23 @@ function warmImgs_(q) {
     try { imgData_(id); } catch (e) { /* 読めない 画像は とばす */ }
   });
 }
+
+/* ========== 配布用：スプレッドシートのメニュー ========== */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('配布用')
+    .addItem('テストの記録を消す（配布用）', 'clearTestRecords')
+    .addToUi();
+}
+
+function clearTestRecords() {
+  const ui = SpreadsheetApp.getUi();
+  const ok = ui.alert('テストの記録を消す', '「きろく」「かいとう」タブの記録（1行目の見出しは残します）を消します。問題・名簿は消えません。よろしいですか？', ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ['きろく', 'かいとう'].forEach(function (n) {
+    const sh = ss.getSheetByName(n);
+    if (sh && sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  });
+  ui.alert('消しました。');
+}

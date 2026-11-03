@@ -14,6 +14,7 @@
     ['top', 'index.html', 'トップ'],
     ['hajimete', 'hajimete.html', 'はじめての方へ'],
     ['secchi', 'secchi.html', '設置の手順'],
+    ['ai', 'ai.html', 'AIで作る・直す'],
     ['tsumazuki', 'tsumazuki.html', 'うまくいかないとき'],
     ['riyou', 'riyou.html', '利用について'],
   ];
@@ -67,7 +68,7 @@
   }
 
   /* ---------- コードの箱 ----------
-     <div class="code-box" data-src="../code/jibun-drill/Code.gs.txt" data-name="Code.gs"></div> */
+     <div class="code-box" data-src="../code/minna-quiz/Code.gs.txt" data-name="Code.gs"></div> */
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) {
       return navigator.clipboard.writeText(text);
@@ -95,13 +96,15 @@
   document.querySelectorAll('.code-box').forEach(function (box) {
     var src = box.getAttribute('data-src');
     var name = box.getAttribute('data-name') || 'code.txt';
+    var copyLabel = box.getAttribute('data-label') || 'コードをすべてコピーする';
     box.innerHTML =
       '<div class="code-head"><span class="fname"></span><span class="info">読みこみ中…</span>' +
-      '<button class="btn" type="button" data-act="copy" disabled>コードをすべてコピーする</button>' +
+      '<button class="btn" type="button" data-act="copy" disabled></button>' +
       '<button class="btn ghost" type="button" data-act="save" disabled>ファイルとして保存する</button>' +
       '<button class="btn ghost" type="button" data-act="open" disabled>全部を表示する</button></div>' +
       '<pre></pre>';
     box.querySelector('.fname').textContent = name;
+    box.querySelector('[data-act="copy"]').textContent = copyLabel;
     var info = box.querySelector('.info');
     var pre = box.querySelector('pre');
     var text = '';
@@ -131,7 +134,7 @@
         copyText(text).then(function () {
           b.textContent = 'コピーしました';
           b.classList.add('done');
-          setTimeout(function () { b.textContent = 'コードをすべてコピーする'; b.classList.remove('done'); }, 2500);
+          setTimeout(function () { b.textContent = copyLabel; b.classList.remove('done'); }, 2500);
         }).catch(function () {
           b.textContent = 'コピーできませんでした。「ファイルとして保存する」を使ってください';
         });
