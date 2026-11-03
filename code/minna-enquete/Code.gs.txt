@@ -28,6 +28,8 @@ const NO = ['×', '✕', 'いいえ', 'FALSE', 'false', '0', 'しない', 'な�
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  // 先生用画面は、このアプリを作った人のアカウントで開いたときだけ表示する
+  if (p.page === 'teacher' && !isTeacher_()) p.page = 'student';
   const page = p.page === 'teacher' ? 'teacher' : 'index';
   const t = HtmlService.createTemplateFromFile('index');
   t.params = JSON.stringify(p).replace(/</g, '\\u003c');
@@ -383,10 +385,18 @@ function submit(p) {
 
 /* ========== 先生用 ========== */
 
-// スクリプトプロパティ TEACHER_PASS を入れたときだけ、あいことばを確かめる
+// 先生かどうか（アプリを作った人のアカウントで開いているときだけ true）
+function isTeacher_() {
+  try {
+    const owner = Session.getEffectiveUser().getEmail();
+    const user = Session.getActiveUser().getEmail();
+    return !!user && user === owner;
+  } catch (e) { return false; }
+}
+
+// 先生用の処理の入口で呼ぶ（引数 pass は、前の版との互換のために残してあるだけで使わない）
 function checkPass_(pass) {
-  const tp = PropertiesService.getScriptProperties().getProperty('TEACHER_PASS');
-  if (tp && String(pass || '') !== tp) throw new Error('NEED_PASS');
+  if (!isTeacher_()) throw new Error('先生のアカウントで開いてください。');
 }
 
 function teacherState_() {
@@ -605,4 +615,24 @@ function tSaveSurveyToSheet(pass, name, questions) {
     lock.releaseLock();
   }
   return listSurveys_();
+}
+
+/* ========== 配布用：スプレッドシートのメニュー ========== */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('配布用')
+    .addItem('テストの記録を消す（配布用）', 'clearTestRecords')
+    .addToUi();
+}
+
+function clearTestRecords() {
+  const ui = SpreadsheetApp.getUi();
+  const ok = ui.alert('テストの記録を消す', '「かいとう」「まとめ」「回のきろく」タブの記録（1行目の見出しは残します）を消します。質問・名簿は消えません。よろしいですか？', ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  [SH.ANS, SH.SUM, SH.ROUND].forEach(function (n) {
+    const sh = ss.getSheetByName(n);
+    if (sh && sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  });
+  ui.alert('消しました。');
 }

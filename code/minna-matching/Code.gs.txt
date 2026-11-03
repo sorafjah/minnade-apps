@@ -631,3 +631,23 @@ function writeRec_(tab, rows) {
   }
   sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
 }
+
+/* ========== 配布用：スプレッドシートのメニュー ========== */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('配布用')
+    .addItem('テストの記録を消す（配布用）', 'clearTestRecords')
+    .addToUi();
+}
+
+function clearTestRecords() {
+  const ui = SpreadsheetApp.getUi();
+  const ok = ui.alert('テストの記録を消す', '「きろく：」で始まるタブ（回答の記録）を消します。ペアのタブ・名簿は消えません。よろしいですか？', ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const all = ss.getSheets();
+  const rec = all.filter(function (s) { return s.getName().indexOf('きろく') === 0; });
+  if (rec.length >= all.length) { ui.alert('消せるタブがありませんでした。'); return; }
+  rec.forEach(function (s) { ss.deleteSheet(s); });
+  ui.alert('消しました。');
+}
