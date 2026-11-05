@@ -54,25 +54,25 @@ ruby rt{font-size:.5em;font-weight:400}
 .chip{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;border-radius:12px;color:var(--ink);margin:0 .1em;flex:none;font-weight:700;background:var(--o)}
 .fill{background:var(--o-bar)}
 .stage{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
-.q{font-size:clamp(24px,3.4vw,44px);font-weight:700;line-height:1.8}
-.qimg{display:block;max-width:100%;max-height:34vh;object-fit:contain;margin:0 auto;border-radius:12px}
-.hints{font-size:clamp(20px,2.8vw,32px);font-weight:700}
+.q{font-size:calc(clamp(24px,3.4vw,44px) * var(--f,1));font-weight:700;line-height:1.8}
+.qimg{display:block;max-width:100%;max-height:calc(34vh * var(--k,1));object-fit:contain;margin:0 auto;border-radius:12px}
+.hints{font-size:calc(clamp(20px,2.8vw,32px) * var(--f,1));font-weight:700}
 .hint{color:var(--sub);border-left:6px solid var(--o-bar);padding:2px 0 2px 12px;margin-top:6px}
-.subimg{display:block;max-width:100%;max-height:28vh;object-fit:contain;margin:6px 0;border-radius:10px}
-.explain{background:#fff;border:3px solid var(--ok);border-radius:16px;padding:10px 16px;font-size:clamp(20px,2.8vw,32px);font-weight:700;line-height:1.7}
+.stage.bigimg .qimg{width:100%;height:calc(72vh * var(--k,1));max-height:none}
+.subimg{display:block;max-width:100%;max-height:calc(28vh * var(--k,1));object-fit:contain;margin:6px 0;border-radius:10px}
+.explain{background:#fff;border:3px solid var(--ok);border-radius:16px;padding:10px 16px;font-size:calc(clamp(20px,2.8vw,32px) * var(--f,1));font-weight:700;line-height:1.7}
 .explain .lab{color:var(--ok);font-size:.75em}
 img[data-img]:not([src]){min-height:90px;min-width:120px;background:var(--soft)}
 .nfimg{color:var(--warn);font-size:16px;font-weight:700;border:2px dashed var(--warn);border-radius:10px;padding:8px 12px;margin:6px 0;line-height:1.6}
 .opts{display:flex;flex-direction:column;gap:10px}
 .opt{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;text-align:left;
   border:3px solid var(--o-line);background:var(--o-bg);border-radius:16px;padding:8px 16px;
-  font-size:clamp(22px,2.8vw,34px);font-weight:700;line-height:1.6;color:var(--ink);font-family:inherit}
+  font-size:calc(clamp(22px,2.8vw,34px) * var(--f,1));font-weight:700;line-height:1.6;color:var(--ink);font-family:inherit}
 button.opt{cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.08)}
 button.opt:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .opt .otxt{flex:1;min-width:0}
-.opt .track{width:30%;height:38px;background:#fff;border-radius:10px;overflow:hidden;flex:none}
-.opt .fill{height:100%;border-radius:10px;transition:width .4s}
-.opt .n{width:3.4em;text-align:right;flex:none}
+.opt .n{min-width:3.4em;text-align:right;flex:none;font-size:clamp(22px,2.8vw,34px)}  /* 人数は、文字の縮小（--f）に かかわらず 100% */
+#sMsg{display:none!important}  /* 生徒画面の ひとこと帯は 出さない */
 .opt.dim{opacity:.4}
 .opt.win{border:5px solid var(--ok)}
 .opt.mine{border:5px solid var(--main)}
@@ -81,6 +81,10 @@ button.opt:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .opt .tag{font-size:.65em;flex:none;padding:2px 10px;border-radius:999px;background:#fff}
 .opt .tag.ok{color:var(--ok)}
 .opt .tag.me{color:var(--main)}
+.opt .cimg{display:block;max-width:100%;max-height:calc(22vh * var(--k,1));object-fit:contain;border-radius:10px;margin:4px 0;background:#fff}
+.opts.pics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opts.pics .opt{flex-wrap:wrap;align-content:center}
+.opts.pics .opt .otxt{flex:1 1 60%;display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px}
 .opts.only .opt{justify-content:center}
 .opts.only .chip{font-size:1.5em}
 .inrow{display:flex;gap:10px;align-items:center}
@@ -133,7 +137,7 @@ button.opt:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .result{flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;padding:12px;text-align:center}
 .result .big{font-size:clamp(30px,5vw,56px);font-weight:700;line-height:1.5}
 .result .score{font-size:clamp(24px,3.6vw,40px);font-weight:700;color:var(--main)}
-.result .lvbox{font-size:clamp(20px,2.8vw,30px);font-weight:700;color:var(--up);background:var(--upsoft);border-radius:16px;padding:8px 20px}
+.guide{max-width:640px}.gstep{font-size:14px;color:var(--sub,#666);margin-bottom:6px}
 .marks{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:800px}
 .mk{display:flex;flex-direction:column;align-items:center;justify-content:center;width:56px;height:62px;border-radius:12px;background:var(--card);border:2px solid var(--line);font-weight:700;font-size:22px;line-height:1.1}
 .mk small{font-size:11px;color:var(--sub)}
@@ -154,11 +158,15 @@ button.opt:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 18px;display:flex;flex-direction:column;gap:10px}
 .card h3{margin:0;font-size:18px;color:var(--main)}
 .card .lead{font-size:16px;color:var(--sub);line-height:1.7}
-.live{display:flex;gap:20px;min-height:0}
-.t-side{width:min(26%,240px);display:flex;flex-direction:column;gap:12px;flex:none}
-.t-count{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px;text-align:center}
-.t-count .lab{font-size:clamp(16px,2vw,22px);font-weight:700;color:var(--sub)}
-.t-count .num{font-size:clamp(50px,8vw,100px);font-weight:700;color:var(--main);line-height:1.1}
+.live{display:flex;flex-direction:column;gap:14px;min-height:0}
+#tStage{flex:none}
+.t-who{display:flex;flex-direction:column;gap:6px}
+.t-who .lab{font-size:15px;font-weight:700;color:var(--sub)}
+#teacher.live .t-head > *{display:none}
+#teacher.live .t-head > #tTime{display:block}
+#teacher.live .t-head{justify-content:flex-end;padding:4px 16px}
+#teacher.live.notime .t-head{display:none}
+.pagechip{display:inline-block;align-self:flex-start;background:var(--oksoft);color:var(--ok);border-radius:999px;padding:2px 14px;font-weight:700;font-size:clamp(15px,1.8vw,19px)}
 .names{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
 .name{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:clamp(15px,1.8vw,20px);font-weight:700}
 .name small{color:var(--main);margin-left:6px}
@@ -224,6 +232,11 @@ button.opt:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .imgitem img{width:100%;height:100px;object-fit:contain;background:#fff;border-radius:8px}
 .imgitem .iname{font-size:15px;font-weight:700;word-break:break-all;-webkit-user-select:text;user-select:text}
 .copybtn{background:#fff;border:2px solid var(--main);color:var(--main);font-size:15px;min-height:40px}
+.delbtn{background:#fff;border:2px solid #b3402f;color:#b3402f;font-size:15px;min-height:40px}
+.delbtn.ask{background:#b3402f;color:#fff}
+#sOpts.hor,#tOpts.hor{display:grid;grid-template-columns:repeat(var(--hn,2),minmax(0,1fr));gap:10px;align-items:stretch}
+#sOpts.hor .opt,#tOpts.hor .opt{flex-direction:column;align-items:center;text-align:center;height:100%}
+@media (max-width:560px){#sOpts.hor,#tOpts.hor{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .copybtn.done{border-color:var(--ok);color:var(--ok)}
 a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-radius:14px;font-weight:700}
 .stutable-wrap{max-height:50vh;overflow:auto}
@@ -232,13 +245,10 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
 .stutable .seg button{min-height:40px;padding:0 10px;font-size:15px}
 
 @media (max-width:760px){
-  .live{flex-direction:column}
-  .t-side{width:100%;flex-direction:row}
-  .t-count .num{font-size:48px}
   .grid2{grid-template-columns:1fr}
-  .opt .track{width:22%}
 }
 @media (max-width:520px){
+  .opts.pics{grid-template-columns:1fr}
   .nicks{grid-template-columns:repeat(3,1fr)}
 }
 </style>
@@ -271,16 +281,27 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
     </div>
   </div>
 
+  <!-- 生徒用の使い方（スライド） -->
+  <div id="guideOv" class="ov hidden">
+    <div class="panel guide">
+      <div id="guideStep" class="gstep"></div>
+      <h2 id="guideTitle"></h2>
+      <div id="guideBody" class="helpbody"></div>
+      <div class="pbtns">
+        <button id="guideSkip" class="sub-btn" type="button"></button>
+        <button id="guideNext" class="main-btn" type="button"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- 生徒 -->
   <section id="student" class="view hidden">
     <header class="s-head">
       <button id="sNameBtn" class="namebtn" type="button"></button>
       <span id="sMode" class="chipmode hidden"></span>
-      <span id="sLevel" class="chipmode lvl hidden"></span>
       <span class="sp"></span>
       <span id="sTime" class="time"></span>
       <span id="sRound" class="s-round"></span>
-      <button id="sSnd" class="namebtn" type="button"></button>
       <button id="sHelpBtn" class="namebtn" type="button"></button>
     </header>
     <div id="sBar" class="tbar hidden"><div class="tfill"></div></div>
@@ -327,9 +348,8 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
       </div>
       <div id="tCode" class="codechip hidden"></div>
       <div id="tTime" class="time"></div>
-      <button id="tFormBtn" class="tool hidden" type="button">問題を入力する</button>
       <button id="tHelpBtn" class="tool" type="button">使い方</button>
-      <button id="tImgBtn" class="tool" type="button">画像</button>
+      <button id="tImgBtn" class="tool" type="button">画像を入れる</button>
       <button id="tStuBtn" class="tool" type="button">生徒ごとのレベル設定</button>
       <button id="tSetBtn" class="tool" type="button">くわしい設定</button>
     </header>
@@ -348,30 +368,36 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
         <div class="card">
           <h3>2. 答え方</h3>
           <div class="seg" id="segStyle">
-            <button data-v="four" type="button">4択</button>
-            <button data-v="two" type="button">2択</button>
-            <button data-v="input" type="button">入力</button>
+            <button data-v="choice" type="button">選択式</button>
+            <button data-v="input" type="button">記述式</button>
           </div>
-          <div class="note">2択は「正解とまちがいを1つ」だけ出します。入力は選択肢を出さず、正解のことばを打ちます（正解が書いてある問題だけ）。</div>
+          <div class="note">選択式は、入れた選択肢の数（2つ、3つ、4つ…）のまま出します。記述式は、生徒が文字で答えます。記述式で正解の欄が空だと、正誤のない「自由に書くアンケート」になります。</div>
         </div>
         <div class="card">
           <h3>3. 問題</h3>
-          <div id="fieldSource" class="field">
-            <span>問題の出し方（みんなでのときだけ）</span>
-            <div class="seg" id="segSource">
-              <button data-v="sheet" type="button">スプレッドシートのセットから</button>
-              <button data-v="manual" type="button">この画面で1問ずつ入力する</button>
-            </div>
-          </div>
           <div id="setField" class="field">
             <span>使うセット（スプレッドシートの「問題」タブ）</span>
             <div id="setList" class="setlist"></div>
-            <button id="makeTpl" class="danger" type="button">見出しの入った新しいタブを作る</button>
-            <div id="tplMsg" class="note"></div>
           </div>
         </div>
         <div class="card">
-          <h3>4. 参加コード（4けた）</h3>
+          <h3>4. 生徒の呼び方</h3>
+          <div class="seg" id="segNameMode">
+            <button data-v="roster" type="button">名簿から自分の名前を選ぶ</button>
+            <button data-v="chara" type="button">どうぶつのキャラを選ぶ</button>
+            <button data-v="guest" type="button">名前なし（ゲスト1、ゲスト2…）</button>
+          </div>
+          <div id="rosterField" class="field">
+            <span>使う名簿（スプレッドシートの「名簿」タブ）</span>
+            <div id="rosterList" class="setlist"></div>
+            <div id="rosterNote" class="note"></div>
+            <button id="makeRoster" class="danger hidden" type="button">「名簿」タブを作る</button>
+          </div>
+          <div id="guestNote" class="note hidden">名前を選ぶ画面は出ません。iPadごとに「ゲスト1」「ゲスト2」と番号がつき、記録の「名前」の列に入ります。同じiPadなら、つぎの回も同じゲストです。「生徒ごとのレベル設定」にも「ゲスト○」で出ます。</div>
+          <div class="note">変えると、みんな選びなおしになります。</div>
+        </div>
+        <div class="card">
+          <h3>5. 参加コード（4けた）</h3>
           <div class="seg" id="segCode">
             <button data-v="1" type="button">あり</button>
             <button data-v="0" type="button">なし</button>
@@ -406,19 +432,15 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
       <!-- みんなで：問題が出ているとき -->
       <div id="tvLive" class="tv hidden">
         <div class="live">
-          <div id="tStage" class="stage scroll">
+          <div id="tStage" class="stage">
             <div id="tQ" class="q"></div>
             <div id="tImg" class="hidden"></div>
             <div id="tHints" class="hints"></div>
             <div id="tOpts" class="opts"></div>
             <div id="tExplain" class="explain hidden"></div>
           </div>
-          <div class="t-side">
-            <div class="t-count">
-              <div class="lab">答えた人</div>
-              <div id="tCount" class="num">0</div>
-              <div id="tOf" class="lab"></div>
-            </div>
+          <div id="tWho" class="t-who">
+            <div id="tWhoLab" class="lab"></div>
             <div id="tNames" class="names"></div>
           </div>
         </div>
@@ -446,10 +468,39 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
         </div>
       </div>
       <div class="field">
-        <span>効果音（生徒の画面でも切りかえられます）</span>
+        <span>生徒の画面の使い方の説明（参加のあとに出ます）</span>
+        <div class="seg" id="segGuide">
+          <button data-v="0" type="button">はじめて使うiPadだけ</button>
+          <button data-v="1" type="button">毎回出す</button>
+        </div>
+        <div class="note">どちらでも、生徒の画面の「使い方」ボタンで、いつでも開けます。</div>
+      </div>
+      <div class="field">
+        <span>効果音（生徒の画面では切りかえられません。ここで決めます）</span>
         <div class="seg" id="segSound">
           <button data-v="1" type="button">オン</button>
           <button data-v="0" type="button">オフ</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>選択肢の並べ方（文章が少ないときや、画像が中心のときは横並びが見やすいです）</span>
+        <div class="seg" id="segOptLayout">
+          <button data-v="v" type="button">縦に並べる</button>
+          <button data-v="h" type="button">横に並べる</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>記述式の答えを、しめきったあとの先生の画面に</span>
+        <div class="seg" id="segTypedShow">
+          <button data-v="1" type="button">出す</button>
+          <button data-v="0" type="button">出さない</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>記述式の答えに、名前を</span>
+        <div class="seg" id="segTypedName">
+          <button data-v="1" type="button">つける</button>
+          <button data-v="0" type="button">つけない</button>
         </div>
       </div>
       <div class="field">
@@ -471,20 +522,6 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
           <button data-v="both" type="button">バーと秒数</button>
           <button data-v="text" type="button">秒数だけ</button>
         </div>
-      </div>
-      <div class="field">
-        <span>生徒の名前の選び方</span>
-        <div class="seg" id="segNameMode">
-          <button data-v="roster" type="button">名簿から自分の名前</button>
-          <button data-v="chara" type="button">どうぶつのキャラ</button>
-        </div>
-        <div class="note">変えると、みんな選びなおしになります。</div>
-      </div>
-      <div id="rosterField" class="field">
-        <span>使う名簿（スプレッドシートの「名簿」タブ）</span>
-        <div id="rosterList" class="setlist"></div>
-        <div id="rosterNote" class="note"></div>
-        <button id="makeRoster" class="danger hidden" type="button">「名簿」タブを作る</button>
       </div>
       <div class="field">
         <span>選ばれている名前（2回押すと、その人だけ選びなおし）</span>
@@ -521,13 +558,13 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
   <!-- 画像 -->
   <div id="imgOv" class="ov hidden">
     <div class="panel scroll">
-      <h2>画像</h2>
+      <h2>画像を入れる</h2>
       <div class="note">
-        ここで入れた画像は、ドライブの「みんなでクイズの画像」フォルダに入ります（自動で小さくします）。<br>
-        スプレッドシートの「問題の画像」「ヒント1の画像」「解説の画像」の欄に、画像の名前を書いてください。
+        ここで入れた画像は、このスプレッドシートの見えない「画像」タブに入ります（自動で小さくします）。ドライブは使いません。画像を消すときは、「画像」タブ（スプレッドシートの「表示 → 非表示のシート」で出せます）のその行を消します。<br>
+        スプレッドシートの「問題の画像」「Aの画像」〜「Dの画像」（選択肢）「ヒント1の画像」「解説の画像」の欄に、画像の名前を書いてください。
       </div>
       <div>
-        <label class="main-btn filebtn">1. 画像を選ぶ<input id="upFile" class="vh" type="file" accept="image/*" multiple></label>
+        <label class="main-btn filebtn">1. 入れたい画像を選ぶ<input id="upFile" class="vh" type="file" accept="image/*" multiple></label>
       </div>
       <div id="upStep2" class="field hidden">
         <span id="upChosen"></span>
@@ -536,54 +573,16 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
       </div>
       <div id="upMsg" class="note"></div>
       <div class="field">
-        <span>フォルダの中の画像（新しい順）</span>
+        <span>入れた画像（新しい順）</span>
         <div id="imgList" class="imglist"></div>
       </div>
       <div class="pbtns">
-        <a id="imgFolderLink" class="sub-btn linkbtn hidden" target="_blank" rel="noopener">ドライブで開く</a>
         <button id="imgClose" class="main-btn" type="button">閉じる</button>
       </div>
     </div>
   </div>
 
-  <!-- 1問入力する -->
-  <div id="formOv" class="ov hidden">
-    <div class="panel scroll">
-      <h2>問題を入力する</h2>
-      <label class="field"><span>問題文（ふりがなは「漢字《かんじ》」と書きます）</span><textarea id="fText" placeholder="例：日本《にほん》で いちばん 高《たか》い 山《やま》は？"></textarea></label>
-      <div class="grid2">
-        <label class="field"><span>A</span><input id="fA" type="text"></label>
-        <label class="field"><span>B</span><input id="fB" type="text"></label>
-        <label class="field"><span>C</span><input id="fC" type="text"></label>
-        <label class="field"><span>D</span><input id="fD" type="text"></label>
-      </div>
-      <div class="field">
-        <span>正解（選ばないときは、しめきったあとに選びます）</span>
-        <div class="seg" id="segAns">
-          <button data-v="" type="button">決めない</button>
-          <button data-v="A" type="button">A</button><button data-v="B" type="button">B</button><button data-v="C" type="button">C</button><button data-v="D" type="button">D</button>
-        </div>
-      </div>
-      <div class="grid2">
-        <label class="field"><span>問題の画像</span><input id="fImg" type="text" inputmode="url"></label>
-        <div></div>
-        <label class="field"><span>ヒント1</span><input id="fH1" type="text"></label>
-        <label class="field"><span>ヒント1の画像</span><input id="fH1i" type="text" inputmode="url"></label>
-        <label class="field"><span>ヒント2</span><input id="fH2" type="text"></label>
-        <label class="field"><span>ヒント2の画像</span><input id="fH2i" type="text" inputmode="url"></label>
-        <label class="field"><span>解説（答え合わせで出ます）</span><input id="fEx" type="text"></label>
-        <label class="field"><span>解説の画像</span><input id="fExi" type="text" inputmode="url"></label>
-      </div>
-      <div class="field">
-        <span>制限時間（秒。空なら設定の時間。0は制限なし）</span>
-        <div class="numbox" id="nbFLim"><button type="button" data-d="-5">▽</button><input type="text" inputmode="numeric" placeholder="設定"><button type="button" data-d="5">△</button></div>
-      </div>
-      <div class="pbtns">
-        <button id="fCancel" class="sub-btn" type="button">やめる</button>
-        <button id="fGo" class="main-btn" type="button">この問題を出す</button>
-      </div>
-    </div>
-  </div>
+
 </div>
 
 <script>
@@ -611,7 +610,7 @@ const QR_LIB = 'https:' + '//cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.
 const NICKS = ['🐰 うさぎ', '🐶 いぬ', '🐱 ねこ', '🐻 くま', '🐼 パンダ', '🦁 ライオン', '🐯 とら', '🐘 ぞう',
   '🦒 きりん', '🐵 さる', '🐧 ペンギン', '🐸 かえる', '🐢 かめ', '🐬 いるか', '🦊 きつね', '🐹 ハムスター'];
 const MODE_LABEL = { all: 'みんなで', solo: 'ひとりずつ' };
-const STYLE_LABEL = { four: '4択', two: '2択', input: '入力' };
+const STYLE_LABEL = { choice: '選択式', input: '記述式' };
 const SOLO_MAX = 15;
 const SVG_NS = 'http:' + '//www.w3.org/2000/svg';
 
@@ -764,7 +763,6 @@ const Snd = (function () {
     try {
       if (c.state === 'suspended') c.resume();
       if (kind === 'ok') { tone(660, 0, 0.14, 0.12); tone(880, 0.13, 0.2, 0.12); }
-      else if (kind === 'up') { tone(523, 0, 0.12, 0.12); tone(659, 0.12, 0.12, 0.12); tone(784, 0.24, 0.12, 0.12); tone(1047, 0.36, 0.25, 0.12); }
       else if (kind === 'ng') { tone(392, 0, 0.25, 0.06); } // やわらかい音（おどろかせない）
       else tone(600, 0, 0.08, 0.06);
     } catch (e) { /* 音が出なくても続ける */ }
@@ -789,7 +787,7 @@ function pumpImg() {
     IMG.running++;
     const delay = active === 'student' ? Math.random() * 800 / SPEED : 0;
     setTimeout(() => {
-      call('getImage', t.slice(4), CID, RAW_PAGE === 'teacher' ? 'teacher' : '').then(d => {
+      call('getImage', t.slice(4), CID, active === 'teacher' ? 'teacher' : '').then(d => {
         IMG.cache[t] = d;
         delete IMG.state[t];
         document.querySelectorAll('img[data-img]').forEach(el => { if (el.dataset.img === t) el.src = d; });
@@ -846,7 +844,9 @@ function paintTimer(p, st, offset) {
   }
   return sec;
 }
-function isLive(st) { return !!st && st.round > 0 && ['open', 'closed', 'reveal'].indexOf(st.phase) >= 0; }
+function isLive(st) { return !!st && st.round > 0 && ['open', 'closed', 'reveal', 'page'].indexOf(st.phase) >= 0; }
+/** 選択肢に ことばか 画像が あるか */
+function hasChoiceBody(choices, cimg) { return (choices || []).some(c => c) || (cimg || []).some(c => c); }
 
 /* ===== 問題の表示（先生・生徒で同じ見た目） ===== */
 function toItem(v) {
@@ -857,14 +857,15 @@ function toItem(v) {
 }
 function itemHtml(v, p) {
   const it = toItem(v);
-  return (it.text ? (p === 's' ? ks(it.text) : rubyHtml(it.text)) : '') + imgTag(it.img, 'subimg', p);
+  return (it.text ? (p === 's' ? ks(it.text) : ts(it.text)) : '') + imgTag(it.img, 'subimg', p);
 }
 /** 問題文・画像・ヒント */
 function renderQ(p, o) {
   const has = !!o.show && !!o.text;
+  $(p === 's' ? 'sStage' : 'tStage').classList.toggle('bigimg', !!o.big);   // 文も解説もなく画像だけのページは、画像を大きく
   const qEl = $(p + 'Q');
   qEl.classList.toggle('hidden', !has);
-  setHtml(qEl, has ? (p === 's' ? ks(o.text) : rubyHtml(o.text)) : '');
+  setHtml(qEl, has ? (p === 's' ? ks(o.text) : ts(o.text)) : '');
   const ih = o.show ? imgTag(o.img, 'qimg', p) : '';
   $(p + 'Img').classList.toggle('hidden', !ih);
   setHtml($(p + 'Img'), ih);
@@ -884,20 +885,24 @@ function renderExplain(p, list) {
 }
 /**
  * 選択肢。o.tap=押せる / o.mine=自分の答え / o.counts=人数 / o.showText=ことばを出す
- * o.correct=正解の文字（出すとき） / o.p='s'|'t'
+ * o.correct=正解の文字（出すとき） / o.p='s'|'t' / o.cimg=選択肢の画像
  */
+function setHor(el, on, n) {
+  el.classList.toggle('hor', !!on);
+  if (on) el.style.setProperty('--hn', Math.max(2, Math.min(4, n || 2)));
+}
 function optsHtml(choices, o) {
-  const max = o.counts ? Math.max(1, ...choices.map((_, i) => o.counts[LETTERS[i]] || 0)) : 1;
+  const cimg = o.cimg || [];
   return choices.map((t, i) => {
     const L = LETTERS[i], l = L.toLowerCase();
     let cls = 'opt ' + l;
     if (o.correct) cls += o.correct === L ? ' win' : (o.mine === L ? ' bad' : ' dim');
     else if (o.mine) cls += o.mine === L ? ' mine' : (o.ask === L ? ' ask' : (o.nodim ? '' : ' dim'));
-    const text = o.showText && t ? (o.p === 's' ? ks(t) : rubyHtml(t)) : '';
+    const text = (o.showText && t ? (o.p === 's' ? ks(t) : ts(t)) : '') + (o.showText && cimg[i] ? imgTag(cimg[i], 'cimg', o.p) : '');
     let extra = '';
     if (o.counts) {
       const n = o.counts[L] || 0;
-      extra += '<div class="track"><div class="fill ' + l + '" style="width:' + (n / max * 100) + '%"></div></div><span class="n">' + n + (o.p === 's' ? ks('人《にん》') : '人') + '</span>';
+      extra += '<span class="n">' + n + (o.p === 's' ? ks('人《にん》') : '人') + '</span>';
     }
     const S1 = o.p === 's' ? ks : (x => esc(plainText(x)));
     if (o.correct && o.correct === L) extra += H('span', 'tag ok', S1('正解《せいかい》'));
@@ -945,6 +950,8 @@ const MOCK = HAS_GAS ? null : (function () {
   const RAWQ = [
     { text: 'りんごの 色《いろ》は どれかな？', choices: ['あか', 'あお', 'きいろ', 'みどり'], answer: 'A', level: 1, limit: 20, types: { B: '色の ちがい', C: '色の ちがい', D: '色の ちがい' }, hints: ['くだものだよ'], explain: ['りんごは あかいね'] },
     { text: '1週間《いっしゅうかん》は 何日《なんにち》？', choices: ['5', '7', '10', '12'], answer: 'B', level: 1, limit: 20, types: { A: '数の ちがい', C: '数の ちがい' }, hints: [], explain: ['月・火・水・木・金・土・日で 7日だよ'] },
+    { page: true, text: '1週間《いっしゅうかん》は 月《げつ》・火《か》・水《すい》・木《もく》・金《きん》・土《ど》・日《にち》の 7日《なのか》だよ', img: 'まる', explain: ['カレンダーで たしかめて みよう'] },
+    { text: 'さんかくは どれかな？', choices: ['', '', ''], cimg: ['しかく', 'さんかく', 'まる1'], answer: 'B', level: 1, limit: 20, types: { A: '形の ちがい', C: '形の ちがい' }, hints: [], explain: [] },
     { text: '3×4は いくつ？', choices: ['7', '12', '34', '1'], answer: 'B', level: 2, limit: 30, types: { A: 'たし算と まちがえた', C: '数を ならべた' }, hints: ['3が 4こ あるよ', { text: 'まるを かぞえてみよう', img: 'まる' }], explain: [{ text: '3こずつ 4れつで 12こ', img: 'まる' }] },
     { text: '日本《にほん》で いちばん 高《たか》い 山《やま》は？', choices: ['富士山《ふじさん》', '北岳《きただけ》', '阿蘇山《あそさん》', '高尾山《たかおさん》'], answer: 'A', level: 2, limit: 30, types: { B: '2ばんめに 高い 山', C: '九州《きゅうしゅう》の 山' }, hints: ['静岡県《しずおかけん》と 山梨県《やまなしけん》に あるよ'], explain: ['高《たか》さは 3776メートルだよ'] },
     { text: '日本《にほん》の 首都《しゅと》は どこ？', choices: ['東京《とうきょう》', '大阪《おおさか》', '京都《きょうと》', '名古屋《なごや》'], answer: 'A', level: 3, limit: 30, types: { B: '大きい 町と まちがえた', C: '昔の 都と まちがえた' }, hints: [], explain: [] },
@@ -956,14 +963,18 @@ const MOCK = HAS_GAS ? null : (function () {
     '2組': ['さとう ゆうと', 'かとう みお', 'よしだ れん']
   };
   const BOTS = ['すずき あおい', '田中《たなか》 はると', 'たかはし けんた', 'いとう さくら'];
-  const DEF = { round: 0, phase: 'wait', index: 0, total: 0, hintShown: 0, openedAt: 0, correct: '', setName: '', sid: '', mode: 'all', style: 'four', source: 'sheet', qn: 0 };
+  const DEF = { round: 0, phase: 'wait', index: 0, total: 0, hintShown: 0, openedAt: 0, correct: '', setName: '', sid: '', mode: 'all', style: 'choice', source: 'sheet', qn: 0 };
   const set = { source: 'sheet', showQ: true, limit: 0, limitSet: false, timeView: 'bar', nameMode: 'roster', rosterGroup: '1組', codeOn: false, code: '4821',
-    mode: 'all', style: 'four', kana: 'ruby', sound: true, qrUrl: '', auto: true, upN: 3, downN: 2 };
+    mode: 'all', style: 'choice', kana: 'ruby', sound: true, qrUrl: '', auto: true, upN: 3, downN: 2, guideEvery: false, typedShow: false, typedName: false, optLayout: 'v' };
   const stuCfg = { 'すずき あおい': { lv: 1, lo: 1, hi: 3, auto: '' }, '田中《たなか》 はると': { lv: 2, lo: 1, hi: 2, auto: 'off' } };
   let st = Object.assign({}, DEF), cur = null, ans = [], pq = [], joined = [], members = {}, statuses = {}, joinedMe = false, codeOk = false;
   const ME = 'me';
-  let tplNo = 0, fileNo = 2;
-  const FOLDER = { mock000000000001: { name: 'まる.svg', data: dots, t: 1 } };
+  let fileNo = 5;
+  const shape = (body) => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="' + SVG_NS + '" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" rx="12" fill="#fff"/>' + body + '</svg>');
+  const FOLDER = { mock000000000001: { name: 'まる.svg', data: dots, t: 1 },
+    mock000000000002: { name: 'さんかく.svg', data: shape('<polygon points="60,18 104,100 16,100" fill="#8cc4ea"/>'), t: 2 },
+    mock000000000003: { name: 'しかく.svg', data: shape('<rect x="22" y="22" width="76" height="76" fill="#8cc4ea"/>'), t: 3 },
+    mock000000000004: { name: 'まる1.svg', data: shape('<circle cx="60" cy="60" r="40" fill="#8cc4ea"/>'), t: 4 } };
   const findImg = s => { const ids = Object.keys(FOLDER); return ids.find(id => FOLDER[id].name === s) || ids.find(id => FOLDER[id].name.replace(/\.[^.]+$/, '') === s); };
   const imgRef = s => { s = String(s || '').trim(); if (!s || /^(data:|https?:|img:|nf:)/.test(s)) return s; const id = findImg(s); return id ? 'img:' + id : 'nf:画像「' + s + '」が見つかりません'; };
 
@@ -974,45 +985,45 @@ const MOCK = HAS_GAS ? null : (function () {
   const effLimit = () => set.limitSet ? set.limit : 60;
 
   function present(q, style, seed) {
+    if (q.page) return { page: true, text: q.text, img: imgRef(q.img), explain: (q.explain || []).map(h => { const it = toItem(h); return { text: it.text, img: imgRef(it.img) }; }),
+      hints: [], choices: [], cimg: [], map: [], answer: '', input: false, accept: [], correctText: '', types: {}, limit: 0, level: 1 };
     const rnd = rng(seed), n = q.choices.length;
     const o = { text: q.text, img: imgRef(q.img), hints: q.hints.map(h => { const it = toItem(h); return { text: it.text, img: imgRef(it.img) }; }),
       explain: q.explain.map(h => { const it = toItem(h); return { text: it.text, img: imgRef(it.img) }; }),
-      limit: q.limit === null || q.limit === undefined ? effLimit() : q.limit, level: q.level || 1, choices: q.choices.slice(), map: LETTERS.slice(0, n).split(''),
-      answer: q.answer, input: false, accept: [], correctText: '', types: {} };
+      limit: q.limit === null || q.limit === undefined ? effLimit() : q.limit, level: q.level || 1, choices: q.choices.slice(), cimg: (q.cimg || []).map(imgRef), map: LETTERS.slice(0, n).split(''),
+      answer: q.answer, input: false, survey: false, accept: [], correctText: '', types: {} };
     Object.keys(q.types || {}).forEach(L => { o.types[L] = q.types[L]; });
-    const ai = LETTERS.indexOf(q.answer);
-    if (style === 'two' && ai >= 0 && n > 2) {
-      const wrong = []; for (let i = 0; i < n; i++) if (i !== ai) wrong.push(i);
-      const w = wrong[Math.floor(rnd() * wrong.length)];
-      const pair = rnd() < 0.5 ? [ai, w] : [w, ai];
-      o.choices = pair.map(i => q.choices[i]); o.map = pair.map(i => LETTERS[i]); o.answer = LETTERS[pair.indexOf(ai)];
-      o.types = {}; pair.forEach((i, k) => { if (q.types[LETTERS[i]]) o.types[LETTERS[k]] = q.types[LETTERS[i]]; });
-    } else if (style === 'input' && ai >= 0) {
-      o.input = true; o.correctText = q.choices[ai];
+    const ai = q.answer ? LETTERS.indexOf(q.answer) : -1;
+    const hasChoice = q.choices.some((c, i) => c || (q.cimg || [])[i]);
+    if (ai >= 0 && q.choices[ai] && style === 'input') {
+      o.input = true; o.correctText = q.choices[ai]; o.cimg = [];
       o.accept = [plain(q.choices[ai]), reading(q.choices[ai])].concat(q.alt || []);
+    } else if (ai < 0 && (style === 'input' || !hasChoice)) {
+      o.input = true; o.survey = true; o.choices = []; o.cimg = []; o.map = [];
     }
     return o;
   }
   const judgeInput = (q, t) => { const n = normA(t); return n !== '' && q.accept.some(a => normA(a) === n); };
   const sheetRows = () => RAWQ;
   const setName = () => 'れい：計算と ものしり';
-  const chosen = () => (set.nameMode === 'roster' ? ROSTER[set.rosterGroup] : NICKS);
-  const myN = () => (chosen().indexOf(members[ME]) >= 0 ? members[ME] : '');
+  const chosen = () => (set.nameMode === 'roster' ? ROSTER[set.rosterGroup] : set.nameMode === 'guest' ? [] : NICKS);
+  const myN = () => (set.nameMode === 'guest' ? 'ゲスト1' : chosen().indexOf(members[ME]) >= 0 ? members[ME] : '');
   const takenBy = () => Object.keys(members).filter(k => k !== ME).map(k => members[k]);
-  const isLiveM = () => st.round > 0 && ['open', 'closed', 'reveal'].indexOf(st.phase) >= 0;
+  const isLiveM = () => st.round > 0 && ['open', 'closed', 'reveal', 'page'].indexOf(st.phase) >= 0;
   const roundAns = () => ans.filter(a => a.round === st.round);
 
   function pub() {
     const on = !!st.sid && st.phase !== 'wait';
-    const p = { v: 10, sid: st.sid, mode: on ? st.mode : set.mode, style: on ? st.style : set.style, round: st.round, phase: st.phase, index: st.index, total: st.total,
+    const p = { v: 11, guideEvery: set.guideEvery, optLayout: set.optLayout === 'h' ? 'h' : 'v', sid: st.sid, mode: on ? st.mode : set.mode, style: on ? st.style : set.style, round: st.round, phase: st.phase, index: st.index, total: st.total,
       correct: st.phase === 'reveal' ? st.correct : '', correctText: '', timeView: set.timeView, showQ: set.showQ, kana: set.kana, sound: set.sound,
       source: on ? st.source : set.source, openedAt: st.openedAt, setName: st.setName, defLimit: effLimit(),
       nameMode: set.nameMode, roster: set.nameMode === 'roster' ? ROSTER[set.rosterGroup] : [], codeOn: set.codeOn,
-      text: '', choices: [], input: false, img: '', hints: [], hintTotal: 0, limit: 0, explain: [] };
-    if (cur && st.round > 0 && ['open', 'closed', 'reveal'].indexOf(st.phase) >= 0) {
-      Object.assign(p, { text: cur.text, choices: cur.input ? [] : cur.choices, input: cur.input, img: cur.img, limit: cur.limit,
+      text: '', choices: [], cimg: [], input: false, img: '', hints: [], hintTotal: 0, limit: 0, explain: [],
+      more: (st.row || 0) < pq.length, nextPage: !!(pq[st.row || 0] && pq[st.row || 0].page) };
+    if (cur && st.round > 0 && ['open', 'closed', 'reveal', 'page'].indexOf(st.phase) >= 0) {
+      Object.assign(p, { text: cur.text, choices: cur.input || cur.page ? [] : cur.choices, cimg: cur.input || cur.page ? [] : (cur.cimg || []), input: cur.input, img: cur.img, limit: cur.limit,
         hints: cur.hints.slice(0, st.hintShown), hintTotal: cur.hints.length });
-      if (st.phase === 'reveal') { p.explain = cur.explain; if (cur.input) p.correctText = cur.correctText; }
+      if (st.phase === 'reveal' || st.phase === 'page') { p.explain = cur.explain; if (cur.input) p.correctText = cur.correctText; }
     }
     return JSON.parse(JSON.stringify(p));
   }
@@ -1066,10 +1077,11 @@ const MOCK = HAS_GAS ? null : (function () {
     }
   }, 1500 / SPEED);
 
-  function listSets() { return [{ id: 'れい' + SEP + '', name: setName(), count: RAWQ.length }, { id: '理科' + SEP + '', name: '理科', count: 3 }]; }
+  const QN = () => RAWQ.filter(q => !q.page).length;
+  function listSets() { return [{ id: 'れい' + SEP + '', name: setName(), count: QN() }, { id: '理科' + SEP + '', name: '理科', count: 3 }]; }
   function levelsOf() {
     const by = {};
-    RAWQ.forEach(q => { (by[q.level] = by[q.level] || []).push(plain(q.text)); });
+    RAWQ.forEach(q => { if (!q.page) (by[q.level] = by[q.level] || []).push(plain(q.text)); });
     return Object.keys(by).map(Number).sort().map(lv => ({ level: lv, count: by[lv].length, items: by[lv] }));
   }
   function start() {
@@ -1078,7 +1090,7 @@ const MOCK = HAS_GAS ? null : (function () {
     const mode = set.mode;
     const source = mode === 'solo' ? 'sheet' : set.source;
     st = Object.assign({}, DEF, { round: st.round, phase: 'lobby', sid: 'sid-' + sid, mode: mode, style: set.style, source: source,
-      setName: source === 'sheet' ? setName() : 'その場の問題', total: source === 'sheet' ? RAWQ.length : 0, setId: 'れい' + SEP });
+      setName: source === 'sheet' ? setName() : 'その場の問題', total: source === 'sheet' ? QN() : 0, setId: 'れい' + SEP, row: 0 });
     cur = null; ans = []; joined = []; statuses = {};
     pq = RAWQ.map((q, i) => { const o = present(q, st.style, st.sid + '#' + (i + 1)); o.id = i + 1; return o; });
     Object.keys(marks_).forEach(k => delete marks_[k]);
@@ -1129,12 +1141,15 @@ const MOCK = HAS_GAS ? null : (function () {
       if (st.mode !== 'solo' || st.phase !== 'play') return { ok: false, notPlay: true };
       if (!myN()) return { ok: false, needNick: true };
       const cfg = stuCfg[myN()] || {};
-      const lvs = pq.map(q => q.level), minL = Math.min.apply(null, lvs), maxL = Math.max.apply(null, lvs);
+      const all = JSON.parse(JSON.stringify(pq)), qs = [], pages = {}, intro = [];
+      let last = null;
+      all.forEach(o => { if (o.page) { pages[o.id] = o; (last ? last.after : intro).push(o.id); } else { o.after = []; qs.push(o); last = o; } });
+      const lvs = qs.map(q => q.level), minL = Math.min.apply(null, lvs), maxL = Math.max.apply(null, lvs);
       const lo = Math.max(minL, Math.min(maxL, cfg.lo || minL)), hi = Math.max(lo, Math.min(maxL, cfg.hi || maxL));
       const lv0 = Math.max(lo, Math.min(hi, cfg.lv || lo));
       const auto = cfg.auto === 'off' ? false : (cfg.auto === 'on' ? true : set.auto);
       return { ok: true, pack: { sid: st.sid, style: st.style, auto: auto, upN: set.upN, downN: set.downN, lv0: lv0, lo: lo, hi: hi, minL: minL, maxL: maxL,
-        levels: lvs.filter((v, i) => lvs.indexOf(v) === i).sort(), qs: JSON.parse(JSON.stringify(pq)), defLimit: effLimit() } };
+        levels: lvs.filter((v, i) => lvs.indexOf(v) === i).sort(), qs: qs, pages: pages, intro: intro, defLimit: effLimit() } };
     },
     studentLog(cid, sid, items, status) {
       if (!st.sid || st.sid !== sid) return { ok: false, gone: true };
@@ -1146,7 +1161,7 @@ const MOCK = HAS_GAS ? null : (function () {
       const p = pub(), on = !!st.sid && st.phase !== 'wait';
       const out = { state: p, now: Date.now(), settings: JSON.parse(JSON.stringify(Object.assign({}, set, { limit: effLimit() }))), url: 'https:' + '//script.google.com/macros/s/DEMO/exec' + (set.codeOn ? '?code=' + set.code : ''),
         codeOn: set.codeOn, code: set.codeOn ? set.code : '', joined: on ? joined.map(j => plain(j.n)) : [], list: [], hasKey: false, qTypes: {}, levels: [], board: [], rows: [], types: [],
-        qCount: on ? st.total : RAWQ.length, setName: on ? st.setName : (set.source === 'manual' && set.mode === 'all' ? 'その場の問題' : setName()) };
+        qCount: on ? st.total : QN(), pages: RAWQ.length - QN(), setName: on ? st.setName : (set.source === 'manual' && set.mode === 'all' ? 'その場の問題' : setName()) };
       if (on && st.mode === 'all' && ['open', 'closed', 'reveal'].indexOf(st.phase) >= 0) {
         out.list = roundAns().map(a => ({ name: plain(a.n), choice: a.c }));
         out.hasKey = !!(cur && (cur.answer || cur.input));
@@ -1174,31 +1189,31 @@ const MOCK = HAS_GAS ? null : (function () {
     },
     teacherNext() {
       if (st.mode !== 'all' || st.source !== 'sheet') return pub();
-      const idx = st.index + 1;
-      if (idx > pq.length) { st.phase = 'end'; return pub(); }
-      st = Object.assign(st, { round: st.round + 1, phase: 'open', index: idx, total: pq.length, hintShown: 0, openedAt: Date.now(), correct: '', qn: idx });
-      cur = pq[idx - 1]; return pub();
-    },
-    teacherPush(o) {
-      const raw = { text: o.text, choices: (o.choices || []).filter(Boolean), answer: o.answer, level: 1, limit: o.limit === '' ? null : o.limit, types: {}, hints: (o.hints || []).filter(h => h.text || h.img), explain: (o.explain || []).filter(h => h.text || h.img) };
-      cur = present(raw, st.style, st.sid + '#m' + (st.round + 1));
-      st = Object.assign(st, { round: st.round + 1, phase: 'open', index: 0, total: 0, hintShown: 0, openedAt: Date.now(), correct: '', qn: (st.qn || 0) + 1 });
+      const row = (st.row || 0) + 1;
+      if (row > pq.length) { st.phase = 'end'; st.total = QN(); return pub(); }
+      cur = pq[row - 1];
+      const base = { round: st.round + 1, row: row, total: QN(), hintShown: 0, openedAt: Date.now(), correct: '' };
+      if (cur.page) { st = Object.assign(st, base, { phase: 'page' }); return pub(); }
+      st = Object.assign(st, base, { phase: 'open', index: st.index + 1, qn: st.index + 1 });
       return pub();
     },
     teacherHint() { if (cur) st.hintShown = Math.min(st.hintShown + 1, cur.hints.length); return pub(); },
     teacherClose() { if (st.phase === 'open') st.phase = 'closed'; return pub(); },
     teacherReveal(c) {
       if (!cur) throw new Error('問題が出ていません');
+      const survey = (cur.input && !!cur.survey) || (!cur.input && !cur.answer && !c && st.source === 'sheet');
       c = cur.input ? '' : (c || cur.answer);
-      if (!cur.input && !c) throw new Error('正解を選んでください');
+      if (!cur.input && !c && !survey) throw new Error('正解を選んでください');
       st.phase = 'reveal'; st.correct = c; commit(); return pub();
     },
     teacherEnd() { if (st.sid) st.phase = 'end'; if (st.mode === 'all' && st.source === 'manual') st.total = st.qn || 0; return pub(); },
     teacherRestart() { st = Object.assign({}, DEF, { round: st.round }); cur = null; return pub(); },
     teacherSets() { return { sets: listSets(), current: 'れい' + SEP }; },
     teacherSettings(o) {
-      ['mode', 'style', 'source', 'timeView', 'kana', 'qrUrl'].forEach(k => { if (typeof o[k] === 'string' && o[k] !== undefined) set[k] = o[k]; });
-      ['showQ', 'sound', 'codeOn', 'auto'].forEach(k => { if (typeof o[k] === 'boolean') set[k] = o[k]; });
+      ['mode', 'style', 'source', 'timeView', 'kana', 'qrUrl', 'optLayout'].forEach(k => { if (typeof o[k] === 'string' && o[k] !== undefined) set[k] = o[k]; });
+      if (set.style !== 'input') set.style = 'choice';
+      if (set.optLayout !== 'h') set.optLayout = 'v';
+      ['showQ', 'sound', 'codeOn', 'auto', 'guideEvery', 'typedShow', 'typedName'].forEach(k => { if (typeof o[k] === 'boolean') set[k] = o[k]; });
       if (o.limit !== undefined) { set.limit = Math.max(0, Math.min(600, parseInt(o.limit, 10) || 0)); set.limitSet = true; }
       if (o.upN !== undefined) set.upN = Math.max(1, Math.min(20, parseInt(o.upN, 10) || 3));
       if (o.downN !== undefined) set.downN = Math.max(1, Math.min(20, parseInt(o.downN, 10) || 2));
@@ -1206,7 +1221,6 @@ const MOCK = HAS_GAS ? null : (function () {
       if (typeof o.rosterGroup === 'string' && o.rosterGroup !== set.rosterGroup) { set.rosterGroup = o.rosterGroup; members = {}; }
       return pub();
     },
-    teacherMakeTemplate() { tplNo++; return '新しい問題' + (tplNo > 1 ? tplNo : ''); },
     teacherRoster() { return { exists: true, mode: set.nameMode, current: set.rosterGroup, groups: Object.keys(ROSTER).map(g => ({ name: g, count: ROSTER[g].length })) }; },
     teacherMakeRoster() { return api.teacherRoster(); },
     teacherMembers() { const v = Object.keys(members).map(k => members[k]); return { names: chosen().filter(n => v.indexOf(n) >= 0), mode: set.nameMode }; },
@@ -1214,7 +1228,7 @@ const MOCK = HAS_GAS ? null : (function () {
     teacherNewCode() { set.code = String(1000 + Math.floor(Math.random() * 9000)); codeOk = false; return set.code; },
     teacherClearNames() { members = {}; joined = joined.filter(j => j.w !== ME); return true; },
     getStudentTable(group) {
-      const names = ROSTER[group] || ROSTER[set.rosterGroup] || [];
+      const names = set.nameMode === 'guest' ? ['ゲスト1', 'ゲスト2'] : (ROSTER[group] || ROSTER[set.rosterGroup] || []);
       return { rows: names.map(n => { const s = stuCfg[n] || {}; return { name: n, lv: s.lv || 0, lo: s.lo || 0, hi: s.hi || 0, auto: s.auto || '' }; }), minL: 1, maxL: 3, auto: set.auto };
     },
     saveStudentTable(rows) { rows.forEach(r => { stuCfg[r.name] = { lv: r.lv, lo: r.lo, hi: r.hi, auto: r.auto }; }); return true; },
@@ -1228,11 +1242,13 @@ const MOCK = HAS_GAS ? null : (function () {
       FOLDER[id] = { name: name, data: data, t: Date.now() };
       return { name: name, id: id };
     },
+    deleteImage(id) { delete FOLDER[id]; return { ok: true }; },
     listImages() {
       const items = Object.keys(FOLDER).map(id => ({ id: id, name: FOLDER[id].name, t: FOLDER[id].t })).sort((a, b) => b.t - a.t);
       return { folderUrl: '', items: items, total: items.length };
     }
   };
+  api.rawq = RAWQ;
   return api;
 })();
 if (!HAS_GAS) window.__MOCK = MOCK;
@@ -1243,11 +1259,13 @@ const S = {
   nick: '', taken: [], picking: false, state: null, offset: 0, timer: null,
   joined: false, n: 0, joinTry: '', joinAt: 0, curSid: '',
   mine: '', chg: false, ask: '', pending: '', myRound: -1, sending: false, typed: '', judge: null, res: null,
-  soundPref: lsGet('quizSound') !== 'off', soundRound: -1,
-  solo: null, soloBusy: false, flushing: false, flushAgain: false, soloEnd: false
+  soundPref: true, soundRound: -1,
+  solo: null, soloBusy: false, flushing: false, flushAgain: false, soloEnd: false,
+  guide: { open: false, i: 0, sid: '', at: 0 }
 };
 const CODE_KEY = 'quizCode';
 const SOLO_KEY = 'quizSolo3';
+const GUIDE_KEY = 'quizGuideSeen';
 let popT = 9, popKey = '';
 
 if (/^\d{4}$/.test(RAW_CODE)) S.code = RAW_CODE;   // QRコードのアドレスについているコード
@@ -1256,23 +1274,76 @@ function loadCode() { return lsGet(CODE_KEY) || ''; }
 function saveCode(v) { lsSet(CODE_KEY, v || null); }
 
 /* ----- 文字（ふりがなの切りかえに対応） ----- */
-const HELP_S = '' +
-  '<div><h3>1. 参加《さんか》コードを いれる（でたときだけ）</h3><ul><li>先生《せんせい》の 画面《がめん》の 4けたの すうじを、ボタンで いれてね。</li><li>QRコードを よみとった ときは、いれなくて いいよ。</li></ul></div>' +
-  '<div><h3>2. 自分《じぶん》の 名前《なまえ》を えらぶ</h3><ul><li>名前《なまえ》の ボタンを おしてね。</li><li>クイズが はじまったら、名前《なまえ》は かえられないよ。</li></ul></div>' +
-  '<div><h3>3. 「みんなで」の とき</h3><ul><li>先生《せんせい》が はじめるまで まってね。</li><li>問題《もんだい》が でたら、答《こた》えの ボタンを おしてね。</li><li>べつの 答《こた》えを おすと「かえる？」と でるよ。もういちど おすと かわるよ。かえられるのは 1かいだけ。</li><li>みんなが 答《こた》え おわったら、先生《せんせい》が こたえあわせを するよ。</li></ul></div>' +
-  '<div><h3>4. 「ひとりずつ」の とき</h3><ul><li>自分《じぶん》の ペースで 答《こた》えて、「つぎへ」を おして すすむよ。</li><li>よく できると「レベルアップ」！ むずかしいときは、ちょうどいい 問題《もんだい》に なるよ。</li><li>ヒントが あるときは「ヒントを 見《み》る」を おしてね。</li></ul></div>' +
-  '<div><h3>5. まちがえても だいじょうぶ</h3><ul><li>まちがえても いいんだよ。つぎも やってみよう。</li></ul></div>';
-
-function openHelp(kind) {
-  $('helpTitle').innerHTML = kind === 's' ? ks('使《つか》い方《かた》') : '使い方（先生向け）';
-  $('helpBody').innerHTML = kind === 's' ? HELP_S.replace(/>([^<]*)</g, function (m, t) { return '>' + ks(t) + '<'; }) : HELP_T;
+/* ----- 使い方（スライド）：参加のあとに出る。「使い方」ボタンで、いつでも開ける ----- */
+function guideSlides() {
+  const st = S.state;
+  const solo = !!st && st.mode === 'solo';
+  const inp = !!st && st.style === 'input';
+  const guest = !!st && st.nameMode === 'guest';
+  const L = [];
+  const first = [];
+  if (guest) first.push('名前《なまえ》は えらばなくて いいよ。', 'この iPadは「' + (S.nick || 'ゲスト') + '」だよ。');
+  else if (S.nick) first.push('上《うえ》に きみの 名前《なまえ》が 出《で》ているよ。');
+  else first.push('先生《せんせい》の 画面《がめん》の 4けたの すうじを いれたり、名前《なまえ》を えらんだり するよ。');
+  first.push('先生《せんせい》が はじめるまで、少《すこ》し まってね。');
+  L.push({ t: 'はじめに', b: first });
+  L.push({ t: '答《こた》え方《かた》', b: inp
+    ? ['こたえを 入《い》れて、「こたえる」を おしてね。', '漢字《かんじ》でも ひらがなでも いいよ。']
+    : ['こたえの ボタンを おしてね。', '絵《え》の ついた ボタンも あるよ。', '色《いろ》と 文字《もじ》が 出《で》るから、まちがえないよ。'] });
+  L.push(solo
+    ? { t: '「ひとりずつ」', b: ['自分《じぶん》の ペースで 答《こた》えるよ。', 'おわったら「つぎへ」を おしてね。', 'ヒントが あるときは「ヒントを 見《み》る」を おしてね。', 'せつめいの ページが 出《で》たら、見《み》てから「つぎへ」を おしてね。'] }
+    : { t: '「みんなで」', b: ['みんなが 答《こた》えるまで、先生《せんせい》が まってくれるよ。', inp ? '答《こた》えたら、先生《せんせい》が こたえあわせを するまで まってね。' : 'べつの 答《こた》えを おすと「かえる？」と 出《で》るよ。もういちど おすと かわるよ。かえられるのは 1かいだけ。'] });
+  L.push({ t: 'まちがえても だいじょうぶ', b: ['まちがえても いいんだよ。つぎも やってみよう。', 'わからなく なったら、先生《せんせい》に きいてね。'] });
+  return L;
+}
+function renderGuide() {
+  const ov = $('guideOv');
+  ov.classList.toggle('hidden', !S.guide.open);
+  if (!S.guide.open) return;
+  const sl = guideSlides();
+  const i = Math.max(0, Math.min(S.guide.i, sl.length - 1));
+  const x = sl[i];
+  setHtml($('guideStep'), ks('使《つか》い方《かた》') + '　' + (i + 1) + ' / ' + sl.length);
+  setHtml($('guideTitle'), ks(x.t));
+  setHtml($('guideBody'), '<ul>' + x.b.map(l => '<li>' + ks(l) + '</li>').join('') + '</ul>');
+  setHtml($('guideSkip'), ks('とばす'));
+  setHtml($('guideNext'), i < sl.length - 1 ? ks('つぎへ') : ks('とじる'));
+}
+function openGuide() {
+  S.guide.open = true; S.guide.i = 0; S.guide.at = Date.now();
+  renderGuide();
+}
+function closeGuide() {
+  if (!S.guide.open) return;
+  S.guide.open = false;
+  // ひとりずつで答えている途中なら、見ていた間の時間は数えない
+  const s = curSolo();
+  if (s && s.cur && !s.fb && !s.done && !soloPage(s) && S.guide.at) { s.curStart += Date.now() - S.guide.at; soloSave(); }
+  S.guide.at = 0;
+  renderGuide();
+  renderStudent();
+}
+/** 参加のあとに、はじめての端末（または先生が「毎回出す」にしたとき）だけ自動で出す */
+function maybeGuide(st) {
+  if (S.guide.open || !st || !S.nick) return;
+  const wait = st.phase === 'wait';   // 受付の前は、名前をきめた時点で「参加ずみ」とみなす
+  if (!wait && !S.joined) return;
+  const key = wait ? 'w' : st.sid;
+  if (S.guide.sid === key) return;
+  const was = S.guide.sid;
+  S.guide.sid = key;
+  if (!wait && was === 'w') return;   // 受付の前に見たあとは、同じ回では出さない
+  if (st.guideEvery || !lsGet(GUIDE_KEY)) { lsSet(GUIDE_KEY, '1'); openGuide(); }
+}
+function openHelp() {
+  $('helpTitle').innerHTML = '使い方（先生向け）';
+  $('helpBody').innerHTML = HELP_T;
   $('helpOv').classList.remove('hidden');
 }
 $('helpClose').addEventListener('click', () => $('helpOv').classList.add('hidden'));
 
 function renderStatic() {
   setHtml($('sHelpBtn'), ks('使《つか》い方《かた》'));
-  setHtml($('sSnd'), Snd.on ? ks('おと ON') : ks('おと OFF'));
   setHtml($('sSend'), ks('こたえる'));
   setHtml($('sPickBack'), ks('もどる'));
   setHtml($('sCodeM'), ks('先生《せんせい》の 画面《がめん》の\n4けたの すうじを いれてね'));
@@ -1359,33 +1430,36 @@ async function ensureJoined() {
 /* ----- 画面 ----- */
 function qNo(st) { return st.source === 'sheet' && st.index > 0 ? st.index : st.round; }
 const isRoster = () => !!(S.state && S.state.nameMode === 'roster');
+const isGuest = () => !!(S.state && S.state.nameMode === 'guest');
 
 function renderStudent() {
   const st = S.state;
   renderStatic();
+  renderGuide();
+  $('sHelpBtn').classList.toggle('hidden', !(S.needCode || !S.nick || S.picking));   // 「使い方」は、参加する前だけ
   $('sCode').classList.toggle('hidden', !S.needCode);
   if (S.needCode) {
     $('sPick').classList.add('hidden'); $('sMain').classList.add('hidden'); $('sNameBtn').classList.add('hidden');
-    $('sMode').classList.add('hidden'); $('sLevel').classList.add('hidden');
+    $('sMode').classList.add('hidden');
     renderCode(); tickStudent();
     return;
   }
   const locked = !!st && (isLive(st) || (st.mode === 'solo' && st.phase === 'play'));
   if (locked && S.nick) S.picking = false;
-  setHtml($('sNameBtn'), S.nick ? ks(S.nick) + ' ' + ks('さん') + (locked ? '' : ' <small>' + ks('かえる') + '</small>') : '');
+  const guest = isGuest();
+  setHtml($('sNameBtn'), S.nick ? ks(S.nick) + (guest ? '' : ' ' + ks('さん') + (locked ? '' : ' <small>' + ks('かえる') + '</small>')) : '');
   $('sNameBtn').classList.toggle('hidden', !S.nick);
-  $('sNameBtn').disabled = locked;
-  setHtml($('sSnd'), Snd.on ? ks('おと ON') : ks('おと OFF'));
+  $('sNameBtn').disabled = locked || guest;
   $('sMode').classList.toggle('hidden', !st || st.phase === 'wait');
   if (st) setHtml($('sMode'), ks(MODE_LABEL[st.mode] || ''));
 
-  const pick = S.picking || (st && !S.nick);
+  const pick = !guest && (S.picking || (st && !S.nick));
   $('sPick').classList.toggle('hidden', !pick);
   $('sMain').classList.toggle('hidden', !!pick);
   if (pick) {
-    $('sLevel').classList.add('hidden');
     renderNicks(); tickStudent(); return;
   }
+  maybeGuide(st);
 
   const solo = !!st && st.mode === 'solo';
   const live = isLive(st);
@@ -1398,7 +1472,6 @@ function renderStudent() {
   $('sIdle').classList.toggle('hidden', !showIdle);
   $('sMsg').classList.toggle('hidden', !showStage);
   $('sAct').classList.add('hidden');
-  $('sLevel').classList.add('hidden');
 
   if (view !== 'live' && !(view === 'solo' && cs && !cs.done)) setRound('');
   if (view === 'live') renderLive(st);
@@ -1406,7 +1479,7 @@ function renderStudent() {
   else if (view === 'end') renderResult(st);
   else {
     let m;
-    if (!st) m = 'つないでいるよ…';
+    if (!st || !S.nick) m = 'つないでいるよ…';
     else if (st.phase === 'wait') m = '先生《せんせい》が 受付《うけつけ》を はじめるまで\nまってね';
     else if (st.phase === 'lobby') m = 'もうすぐ はじまるよ\n' + (S.joined ? S.n + '人《にん》 はいっているよ' : 'はいっているよ…');
     else m = 'じゅんびしているよ…';
@@ -1417,15 +1490,19 @@ function renderStudent() {
 
 /* ----- みんなで ----- */
 function renderLive(st) {
+  $('sMsg').classList.remove('hidden');
+  if (st.phase === 'page') { renderPage({ text: st.text, img: st.img, explain: st.explain }, st, ''); return; }
   setRound(ks('問題《もんだい》 ') + qNo(st));
-  const withText = st.showQ && (st.input || st.choices.some(c => c));
+  const withText = st.showQ && (st.input || hasChoiceBody(st.choices, st.cimg));
   renderQ('s', { show: st.showQ, text: st.text, img: st.img, hints: st.hints });
+  $('sOpts').classList.toggle('pics', withText && !st.input && (st.cimg || []).some(x => x));
+  setHor($('sOpts'), !st.input && st.optLayout === 'h', (st.choices || []).length);
   const canChange = !!S.mine && !S.chg && !st.input;
   const canTap = st.phase === 'open' && !S.sending && (!S.mine || canChange) && !st.input;
   const rev = st.phase === 'reveal';
   $('sOpts').classList.toggle('only', !withText);
   $('sOpts').classList.toggle('hidden', !!st.input);
-  setHtml($('sOpts'), st.input ? '' : optsHtml(st.choices, { p: 's', tap: canTap, mine: S.pending || S.mine, showText: withText,
+  setHtml($('sOpts'), st.input ? '' : optsHtml(st.choices, { p: 's', tap: canTap, mine: S.pending || S.mine, showText: withText, cimg: st.cimg,
     nodim: canChange && st.phase === 'open', ask: S.ask, correct: rev ? st.correct : '' }));
   // 入力で答えるとき
   const showIn = !!st.input && st.phase === 'open' && !S.mine;
@@ -1436,19 +1513,38 @@ function renderLive(st) {
   typedBox.classList.toggle('win', rev && S.judge === true);
   if (showTyped) {
     let t = ks('あなたの 答《こた》え：') + esc(S.mine);
-    if (rev) t += '<br>' + ks('正解《せいかい》：') + ks(st.correctText);
+    if (rev && st.correctText) t += '<br>' + ks('正解《せいかい》：') + ks(st.correctText);
     setHtml(typedBox, t);
-  } else if (!!st.input && rev) {
+  } else if (!!st.input && rev && st.correctText) {
     setHtml(typedBox, ks('正解《せいかい》：') + ks(st.correctText));
     typedBox.classList.remove('hidden');
   }
   renderExplain('s', rev ? st.explain : []);
   const m = liveMsg(st);
   setMsg(m[0], m[1]);
+  $('sMsg').classList.toggle('hidden', st.phase === 'open' || st.phase === 'closed');   // 「こたえを えらんでね」などの帯は出さず、画面を広く使う（答え合わせでは ○・正解を文字で出す）
   if (rev && S.soundRound !== st.round) {
     S.soundRound = st.round;
-    if (m[1] === 'ok') Snd.play('ok'); else if (S.mine || S.judge !== null) Snd.play('ng');
+    if (m[1] === 'ok') Snd.play('ok'); else if (st.correct && (S.mine || S.judge !== null)) Snd.play('ng');
   }
+}
+
+/** 文も解説もなく、画像だけのページ（画像を大きく出す） */
+function pageImgOnly(pg) {
+  const ex = (pg.explain || []).some(x => (x && typeof x === 'object') ? (x.text || x.img) : x);
+  return !!pg.img && !pg.text && !ex;
+}
+
+/** 選択肢のない解説のページ（みんなで・ひとりずつ で同じ見た目） */
+function renderPage(pg, st, msg) {
+  renderQ('s', { show: true, text: pg.text, img: pg.img, hints: [], big: pageImgOnly(pg) });
+  $('sOpts').classList.add('hidden');
+  setHtml($('sOpts'), '');
+  $('sInputRow').classList.add('hidden');
+  $('sTypedShow').classList.add('hidden');
+  renderExplain('s', pg.explain || []);
+  setMsg('', '');
+  $('sMsg').classList.add('hidden');            // スライドのページは、よぶんな ことばを 出さない
 }
 
 function setRound(h) { setHtml($('sRound'), h, true); }
@@ -1457,7 +1553,6 @@ function setMsg(html, cls) {
   if (el._h !== html) { popT = 0; popKey = html; }
   setHtml(el, html);
   el.classList.toggle('ok', cls === 'ok');
-  el.classList.toggle('up', cls === 'up');
 }
 
 function liveMsg(st) {
@@ -1477,10 +1572,12 @@ function liveMsg(st) {
   }
   // 答えあわせ（○と×は、色だけでなく文字でも出す）
   if (inp) {
+    if (!st.correctText) return [S.mine ? sh('こたえてくれて ありがとう！') : sh('みんなの こたえが でたよ'), ''];
     if (S.judge === true) return ['<span class="maru">○</span> ' + sh('せいかい！'), 'ok'];
     if (S.mine) return [sh('おしい！ 正解《せいかい》は「') + ks(st.correctText) + sh('」だよ'), ''];
     return [sh('正解《せいかい》は「') + ks(st.correctText) + sh('」だよ'), ''];
   }
+  if (!st.correct) return [S.mine ? chip(S.mine) + sh(' を えらんだよ。こたえてくれて ありがとう！') : sh('みんなの こたえが でたよ'), ''];   // 正解のない問題（アンケート）
   if (S.mine && S.mine === st.correct) return ['<span class="maru">○</span> ' + sh('せいかい！'), 'ok'];
   if (S.mine) return [sh('おしい！ 正解《せいかい》は ') + chip(st.correct) + sh(' だよ'), ''];
   return [sh('正解《せいかい》は ') + chip(st.correct) + sh(' だよ'), ''];
@@ -1529,7 +1626,8 @@ function soloInit(pack) {
   const s = {
     sid: pack.sid, nick: S.nick, pack: Object.assign({}, pack, { qs: qs }), total: Math.min(SOLO_MAX, qs.length),
     lv: pack.lv0, lv0: pack.lv0, upRun: 0, dnRun: 0, asked: [], n: 0, ok: 0, hist: [pack.lv0], types: {}, marks: [], seq: 0, outbox: [],
-    cur: 0, curStart: 0, hint: 0, fb: null, done: false
+    cur: 0, curStart: 0, hint: 0, fb: null, done: false,
+    pq: (pack.intro || []).slice()   // いま見せる解説のページ（はじめのページ・問題のあとのページ）
   };
   soloNext(s);
   return s;
@@ -1609,38 +1707,51 @@ function soloAnswer(given, timeUp) {
     given: timeUp ? '' : (q.input ? String(given).slice(0, 40) : (q.map[LETTERS.indexOf(given)] || given)),
     ok: ok, text: q.text, why: why, level: lvNow, qlevel: q.level, sec: sec, hint: s.hint > 0 });
   if (!ok && why) s.types[why] = (s.types[why] || 0) + 1;
-  let lvMsg = '';
   if (s.pack.auto) {
     if (ok) {
       s.upRun++; s.dnRun = 0;
-      if (s.upRun >= s.pack.upN) { s.upRun = 0; if (s.lv < s.pack.hi) { s.lv++; s.hist.push(s.lv); lvMsg = 'up'; } }
+      if (s.upRun >= s.pack.upN) { s.upRun = 0; if (s.lv < s.pack.hi) { s.lv++; s.hist.push(s.lv); } }
     } else {
       s.dnRun++; s.upRun = 0;
-      if (s.dnRun >= s.pack.downN) { s.dnRun = 0; if (s.lv > s.pack.lo) { s.lv--; s.hist.push(s.lv); lvMsg = 'down'; } }
+      if (s.dnRun >= s.pack.downN) { s.dnRun = 0; if (s.lv > s.pack.lo) { s.lv--; s.hist.push(s.lv); } }
     }
   }
-  s.fb = { ok: ok, timeUp: !!timeUp, given: timeUp ? '' : given, lvMsg: lvMsg };
+  s.fb = { ok: ok, timeUp: !!timeUp, given: timeUp ? '' : given };
   soloSave();
-  Snd.play(lvMsg === 'up' ? 'up' : ok ? 'ok' : 'ng');
+  Snd.play(ok ? 'ok' : 'ng');
   renderStudent();
   soloFlush();
 }
 
+function soloPage(s) {
+  const id = (s.pq || [])[0];
+  return id !== undefined ? ((s.pack.pages || {})[id] || null) : null;
+}
 function renderSolo(st) {
+  $('sMsg').classList.remove('hidden');
   const s = curSolo();
   if (!s) { setHtml($('sIdleM'), ks('じゅんびしているよ…')); return; }
-  setHtml($('sLevel'), ks('レベル ') + s.lv);
-  $('sLevel').classList.remove('hidden');
   if (s.done) { renderSoloResult(st); return; }
   const q = curQ(s);
   if (!q) { setHtml($('sIdleM'), ks('じゅんびしているよ…')); return; }
   setRound((s.fb ? s.n : s.n + 1) + ' / ' + s.total);
   const fb = s.fb;
-  const withText = st.showQ && (q.input || q.choices.some(c => c));
+  const pg = soloPage(s);
+  if (pg) {
+    renderPage(pg, st, '');
+    const last = s.pq.length === 1 && fb && s.n >= s.total;
+    const act = $('sAct');
+    act.classList.remove('hidden');
+    setHtml(act, H('button', 'main-btn', last ? ks('おわる') : ks('つぎへ'), 'type="button" data-a="page"'));
+    return;
+  }
+  const withText = st.showQ && (q.input || hasChoiceBody(q.choices, q.cimg));
   renderQ('s', { show: st.showQ, text: q.text, img: q.img, hints: q.hints.slice(0, s.hint) });
+  $('sOpts').classList.toggle('pics', withText && !q.input && (q.cimg || []).some(x => x));
+  setHor($('sOpts'), !q.input && S.state && S.state.optLayout === 'h', (q.choices || []).length);
   $('sOpts').classList.toggle('only', !withText);
   $('sOpts').classList.toggle('hidden', !!q.input);
-  setHtml($('sOpts'), q.input ? '' : optsHtml(q.choices, { p: 's', tap: !fb, mine: fb ? fb.given : '', showText: withText, correct: fb ? q.answer : '' }));
+  setHtml($('sOpts'), q.input ? '' : optsHtml(q.choices, { p: 's', tap: !fb, mine: fb ? fb.given : '', showText: withText, cimg: q.cimg, correct: fb ? q.answer : '' }));
   $('sInputRow').classList.toggle('hidden', !(q.input && !fb));
   const typedBox = $('sTypedShow');
   const showTyped = !!(q.input && fb);
@@ -1658,14 +1769,13 @@ function renderSolo(st) {
   } else {
     msg = ks('おしい！ 正解《せいかい》は ') + (q.input ? ks('「' + q.correctText + '」') : chip(q.answer)) + ks(' だよ');
   }
-  if (fb && fb.lvMsg === 'up') { msg += '<br>' + ks('レベルアップ！ レベル ' + s.lv + ' に なったよ'); cls = 'up'; }
-  if (fb && fb.lvMsg === 'down') msg += '<br><small>' + ks('ちょうどいい 問題《もんだい》に したよ（レベル ' + s.lv + '）') + '</small>';
   setMsg(msg, cls);
+  $('sMsg').classList.toggle('hidden', !fb);
   // ボタン（ヒント・つぎへ）
   const act = $('sAct');
   let ah = '';
   if (!fb && s.hint < q.hints.length) ah += H('button', 'sub-btn', ks('ヒントを 見《み》る') + ' (' + (s.hint + 1) + '/' + q.hints.length + ')', 'type="button" data-a="hint"');
-  if (fb) ah += H('button', 'main-btn', s.n >= s.total ? ks('おわる') : ks('つぎへ'), 'type="button" data-a="next"');
+  if (fb) ah += H('button', 'main-btn', s.n >= s.total && !(q.after || []).some(id => (s.pack.pages || {})[id]) ? ks('おわる') : ks('つぎへ'), 'type="button" data-a="next"');
   act.classList.toggle('hidden', !ah);
   setHtml(act, ah);
 }
@@ -1684,9 +1794,6 @@ function resultHtml(r, st) {
     const marks = (r.marks || []).map((m, i) => H('div', 'mk ' + (m === 'o' ? 'o' : 'x'),
       (m === 'o' ? '○' : m === 'x' ? '×' : 'ー') + '<small>' + (i + 1) + '</small>')).join('');
     if (marks) h += H('div', 'marks', marks);
-    if (r.lv !== undefined && r.auto) {
-      h += H('div', 'lvbox', r.lv > r.lv0 ? ks('レベルアップ！ レベル ' + r.lv0 + ' → ' + r.lv) : ks('さいごの レベル：' + r.lv));
-    }
   }
   h += H('div', 'wait', ks(r && r.finished && st && st.phase === 'play' ? 'ほかの みんなを まっていてね' : '先生《せんせい》が つぎの 回《かい》を はじめるまで まっていてね'));
   return h;
@@ -1726,11 +1833,11 @@ function tickStudent() {
   if (!st || S.needCode) { paintTimer('s', null, 0); return; }
   const s = curSolo();
   if (st.mode === 'solo') {
-    if (st.phase === 'play' && s && s.cur && !s.fb && !s.done) {
+    if (st.phase === 'play' && s && s.cur && !s.fb && !s.done && !soloPage(s)) {
       const q = curQ(s);
       if (q) {
         const sec = paintTimer('s', { phase: 'open', openedAt: s.curStart, limit: q.limit, timeView: st.timeView }, 0);
-        if (sec === 0) soloAnswer('', true);
+        if (sec === 0 && !S.guide.open) soloAnswer('', true);
         return;
       }
     }
@@ -1855,18 +1962,22 @@ document.addEventListener('click', e => {
     Snd.unlock();
     const s = curSolo();
     if (b.dataset.a === 'hint' && s && !s.fb) { s.hint++; soloSave(); renderStudent(); }
-    else if (b.dataset.a === 'next' && s && s.fb) { soloNext(s); renderStudent(); soloFlush(); }
+    else if (b.dataset.a === 'next' && s && s.fb && !soloPage(s)) {
+      const q = curQ(s);
+      const after = ((q && q.after) || []).filter(id => (s.pack.pages || {})[id]);
+      if (after.length) { s.pq = after; soloSave(); } else soloNext(s);   // 解説のページがあれば、先に出す
+      renderStudent(); soloFlush();
+    } else if (b.dataset.a === 'page' && s && soloPage(s)) {
+      s.pq.shift();
+      if (!s.pq.length) { if (s.fb) soloNext(s); else { s.curStart = Date.now(); soloSave(); } }
+      else soloSave();
+      renderStudent();
+    }
     return;
   }
-  if (e.target.closest('#sHelpBtn')) { openHelp('s'); return; }
-  if (e.target.closest('#sSnd')) {
-    S.soundPref = !S.soundPref; lsSet('quizSound', S.soundPref ? 'on' : 'off');
-    Snd.on = !!(S.state ? S.state.sound !== false : true) && S.soundPref;
-    if (Snd.on) Snd.play('ok');
-    renderStudent();
-    return;
-  }
+  if (e.target.closest('#sHelpBtn')) { openGuide(); return; }
   if (e.target.closest('#sNameBtn')) {
+    if (isGuest()) return;
     if (S.sending || (S.state && (isLive(S.state) || (S.state.mode === 'solo' && S.state.phase === 'play')))) return;
     S.picking = true; setPickMsg(''); renderStudent();
     return;
@@ -1875,6 +1986,12 @@ document.addEventListener('click', e => {
   if ((b = e.target.closest('#sNicks button.nick'))) {
     if (b.disabled) return;
     pickNick(b.dataset.n);
+  }
+});
+document.addEventListener('click', e => {
+  if (e.target.closest('#guideSkip')) { closeGuide(); return; }
+  if (e.target.closest('#guideNext')) {
+    if (S.guide.i >= guideSlides().length - 1) closeGuide(); else { S.guide.i++; renderGuide(); }
   }
 });
 document.addEventListener('keydown', e => {
@@ -1905,27 +2022,37 @@ async function pickNick(n) {
 
 /* ===== 先生の画面 ===== */
 const T = { last: null, offset: 0, timer: null, busy: false, footKey: '', bigQr: false, qrState: 'idle', qrCache: { url: '', svg: '' },
-  autoClosed: -1, setsStale: true, confirmTimer: null };
-const PHASE_TEXT = { wait: '受付の前', lobby: '参加を受け付けています', open: '答えを受け付けています', closed: 'しめきりました', reveal: '答え合わせ', play: 'ひとりずつ とりくみ中', end: 'おわり' };
+  autoClosed: -1, setsStale: true, rosterStale: true, confirmTimer: null };
+const PHASE_TEXT = { wait: '受付の前', lobby: '参加を受け付けています', open: '答えを受け付けています', closed: 'しめきりました', reveal: '答え合わせ', page: '解説のページ', play: 'ひとりずつ とりくみ中', end: 'おわり' };
 
 const HELP_T = '' +
   '<div><h3>はじめる前に</h3><ol>' +
   '<li>スプレッドシートの「問題」タブに問題を書きます（選択肢A〜D、正解、ヒント、解説、画像の名前、レベル）。ふりがなは「漢字《かんじ》」と書きます。</li>' +
-  '<li>「名簿」タブに生徒の名前を書きます（名前は実名でなく、ニックネームや番号でも構いません。名前以外の情報は入れないでください）。</li>' +
+  '<li>問題には「問題の画像」、選択肢には「Aの画像」〜「Dの画像」の欄で画像を入れられます。ことばがなく、画像だけの選択肢にもできます。</li>' +
+  '<li>選択肢（A〜D）と「正解」を空にした行（または「種類」の欄に「解説」と書いた行）は、選択肢のない解説のページになります（「問題文」「問題の画像」「解説」「解説の画像」を出します）。みんなでは、前の問題の答え合わせのあとに「つぎのページへ」を押すと出ます。ひとりずつでは、その上の問題に答えたあとに出ます。</li>' +
+  '<li>正解を空にして選択肢だけ書いた問題は、正誤のないアンケートです（みんなでのとき「結果を見る」）。答え方を「記述式」にすると、選択肢を出さず、文字で自由に書くアンケートにもなります。書かれた答えをしめきったあとの画面に出すか、名前をつけるかは「くわしい設定」で選べます。</li>' +
+  '<li>名簿を使うときは、「名簿」タブに生徒の名前を書きます（名前は実名でなく、ニックネームや番号でも構いません。名前以外の情報は入れないでください）。</li>' +
   '<li>「レベル」列に1〜9の数字を書くと、ひとりずつのときにレベルごとに問題を出し分けます（書かないときは、すべてレベル1です）。</li>' +
-  '<li>画像を使うときは「画像」ボタンから入れて、名前をスプレッドシートの画像の欄に書きます。</li></ol></div>' +
-  '<div><h3>授業の流れ</h3><ol>' +
-  '<li>進め方（みんなで／ひとりずつ）と答え方（4択・2択・入力）を選び、「この設定で受付を始める」を押します。</li>' +
-  '<li>QRコードが出ます。「大きく表示」にすると、教室の大きな画面でも読み取りやすくなります。生徒がiPadで読み取って、名前を選びます。</li>' +
+  '<li>画像を使うときは「画像を入れる」ボタンから入れて、名前をスプレッドシートの画像の欄に書きます。いらなくなった画像は、同じ画面の「削除」ボタン（2回おす）で消せます。</li></ol></div>' +
+  '<div><h3>授業の流れ（受付から記録まで）</h3><ol>' +
+  '<li>「1. 進め方」（みんなで／ひとりずつ）と「2. 答え方」（選択式・記述式。選択式は、入れた選択肢の数のまま出ます。記述式で正解の欄が空だと、自由に書くアンケートになります）を選びます。</li>' +
+  '<li>「4. 生徒の呼び方」を選びます。「名簿から自分の名前を選ぶ」「どうぶつのキャラを選ぶ」「名前なし（ゲスト1、ゲスト2…）」の3つです。名前なしのときは、名前を選ぶ画面が出ません。iPadごとに番号がつき、同じiPadなら次の回も同じゲストです。</li>' +
+  '<li>「この設定で受付を始める」を押します。QRコードが出ます。「大きく表示」にすると、教室の大きな画面でも読み取りやすくなります。生徒がiPadで読み取ります。</li>' +
   '<li>「この回をはじめる」を押します。みんなで：1問目が出ます。ひとりずつ：生徒が自分のペースで進みます。</li>' +
-  '<li>みんなで：答えが集まったら「しめきる」→「答え合わせ」→「つぎの問題へ」。ひとりずつ：一覧で進み具合とレベルを見て、終わったら「この回を終わる」を押します。</li>' +
-  '<li>終わったあとは、同じ設定でもう一度始めると、結果の画面で待っていた生徒は自動で次の回に入ります。</li></ol></div>' +
+  '<li>正解の欄が空で選択肢がある問題は、アンケートになります。しめきったあとに「結果を見る」を押すと、生徒の画面に結果が出ます（○×はつきません）。ひとりずつでは出ません。</li>' +
+  '<li>みんなで：選択肢ごとに、選んだ人数がすぐに出ます。答えが集まったら「しめきる」→「答え合わせ」→「つぎの問題へ」（ページがつぎのときは「つぎのページへ」）。ひとりずつ：一覧で進み具合とレベルを見て、終わったら「この回を終わる」を押します。</li>' +
+  '<li>終わったあとは、同じ設定でもう一度始めると、結果の画面で待っていた生徒は自動で次の回に入ります。</li>' +
+  '<li>記録は、スプレッドシートの「記録：○○」タブと「まとめ」タブで見ます。</li></ol></div>' +
+  '<div><h3>生徒の画面の「使い方」</h3><ul>' +
+  '<li>参加のあとに、使い方の説明（3〜4まい）が出ます。はじめて使うiPadでは自動で出ます。</li>' +
+  '<li>毎回出したいときは、「くわしい設定」の「生徒の画面の使い方の説明」を「毎回出す」にします。</li>' +
+  '<li>生徒の画面の「使い方」ボタンで、いつでも開けます。とじると元の画面にもどり、答えている途中の問題はそのまま残ります。</li></ul></div>' +
   '<div><h3>ひとりずつのレベル</h3><ul>' +
-  '<li>つづけて○問正解で1つ上がり、つづけて○問まちがえると1つ下がります（数字は受付の前の画面で変えられます）。</li>' +
+  '<li>つづけて○問正解で1つ上がり、つづけて○問まちがえると1つ下がります（数字は受付の前の画面で変えられます）。生徒の画面には、レベルの上下は出ません。</li>' +
   '<li>自動で決まったレベルは、生徒設定には上書きせず、「記録」に1問ごとに残ります。</li>' +
-  '<li>生徒ごとの開始・最低・最高レベルや、自動上下のオン・オフは、「生徒ごとのレベル設定」で変えられます。</li></ul></div>' +
+  '<li>生徒ごとの開始・最低・最高レベルや、自動上下のオン・オフは、「生徒ごとのレベル設定」で変えられます。名前なしのときは「ゲスト○」で出ます。</li></ul></div>' +
   '<div><h3>記録</h3><ul>' +
-  '<li>1問・1回答ごとの記録は、「記録：○○」タブ（問題のタブごと）に残ります。まちがいの型、そのときのレベル、答えるのにかかった秒数も入ります。</li>' +
+  '<li>1問・1回答ごとの記録は、「記録：○○」タブ（問題のタブごと）に残ります。まちがいの型、そのときのレベル、答えるのにかかった秒数も入ります。名前なしのときは、「名前」の列に「ゲスト○」が入ります。</li>' +
   '<li>1回ごとのまとめは「まとめ」タブに残ります。</li>' +
   '<li>テストの記録は、スプレッドシートのメニュー「みんなでクイズ」→「テストの記録を消す（配布用）」で消せます。</li></ul></div>' +
   '<div><h3>こまったとき</h3><ul>' +
@@ -1981,9 +2108,9 @@ function renderTeacher(r) {
   const codeOn = !!(r.codeOn && r.code);
   setHtml($('tCode'), codeOn ? '参加コード <b>' + r.code + '</b>' : '');
   $('tCode').classList.toggle('hidden', !codeOn || !on);
-  $('tFormBtn').classList.toggle('hidden', !(on && mode === 'all' && st.source === 'manual' && phase !== 'end'));
 
   const vLive = mode === 'all' && isLive(st);
+  $('teacher').classList.toggle('live', vLive);   // 問題が出ているあいだは、上の帯を出さない（プロジェクターで映すため）
   const vBoard = phase === 'play' || phase === 'end';
   $('tvStart').classList.toggle('hidden', phase !== 'wait');
   $('tvLobby').classList.toggle('hidden', phase !== 'lobby');
@@ -2011,18 +2138,17 @@ function syncStart(r) {
   const se = r.settings;
   markSeg('segMode', se.mode);
   markSeg('segStyle', se.style);
-  markSeg('segSource', se.source);
   markSeg('segCode', se.codeOn ? '1' : '0');
   markSeg('segAuto', se.auto ? '1' : '0');
   setNum('nbUp', se.upN);
   setNum('nbDown', se.downN);
   const solo = se.mode === 'solo';
-  $('fieldSource').classList.toggle('hidden', solo);
-  $('setField').classList.toggle('hidden', !solo && se.source !== 'sheet');
+  $('setField').classList.remove('hidden');
   $('soloCard').classList.toggle('hidden', !solo);
   $('levelCard').classList.toggle('hidden', !(solo && r.levels && r.levels.length));
   if (solo) setHtml($('levelList'), levelListHtml(r.levels));
   if (T.setsStale && (solo || se.source === 'sheet')) { T.setsStale = false; loadSetList(); }
+  if (T.rosterStale) { T.rosterStale = false; loadRoster(); }
 }
 function levelListHtml(levels) {
   if (!levels || !levels.length) return '';
@@ -2041,7 +2167,7 @@ function lobbyHtml(r) {
     H('button', 'sub-btn', '大きく表示', 'type="button" data-a="bigqr"'));
   const info = H('div', 'card', H('h3', '', '今回の設定') +
     H('div', 'lead', '進め方：' + MODE_LABEL[st.mode] + '　答え方：' + STYLE_LABEL[st.style] + '<br>' +
-      (st.source === 'sheet' ? 'セット：' + esc(r.setName || '') + '（' + (r.qCount || 0) + '問）' : '問題：この画面で1問ずつ入力')));
+      (st.source === 'sheet' ? 'セット：' + esc(r.setName || '') + '（' + (r.qCount || 0) + '問' + (r.pages ? '・解説のページ ' + r.pages + 'まい' : '') + '）' : '問題：この画面で1問ずつ入力')));
   const code = codeOn ? H('div', 'bigcode', '参加コード<b>' + r.code + '</b>') : H('div', 'note', '参加コードは「なし」です（QRコードを読み取ると、そのまま入れます）。');
   const joined = H('div', 'card', H('h3', '', '参加した人（' + r.joined.length + '人）') + H('div', 'names', namePills(r.joined)));
   return H('div', 'lobby', qr + H('div', 'lobbyinfo', code + joined + info));
@@ -2054,28 +2180,43 @@ function bigQrHtml(r) {
     H('button', 'sub-btn', 'ふつうの表示', 'type="button" data-a="normalqr"');
 }
 
-/* みんなで：問題が出ているとき */
+/* みんなで：問題が出ているとき（選択肢ごとに、選んだ人数をリアルタイムで出す） */
 function renderTLive(r) {
   const st = r.state, list = r.list;
-  renderQ('t', { show: true, text: st.text, img: st.img, hints: st.hints });
-  const showCount = st.phase === 'closed' || st.phase === 'reveal';
-  if (st.input) {
-    const items = list.map(a => H('span', 'name', esc(a.name) + (showCount ? '：' + esc(a.choice) : '')));
-    let h = H('div', 'names', items.join(''));
-    if (st.phase === 'reveal') h += H('div', 'typed win', '正解：' + rubyHtml(st.correctText || r.correctText || ''));
+  const page = st.phase === 'page';
+  if (T.cntRound !== st.round) { T.cntRound = st.round; T.showCnt = false; }   // 人数は、問題ごとに かくした状態から始める
+  renderQ('t', { show: true, text: st.text, img: st.img, hints: st.hints, big: page && pageImgOnly(st) });
+  if (page) {
+    setHtml($('tOpts'), '');
+  } else if (st.input) {
+    const se = r.settings || {};
+    const closed = st.phase === 'closed' || st.phase === 'reveal';
+    const showT = closed && se.typedShow === true;
+    const named = se.typedName === true;
+    let items;
+    if (!showT) items = list.map(a => H('span', 'name', esc(a.name)));
+    else if (named) items = list.map(a => H('span', 'name', esc(a.name) + '：' + esc(a.choice)));
+    else items = list.map(a => a.choice).sort().map(c => H('span', 'name', esc(c)));
+    let h = H('div', 'names', items.join('') || H('span', 'note', 'まだ だれも答えていません'));
+    if (st.phase === 'reveal' && (st.correctText || r.correctText)) h += H('div', 'typed win', '正解：' + ts(st.correctText || r.correctText || ''));
     setHtml($('tOpts'), h);
   } else {
     const cnt = {};
     list.forEach(a => { cnt[a.choice] = (cnt[a.choice] || 0) + 1; });
-    let h = optsHtml(st.choices, { p: 't', counts: showCount ? cnt : null, showText: true, correct: st.phase === 'reveal' ? st.correct : '' });
+    let h = optsHtml(st.choices, { p: 't', counts: T.showCnt ? cnt : null, showText: true, cimg: st.cimg, correct: st.phase === 'reveal' ? st.correct : '' });
     const tk = Object.keys(r.qTypes || {});
     if (st.phase === 'reveal' && tk.length) h += H('div', 'note', 'まちがいの型：' + tk.map(L => L + '＝' + esc(r.qTypes[L])).join('　'));
     setHtml($('tOpts'), h);
   }
-  renderExplain('t', st.phase === 'reveal' ? st.explain : []);
-  $('tCount').textContent = list.length;
-  $('tOf').textContent = '／ ' + r.joined.length + '人';
-  setHtml($('tNames'), list.map(a => H('span', 'name', esc(a.name) + (showCount && !st.input ? '<small>' + esc(a.choice) + '</small>' : ''))).join(''));
+  $('tOpts').classList.toggle('pics', !page && !st.input && (st.cimg || []).some(x => x));
+  setHor($('tOpts'), !page && !st.input && st.optLayout === 'h', (st.choices || []).length);
+  renderExplain('t', st.phase === 'reveal' || page ? st.explain : []);
+  // 答えた人の名前（選択肢ごとの人数は、上の選択肢に出ている）
+  $('tWho').classList.toggle('hidden', page || !!st.input);
+  const showC = false;   // 答えた人の横に、何を答えたかは出さない
+  setText('tWhoLab', page ? '' : '答えた人');
+  setHtml($('tNames'), list.length ? list.map(a => H('span', 'name', esc(a.name) + (showC ? '<small>' + esc(a.choice) + '</small>' : ''))).join('')
+    : H('span', 'note', 'まだ だれも答えていません'));
 }
 
 /* ひとりずつ・終わり */
@@ -2113,17 +2254,18 @@ function boardHtml(r) {
 /* ----- 下のボタン ----- */
 function renderFoot(r) {
   const st = r.state, se = r.settings, phase = st.phase;
-  const key = [phase, st.round, st.correct, st.hints.length, st.source, r.hasKey, st.index, st.total, st.mode, st.input, T.busy].join('|');
+  const key = [phase, st.round, st.correct, st.hints.length, st.source, r.hasKey, st.index, st.total, st.mode, st.input, st.more, st.nextPage, T.busy, T.showCnt].join('|');
   if (key === T.footKey) return;
   T.footKey = key;
   const btn = (act, label, cls, arg, confirm) => H('button', cls || 'main-btn', esc(label), 'type="button" data-act="' + act + '" data-arg="' + esc(arg || '') + '"' + (confirm ? ' data-confirm="' + esc(confirm) + '"' : ''));
   const sheet = st.source === 'sheet';
+  const more = st.more !== undefined ? !!st.more : st.index < st.total;
+  const nextLabel = st.nextPage ? 'つぎのページへ' : 'つぎの問題へ';
   let h = '';
   if (phase === 'wait') h = btn('teacherStart', 'この設定で受付を始める');
   else if (phase === 'lobby') {
     if (st.mode === 'solo') h = btn('teacherBegin', 'この回をはじめる（生徒が自分のペースで進めます）');
-    else if (sheet) h = btn('teacherBegin', 'この回をはじめる（1問目を出す）');
-    else h = btn('form', '問題を入力して始める');
+    else if (sheet) h = btn('teacherBegin', st.nextPage ? 'この回をはじめる（解説のページを出す）' : 'この回をはじめる（1問目を出す）');
     h += btn('teacherRestart', '受付をやめる', 'sub-btn');
   } else if (phase === 'play') {
     h = btn('teacherEnd', 'この回を終わる', 'main-btn', '', 'もう一度押すと、この回が終わります');
@@ -2132,14 +2274,15 @@ function renderFoot(r) {
     h += btn('teacherClose', 'しめきる');
   } else if (phase === 'closed') {
     if (r.hasKey) h = btn('teacherReveal', '答え合わせ');
+    else if (sheet || st.input) h = btn('teacherReveal', '結果を見る');   // 正解の欄が空＝アンケート
     else h = H('span', 'lab', '正解を選んでください') + st.choices.map((_, i) => btn('teacherReveal', LETTERS[i], 'pickbtn', LETTERS[i])).join('');
-  } else if (phase === 'reveal') {
-    if (sheet) h = st.index < st.total ? btn('teacherNext', 'つぎの問題へ') : btn('teacherEnd', 'この回を終わる');
-    else h = btn('form', 'つぎの問題を入力する') + btn('teacherEnd', 'この回を終わる', 'sub-btn', '', 'もう一度押すと、この回が終わります');
-    if (sheet && st.index < st.total) h += btn('teacherEnd', 'ここで終わる', 'sub-btn', '', 'もう一度押すと、この回が終わります');
+  } else if (phase === 'reveal' || phase === 'page') {
+    if (sheet) h = more ? btn('teacherNext', nextLabel) : btn('teacherEnd', 'この回を終わる');
+    if (sheet && more) h += btn('teacherEnd', 'ここで終わる', 'sub-btn', '', 'もう一度押すと、この回が終わります');
   } else if (phase === 'end') {
     h = btn('teacherStart', '同じ設定でもう一度 受付を始める') + btn('teacherRestart', '設定を変える', 'sub-btn');
   }
+  if (!st.input && st.mode === 'all' && ['open', 'closed', 'reveal'].indexOf(phase) >= 0) h = btn('toggleCnt', T.showCnt ? '人数をかくす' : '人数を出す', 'sub-btn') + h;
   $('tFoot').innerHTML = h;
 }
 
@@ -2147,6 +2290,7 @@ function tickTeacher() {
   const r = T.last;
   if (!r) return;
   const sec = paintTimer('t', r.state, T.offset);
+  $('teacher').classList.toggle('notime', !$('tTime').textContent.trim());
   if (sec === 0 && r.state.phase === 'open' && T.autoClosed !== r.state.round && !T.busy) {
     T.autoClosed = r.state.round;
     teacherAct('teacherClose');
@@ -2203,8 +2347,8 @@ document.addEventListener('click', e => {
         return;
       }
     }
-    if (b.dataset.act === 'form') openForm();
-    else teacherAct(b.dataset.act, b.dataset.arg || undefined);
+    if (b.dataset.act === 'toggleCnt') { T.showCnt = !T.showCnt; if (T.last) renderTeacher(T.last); return; }
+    teacherAct(b.dataset.act, b.dataset.arg || undefined);
     return;
   }
   b = e.target.closest('[data-a="bigqr"]');
@@ -2213,8 +2357,7 @@ document.addEventListener('click', e => {
   if (b) { T.bigQr = false; if (T.last) renderTeacher(T.last); }
 });
 
-$('tFormBtn').addEventListener('click', () => openForm());
-$('tHelpBtn').addEventListener('click', () => openHelp('t'));
+$('tHelpBtn').addEventListener('click', () => openHelp());
 
 /* ----- 受付の前のボタン ----- */
 function bindSeg(id, key, conv) {
@@ -2227,12 +2370,15 @@ function bindSeg(id, key, conv) {
 }
 bindSeg('segMode', 'mode');
 bindSeg('segStyle', 'style');
-bindSeg('segSource', 'source');
 bindSeg('segCode', 'codeOn', v => v === '1');
 bindSeg('segAuto', 'auto', v => v === '1');
 bindSeg('segKana', 'kana');
+bindSeg('segGuide', 'guideEvery', v => v === '1');
 bindSeg('segSound', 'sound', v => v === '1');
 bindSeg('segShowQ', 'showQ', v => v === '1');
+bindSeg('segOptLayout', 'optLayout');
+bindSeg('segTypedShow', 'typedShow', v => v === '1');
+bindSeg('segTypedName', 'typedName', v => v === '1');
 bindSeg('segTimeView', 'timeView');
 
 const sendDeb = {};
@@ -2243,8 +2389,6 @@ function debSend(key, obj) {
 initNum('nbUp', 1, 20, v => debSend('up', { upN: v }));
 initNum('nbDown', 1, 20, v => debSend('down', { downN: v }));
 initNum('nbLimit', 0, 600, v => debSend('lim', { limit: v }));
-initNum('nbFLim', 0, 600, null);
-$('nbFLim')._allowEmpty = true;
 
 async function loadSetList() {
   const box = $('setList');
@@ -2252,7 +2396,7 @@ async function loadSetList() {
     const r = await call('teacherSets');
     setHtml(box, r.sets.length ? r.sets.map(s => H('button', 'setbtn' + (s.id === r.current ? ' on' : ''),
       H('span', '', esc(s.name)) + H('small', '', s.count + '問'), 'type="button" data-id="' + esc(s.id) + '"')).join('')
-      : H('div', 'note', '問題のタブが見つかりません。下のボタンで作れます'));
+      : H('div', 'note', '問題のタブが見つかりません。スプレッドシートの「問題」タブに問題を書いてください'));
   } catch (e) {
     setHtml(box, H('div', 'note', '読みこめませんでした'));
   }
@@ -2262,22 +2406,18 @@ $('setList').addEventListener('click', async e => {
   $('setList').querySelectorAll('.setbtn').forEach(x => x.classList.toggle('on', x === b));
   await teacherAct('teacherSettings', { setId: b.dataset.id });
 });
-$('makeTpl').addEventListener('click', async () => {
-  setText('tplMsg', '作っています…');
-  try {
-    const name = await call('teacherMakeTemplate');
-    setText('tplMsg', '「' + name + '」のタブを作りました。スプレッドシートで問題を書いてください');
-    T.setsStale = true; loadSetList();
-  } catch (e) { setText('tplMsg', '作れませんでした'); }
-});
 
 /* ----- くわしい設定 ----- */
 let nameMode = 'roster';
 function syncSettings(r) {
   const se = r.settings;
   markSeg('segKana', se.kana);
+  markSeg('segGuide', se.guideEvery ? '1' : '0');
   markSeg('segSound', se.sound ? '1' : '0');
   markSeg('segShowQ', se.showQ ? '1' : '0');
+  markSeg('segOptLayout', se.optLayout === 'h' ? 'h' : 'v');
+  markSeg('segTypedShow', se.typedShow === true ? '1' : '0');
+  markSeg('segTypedName', se.typedName === true ? '1' : '0');
   markSeg('segTimeView', se.timeView);
   setNum('nbLimit', se.limit);
   if (document.activeElement !== $('qrUrlIn')) $('qrUrlIn').value = se.qrUrl || '';
@@ -2290,6 +2430,7 @@ async function loadRoster() {
     nameMode = r.mode;
     markSeg('segNameMode', r.mode);
     $('rosterField').classList.toggle('hidden', r.mode !== 'roster');
+    $('guestNote').classList.toggle('hidden', r.mode !== 'guest');
     $('makeRoster').classList.toggle('hidden', r.exists);
     setHtml(box, r.groups.map(g => H('button', 'setbtn' + (g.name === r.current ? ' on' : ''),
       H('span', '', esc(g.name)) + H('small', '', g.count + '人'), 'type="button" data-g="' + esc(g.name) + '"')).join(''));
@@ -2322,6 +2463,7 @@ $('segNameMode').addEventListener('click', async e => {
   nameMode = b.dataset.v;
   markSeg('segNameMode', nameMode);
   $('rosterField').classList.toggle('hidden', nameMode !== 'roster');
+  $('guestNote').classList.toggle('hidden', nameMode !== 'guest');
   await teacherAct('teacherSettings', { nameMode: nameMode });
   loadRoster();
 });
@@ -2352,7 +2494,7 @@ twoTap($('newCode'), '新しいコードにする', 'もう一度押すと、今
 $('qrUrlIn').addEventListener('change', () => teacherAct('teacherSettings', { qrUrl: $('qrUrlIn').value }));
 $('tSetBtn').addEventListener('click', () => {
   if (T.last) syncSettings(T.last);
-  loadRoster();
+  loadMembers();
   $('setOv').classList.remove('hidden');
 });
 $('setClose').addEventListener('click', () => $('setOv').classList.add('hidden'));
@@ -2420,22 +2562,31 @@ function shrinkImage(file) {
       const img = new Image();
       img.onerror = () => reject(new Error('読めない画像です'));
       img.onload = () => {
-        const MAX = 1280;
-        let w = img.naturalWidth || 800, h = img.naturalHeight || 600;
+        const MAX = 1024, LIMIT = 450 * 1024;   // 送る大きさの目安（文字数）
+        const w0 = img.naturalWidth || 800, h0 = img.naturalHeight || 600;
         const keepPng = /png|gif|svg/.test(file.type);
-        if (w <= MAX && h <= MAX && file.size < 400 * 1024 && /^image\/(png|jpeg|gif|webp)$/.test(file.type)) { resolve(fr.result); return; }
-        const r = Math.min(1, MAX / Math.max(w, h));
-        w = Math.max(1, Math.round(w * r)); h = Math.max(1, Math.round(h * r));
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        const g = c.getContext('2d');
-        if (!keepPng) { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
-        g.drawImage(img, 0, 0, w, h);
-        let url = c.toDataURL(keepPng ? 'image/png' : 'image/jpeg', 0.85);
-        if (keepPng && url.length > 900 * 1024) {
-          g.globalCompositeOperation = 'destination-over';
-          g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+        if (w0 <= MAX && h0 <= MAX && file.size < 400 * 1024 && /^image\/(png|jpeg|gif|webp)$/.test(file.type)) { resolve(fr.result); return; }
+        // 大きすぎるときは、画像をだんだん小さくして、目安に入るまでためす
+        let url = '';
+        const sides = [MAX, 800, 640, 480];
+        for (let k = 0; k < sides.length; k++) {
+          const r = Math.min(1, sides[k] / Math.max(w0, h0));
+          const w = Math.max(1, Math.round(w0 * r)), h = Math.max(1, Math.round(h0 * r));
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const g = c.getContext('2d');
+          if (!keepPng) { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
+          g.drawImage(img, 0, 0, w, h);
+          if (keepPng) {
+            url = c.toDataURL('image/png');
+            if (url.length <= LIMIT) { resolve(url); return; }
+            g.globalCompositeOperation = 'destination-over';
+            g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+          }
           url = c.toDataURL('image/jpeg', 0.85);
+          if (url.length <= LIMIT) { resolve(url); return; }
+          url = c.toDataURL('image/jpeg', 0.7);
+          if (url.length <= LIMIT) { resolve(url); return; }
         }
         resolve(url);
       };
@@ -2459,14 +2610,14 @@ function copyText(t) {
 }
 function imgItemHtml(it) {
   return H('div', 'imgitem' + (newImgs[it.id] ? ' new' : ''), '<img data-img="img:' + esc(it.id) + '" alt="">' + H('div', 'iname', esc(it.name)) +
-    H('button', 'copybtn', '名前をコピー', 'type="button" data-n="' + esc(it.name) + '"'));
+    H('button', 'copybtn', '名前をコピー', 'type="button" data-n="' + esc(it.name) + '"') +
+    H('button', 'delbtn', '削除', 'type="button" data-id="' + esc(it.id) + '"'));
 }
 async function loadImgList() {
   const box = $('imgList');
   box.textContent = '読みこんでいます…';
   try {
     const r = await call('listImages');
-    if (r.folderUrl) { $('imgFolderLink').href = r.folderUrl; $('imgFolderLink').classList.remove('hidden'); }
     box._h = '';
     setHtml(box, r.items.length ? r.items.map(imgItemHtml).join('') : H('div', 'note', 'まだ画像がありません'));
   } catch (e) { box.textContent = '読みこめませんでした（' + ((e && e.message) || '') + '）'; }
@@ -2477,7 +2628,19 @@ $('tImgBtn').addEventListener('click', () => {
   loadImgList();
 });
 $('imgClose').addEventListener('click', () => $('imgOv').classList.add('hidden'));
-$('imgList').addEventListener('click', e => {
+$('imgList').addEventListener('click', async e => {
+  const d = e.target.closest('button.delbtn');
+  if (d) {
+    if (!d.dataset.ask) {
+      d.dataset.ask = '1'; d.textContent = 'もう一度おすと削除します'; d.classList.add('ask');
+      setTimeout(() => { if (d.isConnected) { delete d.dataset.ask; d.textContent = '削除'; d.classList.remove('ask'); } }, 3500);
+      return;
+    }
+    d.disabled = true; d.textContent = '削除しています…';
+    try { await call('deleteImage', d.dataset.id); await loadImgList(); }
+    catch (er) { d.disabled = false; d.textContent = '削除できませんでした'; }
+    return;
+  }
   const b = e.target.closest('button.copybtn'); if (!b) return;
   const ok = copyText(b.dataset.n);
   b.textContent = ok ? 'コピーしました' : 'コピーできませんでした';
@@ -2511,7 +2674,7 @@ $('upGo').addEventListener('click', async () => {
       IMG.cache['img:' + r.id] = data;
       newImgs[r.id] = true;
       done.push(r.name);
-    } catch (err) { done.push('（' + files[i].name + ' は入れられませんでした）'); }
+    } catch (err) { done.push('（' + files[i].name + ' は入れられませんでした：' + ((err && err.message) || 'ふめいなエラー') + '）'); }
   }
   upPending = [];
   $('upStep2').classList.add('hidden');
@@ -2522,46 +2685,6 @@ $('upGo').addEventListener('click', async () => {
 });
 
 /* ----- 1問入力する ----- */
-const FORM_KEY = 'minnaquiz_form';
-let formAns = '';
-function openForm() {
-  try {
-    const d = JSON.parse(lsGet(FORM_KEY) || 'null');
-    if (d) {
-      $('fText').value = d.text || '';
-      ['fA', 'fB', 'fC', 'fD'].forEach((id, i) => { $(id).value = (d.choices || [])[i] || ''; });
-      [1, 2].forEach((n, i) => { const h = toItem((d.hints || [])[i]); $('fH' + n).value = h.text; $('fH' + n + 'i').value = h.img; });
-      const ex = toItem((d.explain || [])[0]);
-      $('fEx').value = ex.text; $('fExi').value = ex.img;
-      $('fImg').value = d.img || '';
-      $('nbFLim').querySelector('input').value = (d.limit === '' || d.limit === null || d.limit === undefined) ? '' : d.limit;
-      formAns = d.answer || '';
-    }
-  } catch (e) { /* 使えないときはそのまま */ }
-  markSeg('segAns', formAns);
-  $('nbFLim')._base = (T.last && T.last.settings.limit) || 0;
-  $('formOv').classList.remove('hidden');
-}
-function readForm() {
-  const lim = $('nbFLim').querySelector('input').value.trim();
-  return {
-    text: $('fText').value, choices: ['fA', 'fB', 'fC', 'fD'].map(id => $(id).value), answer: formAns,
-    hints: [1, 2].map(n => ({ text: $('fH' + n).value.trim(), img: $('fH' + n + 'i').value.trim() })),
-    img: $('fImg').value, explain: [{ text: $('fEx').value.trim(), img: $('fExi').value.trim() }],
-    limit: lim === '' ? '' : Math.max(0, parseInt(lim, 10) || 0)
-  };
-}
-$('segAns').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  formAns = b.dataset.v; markSeg('segAns', formAns);
-});
-$('fCancel').addEventListener('click', () => $('formOv').classList.add('hidden'));
-$('fGo').addEventListener('click', () => {
-  const q = readForm();
-  try { lsSet(FORM_KEY, JSON.stringify(q)); } catch (e) { /* 保存できなくても続ける */ }
-  $('formOv').classList.add('hidden');
-  teacherAct('teacherPush', q);
-});
 
 /* ===== 時間・アニメーション ===== */
 function tickAll() {
@@ -2612,6 +2735,42 @@ if (!HAS_GAS) {
     studentPoll();
   });
 }
+/* ===== 画像や文が多くても、あまりスクロールせずに収まるようにする =====
+   はみ出すときは、まず文字を70%にする。まだはみ出すときは、画像（k）を少しずつ小さくする。
+   見にくくなるほど小さくはせず、そこまで小さくしても入らないときは、スクロールにする（先生・生徒どちらも） */
+const FIT_STEPS = [[1, 1], [1, 0.7], [0.85, 0.7], [0.7, 0.7], [0.55, 0.7], [0.4, 0.7]];
+function fitStage(stage, scroller) {
+  if (!stage || !scroller || !stage.offsetParent) return;
+  // はみ出すときは、まず文字を70%にする。それでもはみ出すときに、画像を小さくする
+  for (let i = 0; i < FIT_STEPS.length; i++) {
+    stage.style.setProperty('--k', FIT_STEPS[i][0]);
+    stage.style.setProperty('--f', FIT_STEPS[i][1]);
+    if (scroller.scrollHeight <= scroller.clientHeight + 1) break;
+  }
+}
+function initFit() {
+  const pairs = [['sStage', 'sStage'], ['tStage', 'tBody']];
+  let queued = false;
+  const run = () => {
+    queued = false;
+    pairs.forEach(p => { try { fitStage(document.getElementById(p[0]), document.getElementById(p[1])); } catch (e) { /* なにもしない */ } });
+  };
+  const later = () => {
+    if (queued) return;
+    queued = true;
+    (window.requestAnimationFrame || setTimeout)(run);
+  };
+  pairs.forEach(p => {
+    const el = document.getElementById(p[0]);
+    if (!el) return;
+    if (window.MutationObserver) new MutationObserver(later).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'], characterData: true });
+    el.addEventListener('load', later, true);
+  });
+  window.addEventListener('resize', later);
+  window.addEventListener('orientationchange', later);
+  window.fitNow = run;
+}
+initFit();
 renderStatic();
 if (RAW_PAGE === 'teacher' || RAW_PAGE === 'student') show(RAW_PAGE);
 else if (HAS_GAS) show('student');
