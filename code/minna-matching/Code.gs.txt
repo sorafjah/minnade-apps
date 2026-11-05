@@ -4,7 +4,7 @@
  * 利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
  *
  * 生徒用URL：デプロイしたURL（…/exec）
- * 先生用URL：末尾に ?page=teacher をつける（?p=teacher でもよい）。URLを知っている人だけが開けます
+ * 先生用URL：末尾に ?page=teacher をつける（?p=teacher でもよい。先生用URLは生徒に教えないでください）
  *
  * スプレッドシートのタブ
  *  ・ペアのタブ（「しごと」「くだもの」など）：1行目は Aの絵｜Aの文字｜Bの絵｜Bの文字。1行が1ペア
@@ -59,8 +59,8 @@ const CHARAS = ['🐶 いぬ', '🐱 ねこ', '🐰 うさぎ', '🐻 くま', '
   '🐨 コアラ', '🐯 とら', '🦁 ライオン', '🐵 さる', '🐷 ぶた', '🐮 うし', '🐔 にわとり', '🐳 くじら'];
 const DEF_SET = {
   tab: '', count: 10, nChoices: 4, pace: 'together', dir: 'ab', imgQ: true, imgC: true, textQ: true, textC: true,
-  limit: 0, nameMode: 'roster', rosterGroup: '', codeOn: false, sound: true, live: 'num', result: false,
-  hira: false, auto: true, upN: 3, downN: 2, helpMode: 'first'
+  limit: 0, nameMode: 'roster', rosterGroup: '', codeOn: false, sound: true, live: 'num',
+  hira: false, auto: true, upN: 3, downN: 2
 };
 
 /* ---------- 画面 ---------- */
@@ -141,11 +141,6 @@ function setup() {
   Logger.log('じゅんびができました。絵のフォルダ：' + f.getUrl());
   return true;
 }
-
-/* ---------- 先生用の画面 ----------
-   先生用のURL（?page=teacher）を知っている人だけが開く。アカウントの確かめはしない
-   （学校のアカウントでは、ログイン中のアカウントがわからず、作った人でも入れないことがあるため） */
-function checkTeacher_() { /* 確かめない */ }
 
 /* ---------- 保存（プロパティ＋キャッシュ） ---------- */
 
@@ -229,9 +224,7 @@ function cleanSet_(s) {
   s.auto = s.auto !== false;
   s.codeOn = s.codeOn === true;
   s.sound = s.sound !== false;
-  s.result = s.result === true;
   s.nameMode = ['roster', 'chara', 'guest'].indexOf(s.nameMode) >= 0 ? s.nameMode : 'roster';
-  s.helpMode = s.helpMode === 'always' ? 'always' : 'first';
   return s;
 }
 
@@ -516,11 +509,10 @@ function sPoll(cid, code) {
   const st = state_();
   const o = {
     round: st.round || '', phase: st.phase, index: st.index, total: st.total, sound: st.sound !== false,
-    hira: !!set.hira, pace: st.pace || 'together', now: Date.now(), showScore: !!st.result
+    hira: !!set.hira, pace: st.pace || 'together', now: Date.now()
   };
   if (!okCode_(set, code)) { o.needCode = true; return o; }
   let people = load_('people', {});
-  o.helpMode = set.helpMode;
   if (!people[cid] && set.nameMode === 'guest') { guestJoin_(cid); people = load_('people', {}); }
   o.myName = people[cid] || '';
   if (!o.myName) {
@@ -529,7 +521,6 @@ function sPoll(cid, code) {
     o.names = load_('names', []).map(function (n) { return { n: n, t: !!taken[n] }; });
     return o;
   }
-  if (st.phase !== 'idle') o.imgs = st.imgs || [];
   if (st.pace !== 'self') {
     if (st.phase === 'q' || st.phase === 'reveal') {
       const q = loadBig_('qs', [])[st.index];
@@ -546,8 +537,6 @@ function sPoll(cid, code) {
       }
     }
     if (st.phase === 'end') {
-      const sc = load_('scores', {})[cid];
-      o.score = sc ? sc.ok : 0;
     }
     return o;
   }
@@ -571,7 +560,6 @@ function sPoll(cid, code) {
           if (me.ph === 'f') o.correct = ch.correct;
         }
       }
-      o.score = me.ok;
     }
   }
   return o;
@@ -720,14 +708,37 @@ function imgId_(name) {
   try { cache_().put(k, id, 21600); } catch (e) {}
   return id;
 }
-function getImages(names, code, who) {
-  names = (names || []).slice(0, 8);
-  if (who !== 'teacher') {
-    const set = settings_();
-    if (!okCode_(set, code)) throw new Error('参加《さんか》コードが^ちがうよ');
-    const allow = state_().imgs || [];
-    names = names.filter(function (n) { return allow.indexOf(n) >= 0; });
-  }
+// 生徒用：いま出している問題までの絵だけを返す（まだ出していない問題の絵は返さない）
+function qImgs_(q, st) {
+  const out = [];
+  const add = function (it, si, tx) { const p = pub_(it, si, tx); if (p.img && out.indexOf(p.img) < 0) out.push(p.img); };
+  add(q.q, st.imgQ, st.textQ);
+  add(q.a, st.imgC, st.textC);
+  const useW = st.pace === 'self' ? LV_N[LV_N.length - 1] - 1 : st.nCh - 1;
+  q.w.slice(0, useW).forEach(function (x) { add(x, st.imgC, st.textC); });
+  return out;
+}
+function allowedImgs_(cid) {
+  const st = state_();
+  if (st.phase === 'idle' || st.phase === 'wait' || st.phase === 'end') return [];
+  let upto;
+  if (st.pace === 'self') {
+    const me = load_(meKey_(st, cid), null);
+    upto = me ? (me.ph === 'f' ? me.i + 1 : me.i) : 0;
+  } else upto = st.index;
+  const qs = loadBig_('qs', []);
+  let out = [];
+  for (let i = 0; i <= upto && i < qs.length; i++) out = out.concat(qImgs_(qs[i], st));
+  return out;
+}
+function getImages(names, code, cid) {
+  if (!okCode_(settings_(), code)) throw new Error('参加《さんか》コードが^ちがうよ');
+  const allow = allowedImgs_(cid || '');
+  return imgData_((names || []).slice(0, 8).filter(function (n) { return allow.indexOf(n) >= 0; }));
+}
+// 先生用：どの絵でも返す
+function tGetImages(names) { return imgData_((names || []).slice(0, 8)); }
+function imgData_(names) {
   const out = {};
   names.forEach(function (n) {
     const ck = 'img_d_' + encodeURIComponent(n);
@@ -748,7 +759,6 @@ function getImages(names, code, who) {
 /* ---------- 先生：準備 ---------- */
 
 function tInit() {
-  checkTeacher_();
   const info = tabInfo_();
   const tabs = pairTabs_().map(function (n) {
     const ps = readPairs_(n);
@@ -766,15 +776,13 @@ function tInit() {
 }
 
 function tSaveSettings(set) {
-  checkTeacher_();
   const s = cleanSet_(Object.assign(settings_(), set || {}));
   save_('set', s);
   save_('names', namesFor_(s));
   return true;
 }
-function tNewCode() { checkTeacher_(); return newCode_(); }
+function tNewCode() { return newCode_(); }
 function tResetPeople() {
-  checkTeacher_();
   save_('people', {});
   const pr = props_();
   pr.getKeys().forEach(function (k) { if (k.indexOf('me:') === 0) { pr.deleteProperty(k); cache_().remove('k_' + k); } });
@@ -782,14 +790,12 @@ function tResetPeople() {
 }
 
 function tResetGuests() {
-  checkTeacher_();
   save_('guests', {});
   save_('people', {});
   return view_();
 }
 
 function tSaveTabs(list) {
-  checkTeacher_();
   let sh = ss_().getSheetByName(SH.tabset);
   if (!sh) sh = ss_().insertSheet(SH.tabset);
   sh.clearContents();
@@ -837,7 +843,6 @@ function stuMap_() {
   return m;
 }
 function tStudents(group) {
-  checkTeacher_();
   const sh = sheetWith_(SH.stu, STU_F);
   const names = namesOfGroup_(group);
   const s = stuRows_(sh);
@@ -855,7 +860,6 @@ function tStudents(group) {
   return { rows: names.map(function (n) { return { name: n, lv: map[n] || 0, auto: am[n] || '' }; }), levels: levelList_() };
 }
 function tSaveStudents(rows) {
-  checkTeacher_();
   const sh = sheetWith_(SH.stu, STU_F);
   return withLock_(function () {
     const s = stuRows_(sh);
@@ -875,11 +879,10 @@ function tSaveStudents(rows) {
 
 /* ---------- 先生：ペア ---------- */
 
-function tPairs(tab) { checkTeacher_(); return readPairs_(tab); }
-function tNewTab(tab) { checkTeacher_(); pairSheet_(tab); return tInit(); }
+function tPairs(tab) { return readPairs_(tab); }
+function tNewTab(tab) { pairSheet_(tab); return tInit(); }
 
 function tUpload(dataUrl) {
-  checkTeacher_();
   const m = String(dataUrl).match(/^data:(image\/[a-z+]+);base64,(.+)$/);
   if (!m) throw new Error('絵を読みこめませんでした');
   const ext = m[1] === 'image/png' ? 'png' : 'jpg';
@@ -891,11 +894,9 @@ function tUpload(dataUrl) {
 }
 // まとめて登録：絵をいくつかまとめてドライブに入れる（空のものは '' を返す）
 function tUploadMany(list) {
-  checkTeacher_();
   return (list || []).slice(0, 4).map(function (d) { return d ? tUpload(d) : ''; });
 }
 function tAddPairs(tab, list) {
-  checkTeacher_();
   const sh = pairSheet_(tab);
   const rows = (list || []).map(function (p) { return [cell_(p.a && p.a.img), cell_(p.a && p.a.text), cell_(p.b && p.b.img), cell_(p.b && p.b.text)]; })
     .filter(function (r) { return r.some(function (x) { return x; }); });
@@ -904,7 +905,6 @@ function tAddPairs(tab, list) {
   return rows.length;
 }
 function tAddPair(tab, a, b) {
-  checkTeacher_();
   const sh = pairSheet_(tab);
   const row = [cell_(a && a.img), cell_(a && a.text), cell_(b && b.img), cell_(b && b.text)];
   if (!row.some(function (x) { return x; })) throw new Error('絵か文字を入れてください');
@@ -912,7 +912,6 @@ function tAddPair(tab, a, b) {
   return readPairs_(tab).length;
 }
 function tDelPair(tab, row, check) {
-  checkTeacher_();
   const sh = ss_().getSheetByName(tab);
   if (!sh) throw new Error('タブがありません');
   const v = sh.getRange(row, 1, 1, 4).getValues()[0].map(cell_);
@@ -955,10 +954,9 @@ function view_() {
   }
   return v;
 }
-function tView() { checkTeacher_(); return view_(); }
+function tView() { return view_(); }
 
 function tStart(set) {
-  checkTeacher_();
   const s = cleanSet_(Object.assign(settings_(), set || {}));
   save_('set', s);
   const info = infoOf_(tabInfo_(), s.tab);
@@ -977,21 +975,12 @@ function tStart(set) {
     save_('scores', {});
     save_('lvmap', lvmap);
     save_('automap', automap);
-    const imgs = [];
-    const seen = {};
-    const add = function (it, si, st2) { const p = pub_(it, si, st2); if (p.img && !seen[p.img]) { seen[p.img] = 1; imgs.push(p.img); } };
-    const useW = s.pace === 'self' ? LV_N[LV_N.length - 1] - 1 : s.nChoices - 1;
-    qs.forEach(function (q) {
-      add(q.q, s.imgQ, s.textQ);
-      add(q.a, s.imgC, s.textC);
-      q.w.slice(0, useW).forEach(function (x) { add(x, s.imgC, s.textC); });
-    });
     let id = newRoundId_();
     if (id === old.round) id = id + 'b';
     save_('state', {
       round: id, phase: 'wait', index: 0, total: qs.length, openedAt: 0, pace: s.pace, nCh: s.nChoices,
-      limit: s.limit, live: s.live || 'num', result: !!s.result, imgQ: s.imgQ, imgC: s.imgC, textQ: s.textQ, textC: s.textC,
-      sound: s.sound, tab: s.tab, split: info.split, la: info.la, lb: info.lb, imgs: imgs,
+      limit: s.limit, live: s.live || 'num', imgQ: s.imgQ, imgC: s.imgC, textQ: s.textQ, textC: s.textC,
+      sound: s.sound, tab: s.tab, split: info.split, la: info.la, lb: info.lb,
       auto: s.auto, upN: s.upN, downN: s.downN, sumDone: false
     });
     return view_();
@@ -1005,7 +994,6 @@ function open_(st, i) {
   save_('state', st);
 }
 function tOpen() {
-  checkTeacher_();
   return withLock_(function () {
     const st = state_();
     if (st.phase === 'wait') {
@@ -1060,7 +1048,6 @@ function endNow_(st) {
 }
 
 function tNext() {
-  checkTeacher_();
   let job = null;
   const v = withLock_(function () {
     const st = state_();
@@ -1073,7 +1060,6 @@ function tNext() {
   return v;
 }
 function tFinish() {
-  checkTeacher_();
   let job = null;
   const v = withLock_(function () {
     const st = state_();
@@ -1085,13 +1071,11 @@ function tFinish() {
   return v;
 }
 function tStop() {
-  checkTeacher_();
   return withLock_(function () { const st = state_(); st.phase = 'idle'; save_('state', st); return view_(); });
 }
 
 // みんなで：答えを見せて、記録を書く
 function tReveal() {
-  checkTeacher_();
   let rows = [], tab = '';
   const v = withLock_(function () {
     const st = state_();
@@ -1131,7 +1115,6 @@ function tReveal() {
 /* ---------- 先生：記録を見る ---------- */
 
 function tReport(todayOnly) {
-  checkTeacher_();
   const per = {}, order = [], types = {};
   const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd');
   ss_().getSheets().forEach(function (sh) {
