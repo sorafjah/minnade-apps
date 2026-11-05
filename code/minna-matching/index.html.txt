@@ -94,6 +94,7 @@ th{background:var(--soft);color:var(--mainD)}
 .cnt{font-size:22px;font-weight:700}
 .bar{height:16px;background:var(--main);border-radius:8px;min-width:2px}
 .hide{display:none}
+.bigtable th,.bigtable td{font-size:24px;padding:8px 12px}
 .helpov{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(31,51,64,.55);z-index:45;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
 .helpbox{background:#fff;border:3px solid var(--main);border-radius:18px;padding:16px 18px;width:min(100%,640px);max-height:96vh;overflow:auto}
 .helpbox h2{margin:0 0 6px;font-size:24px;color:var(--mainD)}
@@ -215,7 +216,7 @@ function beep(kind) {
 }
 
 /* ---------- 絵の読みこみ（まとめて8まいずつ） ---------- */
-var IMG = {}, IMGBUSY = {}, IMGCODE = '', IMGDONE = null;
+var IMG = {}, IMGBUSY = {}, IMGCODE = '', IMGCID = '', IMGFN = 'getImages', IMGDONE = null;
 function needImgs(names) {
   var list = names.filter(function (n) { return n && IMG[n] === undefined && !IMGBUSY[n]; });
   list = list.filter(function (n, i) { return list.indexOf(n) === i; });
@@ -225,8 +226,8 @@ function needImgs(names) {
   for (var i = 0; i < list.length; i += 8) chunks.push(list.slice(i, i + 8));
   chunks.reduce(function (pr, ch) {
     return pr.then(function () {
-      return call('getImages', ch, IMGCODE, PAGE).then(function (o) {
-        ch.forEach(function (n) { IMG[n] = o[n] || ''; delete IMGBUSY[n]; });
+      return call(IMGFN, ch, IMGCODE, IMGCID).then(function (o) {
+        ch.forEach(function (n) { if (n in o) IMG[n] = o[n] || ''; delete IMGBUSY[n]; });
         if (IMGDONE) IMGDONE();
       }).catch(function () { ch.forEach(function (n) { delete IMGBUSY[n]; }); });
     });
@@ -249,11 +250,11 @@ function cardNode(it, hira, tch) {
 function studentApp() {
   var cid = lsGet('mm_cid');
   if (!cid) { cid = 'c' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); lsSet('mm_cid', cid); }
-  var S = { cid: cid, code: lsGet('mm_code') || '', p: null, off: 0, sig: '', busy: false, snd: null, fail: 0, codeErr: false, help: null, helpKey: '' };
+  var S = { cid: cid, code: lsGet('mm_code') || '', p: null, off: 0, sig: '', busy: false, snd: null, fail: 0, codeErr: false };
   var OUT = [];
   try { OUT = JSON.parse(lsGet('mm_out') || '[]'); } catch (e) { OUT = []; }
   function saveOut() { lsSet('mm_out', JSON.stringify(OUT)); }
-  IMGCODE = S.code;
+  IMGCODE = S.code; IMGCID = S.cid; IMGFN = 'getImages';
 
   /* タイマー（requestAnimationFrame。1/30秒より長い間は、1/30秒として数える） */
   var tm = { on: false, left: 0, total: 0, last: 0, sync: 0, fill: null, txt: null, openedAt: 0, onEnd: null };
@@ -302,10 +303,9 @@ function studentApp() {
     if (inflight) return inflight;
     inflight = flushOutbox().then(function () { return call('sPoll', S.cid, S.code); }).then(function (o) {
       S.off = o.now - Date.now(); S.p = o; S.fail = 0;
-      if (S.snd === null) { var v = lsGet('mm_snd'); S.snd = v === null ? o.sound !== false : v === '1'; }
+      S.snd = o.sound !== false;   // 音のあり・なしは、先生の設定で決まる
       if (o.needCode) S.codeErr = !!S.code;
       IMGCODE = S.code;
-      if (o.imgs) needImgs(o.imgs);
       sRender();
     }).catch(function () { S.fail++; if (S.fail === 2) sRender(true); }).then(function () { inflight = null; });
     return inflight;
@@ -327,8 +327,6 @@ function studentApp() {
     var bar = h('div', { class: 'top' }, h('h1', null, 'みんなでマッチング'));
     if (p && p.phase !== 'idle' && p.myName) bar.appendChild(h('span', { class: 'chip acc' }, p.pace === 'self' ? 'ひとりずつ' : 'みんなで'));
     if (p && p.myName) bar.appendChild(h('span', { class: 'chip' }, rb(p.myName, hira)));
-    bar.appendChild(h('button', { type: 'button', class: 'chip', onclick: function () { unlock(); S.help = { slide: 0 }; sRender(true); } }, t('つかいかた')));
-    bar.appendChild(h('button', { type: 'button', class: 'chip', onclick: function () { S.snd = !S.snd; lsSet('mm_snd', S.snd ? '1' : '0'); unlock(); sRender(true); } }, 'おと ', S.snd ? 'あり' : 'なし'));
     return bar;
   }
   function offline() {
@@ -339,14 +337,7 @@ function studentApp() {
   function sRender(force) {
     var p = S.p;
     if (!p) { swap(h('div', { class: 'wrap' }, h('div', { class: 'msgbig' }, rb('読《よ》みこみ中《ちゅう》…', false)))); return; }
-    if (p.myName && !p.needCode) {   // はじめて使う端末（または「毎回出す」の設定）では、つかいかたを自動で出す
-      var hk = p.helpMode === 'always' ? 'r' + (p.round || '') : 'first';
-      if (S.helpKey !== hk) {
-        S.helpKey = hk;
-        if (p.helpMode === 'always' || lsGet('mm_help_done') !== '1') S.help = { slide: 0 };
-      }
-    }
-    var sig = JSON.stringify([p, S.busy, S.snd, S.fail >= 2, OUT.length, S.codeErr, S.help], function (k, v) { return k === 'now' ? undefined : v; });
+    var sig = JSON.stringify([p, S.busy, S.snd, S.fail >= 2, OUT.length, S.codeErr], function (k, v) { return k === 'now' ? undefined : v; });
     if (!force && sig === S.sig) return;
     S.sig = sig;
     tmStop();
@@ -358,37 +349,8 @@ function studentApp() {
     else if (p.pace !== 'self' && (p.phase === 'q' || p.phase === 'reveal') && p.q) wrap.appendChild(playScreen());
     else if (p.phase === 'end') wrap.appendChild(endScreen());
     else wrap.appendChild(h('div', { class: 'msgbig' }, t(p.phase === 'idle' ? 'はじまるまで^まっていてね' : 'もうすぐ^はじまるよ')));
-    if (S.help) wrap.appendChild(helpOverlay());
     swap(wrap);
     if (S.timerFn) { var tf = S.timerFn; S.timerFn = null; tf(); }
-  }
-
-  function helpSlides() {
-    var p = S.p || {}, self = p.pace === 'self', playing = p.phase && p.phase !== 'idle' && p.phase !== 'wait';
-    var second = self ? 'えらぶと、すぐに「せいかい！」か「おしい！」が^出《で》るよ。「つぎへ」を^おすと、つぎの^問題《もんだい》に^すすむよ。'
-      : playing ? 'えらんだあとも、1回《いっかい》だけ^変《か》えられるよ。先生《せんせい》が^こたえを^見《み》せるまで、まっていてね。'
-      : '「みんなで」の^ときは、えらんだあとも^1回《いっかい》だけ^変《か》えられるよ。「ひとりずつ」の^ときは、えらぶと^すぐに^こたえが^出《で》るよ。';
-    return [
-      { title: 'ペアを^さがすよ', body: 'うえに^カードが^出《で》るよ。ペアに^なる^カードを、したから^えらんでね。', demo: 'q' },
-      { title: 'えらびかた', body: second, demo: 'pick' },
-      { title: 'まちがえても^だいじょうぶ', body: 'まちがえても、だいじょうぶ。「おしい！」と^こたえが^出《で》るから、つぎに^いかそうね。', demo: 'fb' },
-      { title: '音《おと》と^つかいかた', body: '「おと」の^ボタンで、音《おと》を^オン・オフ できるよ。わからなく なったら、「つかいかた」の^ボタンで、また^見《み》られるよ。' }
-    ];
-  }
-  function helpOverlay() {
-    var sl = helpSlides(), i = Math.max(0, Math.min(sl.length - 1, S.help.slide)), it = sl[i], last = i === sl.length - 1;
-    function close() { S.help = null; lsSet('mm_help_done', '1'); sRender(true); }
-    var demo = null;
-    if (it.demo === 'q') demo = h('div', { class: 'helpdemo' }, h('div', { class: 'mini' }, t('りんご')), h('div', null, h('span', { class: 'mini' }, t('赤《あか》')), h('span', { class: 'mini' }, t('青《あお》'))));
-    if (it.demo === 'pick') demo = h('div', { class: 'helpdemo' }, h('span', { class: 'mini on' }, t('赤《あか》')), h('span', { class: 'mini' }, t('青《あお》')), h('div', null, h('span', { class: 'badge' }, t('えらんだよ'))));
-    if (it.demo === 'fb') demo = h('div', { class: 'helpdemo' }, h('div', { class: 'fb ok', style: 'margin:4px 0' }, t('せいかい！')), h('div', { class: 'fb ng', style: 'margin:4px 0' }, t('おしい！^こたえは^ここだよ')));
-    return h('div', { class: 'helpov' }, h('div', { class: 'helpbox' },
-      h('div', { class: 'chip' }, (i + 1) + ' / ' + sl.length),
-      h('h2', null, t(it.title)), h('div', { class: 'helpbody' }, t(it.body)), demo,
-      h('div', { class: 'helpbtns' },
-        last ? null : h('button', { type: 'button', class: 'btn sub', onclick: close }, t('とばす')),
-        last ? h('button', { type: 'button', class: 'btn big', onclick: close }, t('とじる'))
-          : h('button', { type: 'button', class: 'btn big', onclick: function () { S.help = { slide: i + 1 }; sRender(true); } }, t('つぎへ')))));
   }
 
   function codeScreen() {
@@ -441,9 +403,8 @@ function studentApp() {
       prog.appendChild(h('div', { class: 'timer' }, fill)); prog.appendChild(txt);
     }
     wrap.appendChild(prog);
-    var ask = q.split ? (q.side === 'a' ? q.la : q.lb) : '';
     wrap.appendChild(h('div', { class: 'qcard' },
-      h('div', { class: 'ask' }, ask ? [t(ask), t(' の ペアに^なるのは^どれかな？')] : t('ペアに^なるのは^どれかな？')),
+      h('div', { class: 'ask' }, t('ペアに^なるのは^どれかな？')),
       cardNode(q.item, hira)));
     var grid = h('div', { class: 'choices' });
     q.choices.forEach(function (c, i) {
@@ -503,7 +464,6 @@ function studentApp() {
   function endScreen() {
     var p = S.p, hira = p.hira;
     var w = h('div', null, h('div', { class: 'msgbig' }, t('おつかれさま！')));
-    if (p.showScore && typeof p.score === 'number') w.appendChild(h('div', { class: 'fb ok' }, String(p.score), t(' 問《もん》^せいかい')));
     w.appendChild(h('div', { class: 'fb plain' }, t('つぎが^はじまるまで^まっていてね')));
     return w;
   }
@@ -515,11 +475,11 @@ function studentApp() {
    先生の画面
    ===================================================================== */
 function teacherApp() {
-  var T = { init: null, view: null, set: null, screen: 'home', big: false, help: false, sig: '', lastRun: false, msg: null, ok: null, busy: false };
+  var T = { init: null, view: null, set: null, screen: 'home', big: false, help: false, showCnt: false, cntKey: '', sig: '', lastRun: false, msg: null, ok: null, busy: false };
   var P = { tab: '', rows: null, a: { text: '', data: '' }, b: { text: '', data: '' }, bulk: '', newTab: '', del: null };
   var ST = { group: '', rows: null };
   var RP = { today: true, data: null };
-  IMGCODE = '';
+  IMGCODE = ''; IMGFN = 'tGetImages';
   IMGDONE = function () { if (T.screen === 'pairs' || runMode()) renderT(true); };
 
   function runMode() { return !!(T.view && T.view.st && T.view.st.phase !== 'idle'); }
@@ -532,7 +492,14 @@ function teacherApp() {
     var args = Array.prototype.slice.call(arguments, 1);
     return call.apply(null, [fn].concat(args)).then(function (v) { T.busy = false; return v; }, function (e) { T.busy = false; throw e; });
   }
-  function setView(v) { T.view = v; T.msg = null; renderT(true); }
+  function goNext() {   // 結果発表をしないで、つぎの回の設定にもどる
+    call('tStop').then(function () { return call('tInit'); }).then(function (d) {
+      T.init = d; T.screen = 'home'; return call('tView');
+    }).then(function (v) { T.view = v; T.ok = '終わりました。記録は保存しました。つぎの回の設定ができます'; T.msg = null; renderT(true); poll(); }).catch(err);
+  }
+  function setView(v) {
+    T.view = v; T.msg = null; renderT(true); poll();
+  }   // 操作のあとは、すぐに4秒おきの更新にもどす
 
   function load() {
     call('tInit').then(function (d) {
@@ -543,8 +510,10 @@ function teacherApp() {
       swap(h('div', { class: 'wrap' }, h('div', { class: 'err' }, isNet(e) ? 'サーバーにつながっていません' : msgOf(e))));
     });
   }
+  var pollTimer = null;
   function poll() {
-    setTimeout(function () {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(function () {
       if (T.busy || document.hidden) { poll(); return; }
       call('tView').then(function (v) {
         var was = runMode(); T.view = v;
@@ -557,7 +526,7 @@ function teacherApp() {
   function renderT(force) {
     if (!T.init) return;
     var run = runMode();
-    var sig = run ? JSON.stringify([T.view, T.big, T.msg, T.ok, T.help], function (k, v) { return k === 'now' ? undefined : v; }) : 'form';
+    var sig = run ? JSON.stringify([T.view, T.big, T.msg, T.ok, T.help, T.showCnt], function (k, v) { return k === 'now' ? undefined : v; }) : 'form';
     if (!force && sig === T.sig) return;
     T.sig = sig;
     scrollY = window.scrollY || 0;
@@ -583,7 +552,7 @@ function teacherApp() {
       '設定を決めて「この設定で受付を始める」を押すと、QRコードが出ます。「QRコードを大きく表示する」で、教室の大きな画面に映せます。',
       '生徒がQRコードを読み取って参加します。参加のしかたは「名簿から選ぶ」「キャラで参加」「名前を入れずに参加」から選びます。参加コードを「あり」にしたときは、4けたの数字も伝えます。',
       '人が集まったら「この人数ではじめる」を押します。',
-      '「みんなで」のときは、答えがそろったら「答えを見せる」、つづけて「つぎの問題へ」を押します。「ひとりずつ」のときは、生徒が自分で進みます。全員が終わったら「終わりにして結果を見る」を押します。',
+      '「みんなで」のときは、答えがそろったら「答えを見せる」、つづけて「つぎの問題へ」を押します。最後の問題では「結果発表をしないで次にいく」か「結果発表をする」を選びます。「ひとりずつ」のときは、生徒が自分で進みます。全員が終わったら「結果発表をしないで次にいく」か「終わりにして結果発表をする」を選びます。',
       '「設定にもどる（つぎの回へ）」で、つぎの回を始められます。「記録を見る」で、正答率とまちがいの型が見られます。生徒ごとのレベルは「生徒ごとのレベル」で決めます。'
     ];
     return h('div', { class: 'helpov' }, h('div', { class: 'helpbox' }, h('h2', null, '使い方'), h('ol', null, steps.map(function (x) { return h('li', null, x); })),
@@ -665,9 +634,7 @@ function teacherApp() {
 
     var p4 = h('div', { class: 'panel' }, h('h2', null, (self ? '4' : '3') + '. 生徒の画面'));
     p4.appendChild(fld('文字', seg('hira', [[false, '漢字にふりがな'], [true, 'ひらがなだけ']]), '漢字がむずかしいグループは「ひらがなだけ」にします。'));
-    p4.appendChild(fld('使い方の説明', seg('helpMode', [['first', 'はじめて使う端末だけ'], ['always', '毎回出す']]), '生徒の画面の「つかいかた」ボタンから、いつでも見られます。'));
-    p4.appendChild(fld('効果音', seg('sound', [[true, 'あり'], [false, 'なし']]), '生徒の画面にも、おと のオン・オフのボタンがあります。'));
-    p4.appendChild(fld('最後の画面に正解数を出す', seg('result', [[false, '出さない'], [true, '出す']])));
+    p4.appendChild(fld('効果音', seg('sound', [[true, 'あり'], [false, 'なし']])));
     if (!self) p4.appendChild(fld('答えた人の見せ方（先生の画面）', seg('live', [['num', '人数だけ'], ['names', '名前も出す'], ['none', '出さない']])));
     w.appendChild(p4);
 
@@ -829,7 +796,7 @@ function teacherApp() {
     (d.stuGroups || d.groups).forEach(function (g) { gs.appendChild(h('option', { value: g, selected: g === ST.group }, g === 'ゲスト' ? 'ゲスト（名前を入れずに参加）' : g)); });
     w.appendChild(h('div', { class: 'panel' }, h('div', { class: 'row' }, h('span', { class: 'lb' }, '名簿のグループ'), gs,
       ST.group === 'ゲスト' ? h('button', { type: 'button', class: 'btn small warn', onclick: function () { var pr = act('tResetGuests'); if (pr) pr.then(function () { ST.rows = null; loadStudents(); note('ゲストの番号をリセットしました'); }).catch(err); } }, 'ゲストの番号をリセットする') : null),
-      h('div', { class: 'note' }, '「ひとりずつ」のとき、受付を始めた時点のレベルから始まります。「自動」は、いちばん上のレベル（選択肢がいちばん多い）から始まります。「レベルの自動上下」を「自動で上下しない」にした生徒は、決めたレベルのまま進みます（受付を始めた時点の設定が使われます）。スプレッドシートの「生徒設定」タブからも変えられます。')));
+      h('div', { class: 'note' }, '「ひとりずつ」のとき、受付を始めた時点のレベルから始まります。「自動」は、いちばん上のレベル（選択肢がいちばん多い）から始まります。スプレッドシートの「生徒設定」タブからも変えられます。')));
     if (!ST.rows) { w.appendChild(h('div', null, 'よみこみ中…')); return w; }
     if (!ST.rows.length) { w.appendChild(h('div', { class: 'note' }, ST.group === 'ゲスト' ? 'まだゲストの参加がありません。生徒が参加すると、ここに「ゲスト1」「ゲスト2」…が出ます。' : '名前がありません')); return w; }
     var tbd = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, 'はじめのレベル'), h('th', null, 'レベルの自動上下')));
@@ -909,9 +876,13 @@ function teacherApp() {
     }
     if (st.phase === 'end') {
       var rows = (v.scores || []).slice().sort(function (a, b) { return b.ok - a.ok; });
-      var tb = h('table', null, h('tr', null, h('th', null, '名前'), h('th', null, '答えた数'), h('th', null, '正解')));
-      rows.forEach(function (r) { tb.appendChild(h('tr', null, h('td', null, plain(r.name)), h('td', null, String(r.ans)), h('td', null, String(r.ok)))); });
-      w.appendChild(h('div', { class: 'panel' }, h('h2', null, '結果（全' + st.total + '問）'), rows.length ? tb : h('div', { class: 'note' }, '答えた人がいませんでした')));
+      var tb = h('table', { class: 'bigtable' }, h('tr', null, h('th', null, '順位'), h('th', null, '名前'), h('th', null, '正解'), h('th', null, '答えた数')));
+      var rank = 0;
+      rows.forEach(function (r, i) {
+        if (i === 0 || r.ok !== rows[i - 1].ok) rank = i + 1;
+        tb.appendChild(h('tr', null, h('td', null, rank + '位'), h('td', null, plain(r.name)), h('td', null, r.ok + ' / ' + st.total + '問'), h('td', null, String(r.ans))));
+      });
+      w.appendChild(h('div', { class: 'panel' }, h('h2', { style: 'font-size:30px' }, '結果発表'), rows.length ? tb : h('div', { class: 'note' }, '答えた人がいませんでした')));
       if (self && v.rows) w.appendChild(levelTable(v.rows, st));
       w.appendChild(h('div', { class: 'row' },
         h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tStop'); if (pr) pr.then(function () { return call('tInit'); }).then(function (d) { T.init = d; T.screen = 'home'; return call('tView'); }).then(setView).catch(err); } }, '設定にもどる（つぎの回へ）'),
@@ -922,22 +893,26 @@ function teacherApp() {
       var alld = v.rows.length > 0 && v.rows.every(function (r) { return r.done; });
       w.appendChild(h('div', { class: 'panel' }, h('h2', null, '取り組み中（' + v.rows.filter(function (r) { return r.done; }).length + ' / ' + v.rows.length + '人が終わり）'), alld ? h('div', { class: 'okmsg' }, '全員が終わりました') : null));
       w.appendChild(levelTable(v.rows, st));
-      w.appendChild(h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(setView).catch(err); } }, '終わりにして結果を見る'));
+      w.appendChild(h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(goNext).catch(err); } }, '結果発表をしないで次にいく'),
+        h('button', { type: 'button', class: 'btn sub', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(setView).catch(err); } }, '終わりにして結果発表をする')));
       return w;
     }
     // みんなで
     var q = v.q, reveal = st.phase === 'reveal';
+    var ck = st.round + ':' + st.index;
+    if (T.cntKey !== ck) { T.cntKey = ck; T.showCnt = false; }   // 問題が変わったら、人数はかくす
+    var showC = reveal || T.showCnt;
     var all = [q.item].concat(q.choices);
     needImgs(all.map(function (x) { return x.img; }));
-    var ask = st.split ? plain(q.side === 'a' ? st.la : st.lb) : '';
     w.appendChild(h('div', { class: 'panel' }, h('div', { class: 'row' }, h('span', { class: 'chip' }, (st.index + 1) + ' / ' + st.total + '問'),
       st.limit > 0 ? h('span', { class: 'chip acc' }, '制限時間 ' + st.limit + '秒') : null),
-      h('div', { class: 'qcard' }, ask ? h('div', { class: 'ask' }, ask + ' のペアになるのは？') : null, cardNode(q.item, false, true))));
+      h('div', { class: 'qcard' }, h('div', { class: 'ask' }, 'ペアになるのはどれかな？'), cardNode(q.item, false, true))));
     var grid = h('div', { class: 'choices' });
     q.choices.forEach(function (c, i) {
       grid.appendChild(h('div', { class: 'choice' + (reveal && i === v.correct ? ' right' : '') }, cardNode(c, false, true),
         reveal && i === v.correct ? h('span', { class: 'badge ok' }, 'こたえ') : null,
-        reveal ? h('div', { class: 'cnt' }, v.counts[i] + '人') : null));
+        showC ? h('div', { class: 'cnt' }, v.counts[i] + '人') : null));
     });
     w.appendChild(grid);
     var done = v.answered.length, tot = v.people.length;
@@ -948,9 +923,14 @@ function teacherApp() {
     w.appendChild(p2);
     var last = st.index + 1 >= st.total;
     w.appendChild(h('div', { class: 'row' },
+      !reveal ? h('button', { type: 'button', class: 'btn sub', onclick: function () { T.showCnt = !T.showCnt; renderT(true); } }, T.showCnt ? '選んだ人数をかくす' : '選んだ人数を出す') : null,
       !reveal ? h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tReveal'); if (pr) pr.then(setView).catch(err); } }, '答えを見せる')
-        : h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tNext'); if (pr) pr.then(setView).catch(err); } }, last ? '結果を見る' : 'つぎの問題へ'),
-      h('button', { type: 'button', class: 'btn warn', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(setView).catch(err); } }, 'ここで終わりにする')));
+        : (last ? [
+          h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tNext'); if (pr) pr.then(goNext).catch(err); } }, '結果発表をしないで次にいく'),
+          h('button', { type: 'button', class: 'btn sub', onclick: function () { var pr = act('tNext'); if (pr) pr.then(setView).catch(err); } }, '結果発表をする')]
+          : h('button', { type: 'button', class: 'btn big', onclick: function () { var pr = act('tNext'); if (pr) pr.then(setView).catch(err); } }, 'つぎの問題へ')),
+      h('button', { type: 'button', class: 'btn warn', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(goNext).catch(err); } }, '途中で終わる：結果発表をしないで次にいく'),
+      h('button', { type: 'button', class: 'btn warn', onclick: function () { var pr = act('tFinish'); if (pr) pr.then(setView).catch(err); } }, '途中で終わる：結果発表をする')));
     return w;
   }
   function levelTable(rows, st) {
