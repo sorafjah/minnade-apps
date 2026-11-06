@@ -61,3 +61,4 @@ assets/apps.js      アプリの一覧
 | minna-quiz | みんなでクイズ（第26版） | みんなでクイズ/ |
 | minna-matching | みんなでマッチング | みんなでマッチング/ |
 | minna-tokei | みんなで時計 | みんなで時計/ |
+| minna-keisan | みんなで計算 | みんなで計算/ |
