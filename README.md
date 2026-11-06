@@ -62,3 +62,4 @@ assets/apps.js      アプリの一覧
 | minna-matching | みんなでマッチング | みんなでマッチング/ |
 | minna-tokei | みんなで時計 | みんなで時計/ |
 | minna-keisan | みんなで計算 | みんなで計算/ |
+| minna-okane | みんなでお金 | みんなでお金/ |
