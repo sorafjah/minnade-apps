@@ -1,0 +1,586 @@
+/**
+ * @OnlyCurrentDoc
+ */
+/************************************************************
+ * みんなで計算（たし算・ひき算・かけ算・わり算）
+ *   使い方：はじめに一度だけ setup を実行し、ウェブアプリとしてデプロイ。生徒用はURL、先生用はURLの最後に ?page=teacher（URLを知っている人だけが開ける）
+ *   利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+ ************************************************************/
+
+const TZ = 'Asia/Tokyo';
+const SHEET_ROSTER = '名簿';
+const SHEET_ROSTER_OLD = 'めいぼ';     // 前の版のタブ名でも読めるようにする
+const SHEET_CONF = '生徒設定';
+const SHEET_LOG = '記録';
+const SHEET_SUM = '回ごとの記録';
+const HEAD_CONF = ['名前', 'ジャンル', '出す', 'レベル', '下限', '上限', '自動調整', '習得', '習得した日', 'タイムアタック最高', '前回のレベル'];
+const HEAD_LOG = ['日時', '回ID', '名前', '進め方', 'ジャンル', 'レベル', '出し方', '問題', '正しい答え', '答え', '正誤', 'まちがいの型', '答え方', 'かかった秒数'];
+const HEAD_SUM = ['日時', '回ID', '名前', '進め方', 'ジャンル', 'はじめのレベル', 'おわりのレベル', '解いた数', '正解数', '正答率', '多かったまちがい', '習得'];
+const CACHE_SEC = 21600; // 6時間
+
+// ジャンル（index.html の GENRES と同じ key）。むずかしさの順
+const GENRES = {
+  tashi: { name: 'たし算', max: 5 },
+  hiki: { name: 'ひき算', max: 5 },
+  kake: { name: 'かけ算', max: 5 },
+  wari: { name: 'わり算', max: 6 }
+};
+const GENRE_ORDER = ['tashi', 'hiki', 'kake', 'wari'];
+
+const DEFAULT_SETTINGS = {
+  mode: 'all', genres: ['tashi'], level: 2, levelMode: 'all', count: 5,
+  minutes: 10, order: 'seq', answer: 'four',
+  autoLv: true, up: 3, down: 2, master: 20, sometimes: true, rate: 20, ta: true, taSec: 60, next: true, mixPrev: false, mixRate: 30, flagN: 3,
+  sound: true, kana: 'ruby', guide: 'first', join: 'roster', roster: '', useCode: false
+};
+
+/* ========== 画面 ========== */
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  const wantTeacher = p.page === 'teacher' || p.p === 'teacher';
+  const t = HtmlService.createTemplateFromFile('index');
+  t.page = wantTeacher ? 'teacher' : 'student';
+  return t.evaluate().setTitle(wantTeacher ? 'みんなで計算（先生用）' : 'みんなで計算')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// 先生用の画面は、先生用のURL（?page=teacher）を知っている人だけが開く。アカウントの確かめはしない
+// （学校のアカウントでは、ログイン中のアカウントがわからず、作った人でも入れないことがあるため）
+function mustTeacher_() { /* 確かめない */ }
+
+/* ========== はじめに一度だけ実行 ========== */
+function setup() {
+  const ss = ss_();
+  if (!ss.getSheetByName(SHEET_ROSTER) && !ss.getSheetByName(SHEET_ROSTER_OLD)) {
+    const sh = ss.insertSheet(SHEET_ROSTER);
+    sh.getRange(1, 1, 4, 1).setValues([['1組'], ['れい1'], ['れい2'], ['れい3']]);
+    sh.getRange(1, 1).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  sheet_(SHEET_CONF, HEAD_CONF);
+  sheet_(SHEET_LOG, HEAD_LOG);
+  sheet_(SHEET_SUM, HEAD_SUM);
+}
+
+/* ========== スプレッドシート ========== */
+function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+
+// タブがなければ作り、足りない見出しは右に足す（前の版のシートでも動くように）
+function sheet_(name, heads) {
+  const ss = ss_();
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  const lastCol = sh.getLastColumn();
+  const cur = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v).trim()) : [];
+  const missing = heads.filter(h => cur.indexOf(h) < 0);
+  if (missing.length) {
+    const start = cur.some(v => v !== '') ? lastCol + 1 : 1;
+    sh.getRange(1, start, 1, missing.length).setValues([missing]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function heads_(sh) { return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(v => String(v).trim()); }
+function appendRows_(sh, objs) {
+  if (!objs.length) return;
+  const heads = heads_(sh);
+  const rows = objs.map(o => heads.map(h => (Object.prototype.hasOwnProperty.call(o, h) ? o[h] : '')));
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, heads.length).setValues(rows);
+}
+function rosterSheet_() { const ss = ss_(); return ss.getSheetByName(SHEET_ROSTER) || ss.getSheetByName(SHEET_ROSTER_OLD); }
+
+// 名簿：1行目が名簿の名前、その下に生徒の名前（列ごとに別の名簿）
+function rosters_() {
+  const sh = rosterSheet_();
+  if (!sh || sh.getLastRow() < 1 || sh.getLastColumn() < 1) return [];
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  const out = [];
+  for (let c = 0; c < v[0].length; c++) {
+    const title = String(v[0][c]).trim();
+    if (!title) continue;
+    const names = [];
+    for (let r = 1; r < v.length; r++) { const n = String(v[r][c]).trim(); if (n && names.indexOf(n) < 0) names.push(n); }
+    out.push({ title: title, names: names });
+  }
+  return out;
+}
+function rosterNames_(title) {
+  const list = rosters_();
+  const hit = list.filter(r => r.title === title)[0] || list[0];
+  return hit ? hit.names : [];
+}
+
+/* ---------- 生徒設定（生徒×ジャンルで1行） ---------- */
+function genreKeyOf_(v) {
+  const s = String(v).trim();
+  if (GENRES[s]) return s;
+  for (const k in GENRES) if (GENRES[k].name === s) return k;
+  return '';
+}
+function num_(v) {
+  const s = String(v == null ? '' : v).trim().replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+  const n = parseInt(s, 10);
+  return isNaN(n) ? '' : n;
+}
+function yes_(v, def) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return def;
+  return !/^(×|x|ｘ|no|しない|出さない|なし|false|0|いいえ)$/i.test(s);
+}
+function readConf_() {
+  const sh = sheet_(SHEET_CONF, HEAD_CONF);
+  const last = sh.getLastRow(), heads = heads_(sh);
+  const col = h => heads.indexOf(h);
+  const rows = last > 1 ? sh.getRange(2, 1, last - 1, heads.length).getValues() : [];
+  return { sh: sh, heads: heads, col: col, rows: rows };
+}
+function confRow_(d, r) {
+  const c = d.col, mx = v => (v === '' ? '' : v);
+  const md = r[c('習得した日')];
+  return {
+    show: yes_(r[c('出す')], true), level: mx(num_(r[c('レベル')])), lower: mx(num_(r[c('下限')])), upper: mx(num_(r[c('上限')])),
+    auto: yes_(r[c('自動調整')], true), mastered: String(r[c('習得')]).trim() !== '' && yes_(r[c('習得')], false),
+    mdate: md instanceof Date ? Utilities.formatDate(md, TZ, 'M月d日') : String(md || ''),
+    best: num_(r[c('タイムアタック最高')]), last: num_(r[c('前回のレベル')])
+  };
+}
+function blankConf_() { return { show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
+// ある生徒の、ジャンルごとの設定
+function confFor_(name) {
+  const d = readConf_(), out = {};
+  GENRE_ORDER.forEach(k => { out[k] = blankConf_(); });
+  d.rows.forEach(r => {
+    if (String(r[d.col('名前')]).trim() !== name) return;
+    const k = genreKeyOf_(r[d.col('ジャンル')]);
+    if (k) out[k] = confRow_(d, r);
+  });
+  return out;
+}
+// 行を書きかえる（なければ足す）。patch は 見出し→値
+function patchConf_(d, name, key, patch) {
+  const ni = d.col('名前'), gi = d.col('ジャンル');
+  let row = d.rows.filter(r => String(r[ni]).trim() === name && genreKeyOf_(r[gi]) === key)[0];
+  if (!row) {
+    row = d.heads.map(() => '');
+    row[ni] = name; row[gi] = GENRES[key].name;
+    d.rows.push(row);
+  }
+  Object.keys(patch).forEach(h => { const i = d.col(h); if (i >= 0) row[i] = patch[h]; });
+}
+function writeConf_(d) {
+  if (!d.rows.length) return;
+  d.sh.getRange(2, 1, d.rows.length, d.heads.length).setValues(d.rows);
+}
+
+/* ========== 保存場所（プロパティ・キャッシュ） ========== */
+function props_() { return PropertiesService.getScriptProperties(); }
+function getJSON_(k, d) { try { const v = props_().getProperty(k); return v ? JSON.parse(v) : d; } catch (err) { return d; } }
+function setJSON_(k, v) { props_().setProperty(k, JSON.stringify(v)); }
+// 長い文字列は分けて保存する（プロパティ1つは9KBまで）
+function putBig_(prefix, str) {
+  const size = 8000, n = Math.ceil(str.length / size), obj = {};
+  for (let i = 0; i < n; i++) obj[prefix + '_' + i] = str.substr(i * size, size);
+  obj[prefix + '_n'] = String(n);
+  props_().setProperties(obj);
+}
+function getBig_(prefix) {
+  const p = props_(), n = parseInt(p.getProperty(prefix + '_n') || '0', 10);
+  let s = '';
+  for (let i = 0; i < n; i++) s += p.getProperty(prefix + '_' + i) || '';
+  return s;
+}
+// キャッシュのキー：日本語の名前は encodeURIComponent で（同じ文字数の名前が重ならないように）
+function stKey_(rid, name) { return ('st_' + rid + '_' + encodeURIComponent(name)).slice(0, 240); }
+function seenKey_(rid, name) { return ('sn_' + rid + '_' + encodeURIComponent(name)).slice(0, 240); }
+function cache_() { return CacheService.getScriptCache(); }
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+/* ========== 回 ========== */
+function clampN_(v, lo, hi, d) { const n = parseInt(v, 10); return isNaN(n) ? d : Math.max(lo, Math.min(hi, n)); }
+function sanitize_(s) {
+  const d = Object.assign({}, DEFAULT_SETTINGS, s || {});
+  d.mode = d.mode === 'self' ? 'self' : 'all';
+  d.genres = (Array.isArray(d.genres) ? d.genres : []).filter(k => GENRES[k]);
+  if (!d.genres.length) d.genres = ['tashi'];
+  d.genres = GENRE_ORDER.filter(k => d.genres.indexOf(k) >= 0);
+  if (d.mode === 'all') d.genres = d.genres.slice(0, 1);
+  d.level = clampN_(d.level, 1, GENRES[d.genres[0]].max, 2);
+  d.levelMode = d.levelMode === 'each' ? 'each' : 'all';
+  d.count = clampN_(d.count, 1, 30, 5);
+  d.minutes = clampN_(d.minutes, 1, 60, 10);
+  d.order = d.order === 'mix' ? 'mix' : 'seq';
+  d.answer = ['four', 'two', 'input'].indexOf(d.answer) >= 0 ? d.answer : 'four';
+  d.autoLv = d.autoLv !== false;
+  d.up = clampN_(d.up, 1, 10, 3); d.down = clampN_(d.down, 1, 10, 2);
+  d.master = clampN_(d.master, 3, 50, 20);
+  d.sometimes = d.sometimes !== false; d.rate = clampN_(d.rate, 5, 50, 20);
+  d.ta = d.ta !== false; d.taSec = clampN_(d.taSec, 20, 300, 60);
+  d.next = d.next !== false;
+  d.mixPrev = d.mixPrev === true; d.mixRate = clampN_(d.mixRate, 10, 70, 30);
+  d.flagN = clampN_(d.flagN, 2, 10, 3);
+  d.sound = d.sound !== false;
+  d.kana = d.kana === 'hira' ? 'hira' : 'ruby';
+  d.guide = d.guide === 'every' ? 'every' : 'first';
+  d.join = ['roster', 'chara', 'guest'].indexOf(d.join) >= 0 ? d.join : 'roster';
+  d.roster = String(d.roster || '');
+  d.useCode = d.useCode === true;
+  return d;
+}
+// 生徒に送る情報（参加コードそのものは送らない）
+function pub_(r) {
+  if (!r) return null;
+  const s = r.settings, o = { id: r.id, prevId: r.prevId || '', status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt, showRes: !!r.showRes };
+  ['mode', 'genres', 'count', 'minutes', 'order', 'answer', 'autoLv', 'up', 'down', 'master', 'sometimes', 'rate', 'ta', 'taSec', 'next', 'mixPrev', 'mixRate', 'flagN', 'sound', 'kana', 'guide', 'join']
+    .forEach(k => { o[k] = s[k]; });
+  return o;
+}
+function modeName_(m) { return m === 'self' ? 'ひとりずつ' : 'みんなで'; }
+
+// 回を終える：まだまとめを書いていない「みんなで」の生徒の分を、キャッシュから書く
+function endRound_(r) {
+  r.status = 'ended';
+  r.endedAt = Date.now();
+  setJSON_('ROUND', r);
+  if (r.settings.mode !== 'all') return;
+  const mem = getJSON_('MEM', []);
+  if (!mem.length) return;
+  const c = cache_(), keys = mem.map(m => stKey_(r.id, m.name)), got = c.getAll(keys);
+  const rows = [], put = {};
+  mem.forEach((m, i) => {
+    let s = null;
+    try { s = got[keys[i]] ? JSON.parse(got[keys[i]]) : null; } catch (err) { s = null; }
+    if (!s || s.sumd) return;
+    s.sumd = true; put[keys[i]] = JSON.stringify(s);
+    let correct = 0; const mist = {};
+    Object.keys(s.ans || {}).forEach(q => { const a = s.ans[q]; if (a[1]) correct++; else if (a[2]) mist[a[2]] = (mist[a[2]] || 0) + 1; });
+    rows.push(sumRow_(r.id, 'all', m.name, r.settings.genres[0], m.lv, m.lv, r.settings.count, correct, mist, ''));
+  });
+  if (rows.length) appendRows_(sheet_(SHEET_SUM, HEAD_SUM), rows);
+  if (Object.keys(put).length) c.putAll(put, CACHE_SEC);
+}
+function topOf_(mist) {
+  let top = '', n = 0;
+  Object.keys(mist || {}).forEach(k => { if (mist[k] > n) { top = k; n = mist[k]; } });
+  return top ? top + '（' + n + '回）' : '';
+}
+function sumRow_(rid, mode, name, key, lv0, lv1, n, correct, mist, mastered) {
+  return {
+    '日時': new Date(), '回ID': rid, '名前': name, '進め方': modeName_(mode), 'ジャンル': GENRES[key] ? GENRES[key].name : key,
+    'はじめのレベル': lv0, 'おわりのレベル': lv1, '解いた数': n, '正解数': correct,
+    '正答率': n ? Math.round(correct / n * 100) + '%' : '', '多かったまちがい': typeof mist === 'string' ? mist : topOf_(mist), '習得': mastered || ''
+  };
+}
+
+/* ========== 生徒用 API ========== */
+function api_poll(roundId, name) {
+  const r = getJSON_('ROUND', null);
+  if (r && name && roundId === r.id) cache_().put(seenKey_(r.id, name), String(Date.now()), CACHE_SEC);
+  return { round: pub_(r) };
+}
+
+function api_checkCode(code) {
+  const r = getJSON_('ROUND', null);
+  if (!r || r.status !== 'open') return false;
+  return !r.code || String(code) === r.code;
+}
+
+function api_joinInfo(tok) {
+  const r = getJSON_('ROUND', null);
+  const out = { round: pub_(r), names: [], taken: [] };
+  if (r && r.status === 'open') {
+    if (r.settings.join === 'roster') out.names = rosterNames_(r.settings.roster);
+    out.taken = getJSON_('MEM', []).filter(m => m.kind === 'chara' && m.tok !== tok).map(m => m.name);
+  }
+  return out;
+}
+
+// 名前を入れない参加：端末ごとに「ゲスト1」「ゲスト2」…（同じ端末なら同じ番号）
+function guestName_(tok) {
+  const g = getJSON_('GUESTS', {});
+  if (!g[tok]) {
+    let max = 0;
+    Object.keys(g).forEach(k => { max = Math.max(max, g[k]); });
+    g[tok] = max + 1;
+    setJSON_('GUESTS', g);
+  }
+  return 'ゲスト' + g[tok];
+}
+function guestList_() {
+  const g = getJSON_('GUESTS', {});
+  return Object.keys(g).map(k => g[k]).sort((a, b) => a - b).map(n => 'ゲスト' + n);
+}
+
+function api_join(o) {
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (!r || r.status !== 'open') return { ok: false, err: 'closed', round: pub_(r) };
+    const tok = String((o && o.tok) || '').slice(0, 60);
+    const kind = r.settings.join;
+    let name = String((o && o.name) || '').trim().slice(0, 30);
+    if (kind === 'guest') name = guestName_(tok);
+    if (!name) return { ok: false, err: 'name' };
+    const mem = getJSON_('MEM', []);
+    const me = mem.filter(m => m.name === name)[0];
+    const prevOk = !!(o.prevId && o.prevId === r.prevId && getJSON_('PREV_MEM', []).indexOf(name) >= 0);
+    if (r.code && !me && !prevOk && String(o.code) !== r.code) return { ok: false, err: 'code' };
+    if (me && me.kind === 'chara' && me.tok !== tok) return { ok: false, err: 'taken' };
+    let lv = String(r.settings.level);
+    if (r.settings.mode === 'all' && r.settings.levelMode === 'each' && r.levelMap && r.levelMap[name]) lv = String(r.levelMap[name]);
+    if (r.sets && r.sets.length && r.sets.indexOf(lv) < 0) lv = r.sets[0];
+    if (me) me.tok = tok;
+    else mem.push({ name: name, kind: kind, tok: tok, lv: lv });
+    setJSON_('MEM', mem);
+    const out = { ok: true, name: name, setKey: me ? me.lv : lv, round: pub_(r) };
+    if (r.settings.mode === 'self') out.conf = confFor_(name);
+    return out;
+  });
+}
+
+function api_questions(roundId, key) {
+  const r = getJSON_('ROUND', null);
+  if (!r || r.id !== roundId) return null;
+  const c = cache_(), ck = 'qs_' + roundId + '_' + key;
+  let s = c.get(ck);
+  if (!s) {
+    s = getBig_('QS_' + key);
+    if (s && s.length < 90000) c.put(ck, s, CACHE_SEC);
+  }
+  return s || null;
+}
+
+// 記録を受け取る（送れなかった分もまとめて届く。同じものの2回目は書かない）
+function api_submit(items) {
+  if (!items || !items.length) return { done: [] };
+  return withLock_(() => {
+    const c = cache_();
+    const idKeys = items.map(it => 'it_' + String(it.id).slice(0, 60));
+    const seen = c.getAll(idKeys);
+    const stKeys = [];
+    items.forEach(it => { const k = stKey_(it.roundId || '', it.name || ''); if (stKeys.indexOf(k) < 0) stKeys.push(k); });
+    const got = c.getAll(stKeys), st = {};
+    stKeys.forEach(k => { try { st[k] = got[k] ? JSON.parse(got[k]) : null; } catch (err) { st[k] = null; } });
+    const logRows = [], sumRows = [];
+    let conf = null;
+    const cf = () => conf || (conf = readConf_());
+    const newIds = {};
+    items.forEach((it, i) => {
+      if (seen[idKeys[i]]) return;
+      newIds[idKeys[i]] = '1';
+      const k = stKey_(it.roundId || '', it.name || '');
+      const s = st[k] || (st[k] = { ans: {}, snap: null, sumd: false, done: false });
+      const gname = GENRES[it.genre] ? GENRES[it.genre].name : (it.genre || '');
+      if (it.kind === 'answer') {
+        if (it.mode === 'all') {
+          if (s.ans[it.qi]) return;
+          s.ans[it.qi] = [it.pickIdx, it.ok ? 1 : 0, it.ml || '', it.pick || ''];
+        }
+        logRows.push({
+          '日時': new Date(it.at || Date.now()), '回ID': it.roundId, '名前': it.name, '進め方': modeName_(it.mode), 'ジャンル': gname,
+          'レベル': it.level, '出し方': it.src || '', '問題': it.q || '', '正しい答え': it.correct || '', '答え': it.pick || '',
+          '正誤': it.na ? '－' : (it.ok ? '○' : '×'), 'まちがいの型': it.ml || '', '答え方': it.how || '', 'かかった秒数': it.sec
+        });
+      } else if (it.kind === 'snap') {
+        s.snap = it.snap || null;
+      } else if (it.kind === 'finish') {
+        s.done = true;
+        if (s.sumd) return;
+        s.sumd = true;
+        (it.per || []).forEach(p => {
+          sumRows.push(sumRow_(it.roundId, it.mode, it.name, p.genre, p.start, p.end, p.n, p.correct, p.top || '', p.mastered ? '○' : ''));
+          // まぜて出しただけのジャンルは「前回のレベル」を書かない
+          if (it.mode === 'self' && GENRES[p.genre] && p.end && !p.mixOnly) patchConf_(cf(), it.name, p.genre, { '前回のレベル': p.end });
+        });
+      } else if (it.kind === 'master' && GENRES[it.genre]) {
+        patchConf_(cf(), it.name, it.genre, it.on ? { '習得': '○', '習得した日': Utilities.formatDate(new Date(it.at || Date.now()), TZ, 'yyyy/MM/dd') } : { '習得': '', '習得した日': '' });
+      } else if (it.kind === 'best' && GENRES[it.genre]) {
+        const d = cf(), ni = d.col('名前'), gi = d.col('ジャンル'), bi = d.col('タイムアタック最高');
+        const row = d.rows.filter(r => String(r[ni]).trim() === it.name && genreKeyOf_(r[gi]) === it.genre)[0];
+        const cur = row ? num_(row[bi]) : '';
+        if (cur === '' || it.best > cur) patchConf_(d, it.name, it.genre, { 'タイムアタック最高': it.best });
+      }
+    });
+    if (logRows.length) appendRows_(sheet_(SHEET_LOG, HEAD_LOG), logRows);
+    if (sumRows.length) appendRows_(sheet_(SHEET_SUM, HEAD_SUM), sumRows);
+    if (conf) writeConf_(conf);
+    const put = Object.assign({}, newIds);
+    Object.keys(st).forEach(k => { if (st[k]) put[k] = JSON.stringify(st[k]); });
+    if (Object.keys(put).length) c.putAll(put, CACHE_SEC);
+    return { done: items.map(it => it.id) };
+  });
+}
+
+/* ========== 先生用 API（先生用のURLを知っている人が呼ぶ。アカウントの確かめはしない） ========== */
+function api_tInit() {
+  mustTeacher_();
+  return {
+    settings: sanitize_(getJSON_('LAST_SETTINGS', {})),
+    rosters: rosters_(),
+    guests: guestList_(),
+    url: ScriptApp.getService().getUrl(),
+    round: getJSON_('ROUND', null)
+  };
+}
+
+// 「みんなで」で生徒ごとのレベルを使うとき：生徒設定のレベル（なければ前回のレベル）
+function api_tPrepare(key, names) {
+  mustTeacher_();
+  const d = readConf_(), map = {};
+  d.rows.forEach(r => {
+    const n = String(r[d.col('名前')]).trim();
+    if (!n || (names && names.indexOf(n) < 0) || genreKeyOf_(r[d.col('ジャンル')]) !== key) return;
+    const c = confRow_(d, r);
+    const lv = c.level || c.last;
+    if (lv) map[n] = Math.max(1, Math.min(GENRES[key].max, lv));
+  });
+  return map;
+}
+
+function api_tStart(settings, sets, levelMap) {
+  mustTeacher_();
+  return withLock_(() => {
+    const old = getJSON_('ROUND', null);
+    if (old && old.status === 'open') endRound_(old);
+    const s = sanitize_(settings);
+    const p = props_();
+    p.getKeys().forEach(k => { if (k.indexOf('QS_') === 0) p.deleteProperty(k); });
+    Object.keys(sets || {}).forEach(k => putBig_('QS_' + k, String(sets[k])));
+    const r = {
+      id: Utilities.formatDate(new Date(), TZ, 'MMdd-HHmmss'),
+      prevId: old ? old.id : '',
+      status: 'open',
+      curQ: -1,
+      settings: s,
+      code: s.useCode ? String(1000 + Math.floor(Math.random() * 9000)) : '',
+      sets: Object.keys(sets || {}),
+      levelMap: levelMap || {},
+      startedAt: Date.now()
+    };
+    setJSON_('PREV_MEM', getJSON_('MEM', []).map(m => m.name));
+    setJSON_('MEM', []);
+    setJSON_('ROUND', r);
+    setJSON_('LAST_SETTINGS', s);
+    return r;
+  });
+}
+
+function api_tPoll() {
+  mustTeacher_();
+  const r = getJSON_('ROUND', null);
+  if (!r) return { round: null, members: [] };
+  const mem = getJSON_('MEM', []);
+  const sk = mem.map(m => stKey_(r.id, m.name)), nk = mem.map(m => seenKey_(r.id, m.name));
+  const got = mem.length ? cache_().getAll(sk.concat(nk)) : {};
+  const now = Date.now();
+  const members = mem.map((m, i) => {
+    let s = null;
+    try { s = got[sk[i]] ? JSON.parse(got[sk[i]]) : null; } catch (err) { s = null; }
+    const seen = parseInt(got[nk[i]] || '0', 10);
+    return { name: m.name, kind: m.kind, lv: m.lv, ans: s ? s.ans : {}, snap: s ? s.snap : null, done: !!(s && s.done), ago: seen ? Math.round((now - seen) / 1000) : -1 };
+  });
+  return { round: r, members: members };
+}
+
+function api_tSetQ(roundId, idx) {
+  mustTeacher_();
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (!r || r.id !== roundId || r.status !== 'open') return r;
+    r.curQ = Math.max(-1, Math.min(r.settings.count - 1, parseInt(idx, 10)));
+    setJSON_('ROUND', r);
+    return r;
+  });
+}
+
+// 生徒の画面に結果を出す・かくす（出すまでは、生徒は「おわったよ」の画面で待つ）
+function api_tShowRes(roundId, on) {
+  mustTeacher_();
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (r && (!roundId || r.id === roundId)) { r.showRes = on === true; setJSON_('ROUND', r); }
+    return r;
+  });
+}
+
+function api_tEnd(roundId) {
+  mustTeacher_();
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (r && r.status === 'open' && (!roundId || r.id === roundId)) endRound_(r);
+    return getJSON_('ROUND', null);
+  });
+}
+
+// 生徒ごとの設定（1つのジャンル）。group は名簿の名前、または '__guest'
+function api_tGetConf(key, group) {
+  mustTeacher_();
+  if (!GENRES[key]) return [];
+  const names = group === '__guest' ? guestList_() : rosterNames_(group);
+  const d = readConf_(), byName = {};
+  d.rows.forEach(r => {
+    const n = String(r[d.col('名前')]).trim();
+    if (n && genreKeyOf_(r[d.col('ジャンル')]) === key) byName[n] = confRow_(d, r);
+  });
+  return names.map(n => Object.assign({ name: n }, byName[n] || blankConf_()));
+}
+
+function api_tSaveConf(key, rows) {
+  mustTeacher_();
+  if (!GENRES[key]) return false;
+  return withLock_(() => {
+    const d = readConf_(), max = GENRES[key].max;
+    const lv = v => { const n = num_(v); return n === '' ? '' : Math.max(1, Math.min(max, n)); };
+    (rows || []).forEach(r => {
+      if (!r || !r.name) return;
+      const patch = { '出す': r.show ? '○' : '×', 'レベル': lv(r.level), '下限': lv(r.lower), '上限': lv(r.upper), '自動調整': r.auto ? '○' : '×' };
+      if (r.unmaster) { patch['習得'] = ''; patch['習得した日'] = ''; }
+      patchConf_(d, String(r.name), key, patch);
+    });
+    writeConf_(d);
+    return true;
+  });
+}
+
+function fmtJ_(v) {
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return String(v);
+  const m = parseInt(Utilities.formatDate(d, TZ, 'm'), 10);
+  return Utilities.formatDate(d, TZ, 'M月d日 H時') + (m ? m + '分' : '');
+}
+
+// 記録を見る：回ごとの記録（新しい順）と、生徒×ジャンルのまちがいの型
+function api_tRecords() {
+  mustTeacher_();
+  const readLast = (sh, max) => {
+    const last = sh.getLastRow(), heads = heads_(sh);
+    if (last < 2) return { heads: heads, rows: [] };
+    const n = Math.min(max, last - 1);
+    return { heads: heads, rows: sh.getRange(last - n + 1, 1, n, heads.length).getValues() };
+  };
+  const s = readLast(sheet_(SHEET_SUM, HEAD_SUM), 200), h = s.heads, col = x => h.indexOf(x);
+  const sums = s.rows.reverse().map(r => ({
+    at: fmtJ_(r[col('日時')]), name: String(r[col('名前')]), mode: String(r[col('進め方')]), genre: String(r[col('ジャンル')]),
+    lv0: String(r[col('はじめのレベル')]), lv1: String(r[col('おわりのレベル')]), n: r[col('解いた数')], correct: r[col('正解数')],
+    rate: String(r[col('正答率')]), mist: String(r[col('多かったまちがい')]), mastered: String(r[col('習得')])
+  }));
+  const l = readLast(sheet_(SHEET_LOG, HEAD_LOG), 3000), lh = l.heads;
+  const ni = lh.indexOf('名前'), gi = lh.indexOf('ジャンル'), mi = lh.indexOf('まちがいの型');
+  const by = {};
+  l.rows.forEach(r => {
+    const n = String(r[ni]).trim(), m = String(r[mi]).trim();
+    if (!n || !m) return;
+    const k = n + '｜' + String(r[gi]);
+    by[k] = by[k] || {};
+    by[k][m] = (by[k][m] || 0) + 1;
+  });
+  const mist = Object.keys(by).map(k => {
+    const items = Object.keys(by[k]).map(t => [t, by[k][t]]).sort((a, b) => b[1] - a[1]);
+    const p = k.split('｜');
+    return { name: p[0], genre: p[1], total: items.reduce((a, b) => a + b[1], 0), items: items };
+  }).sort((a, b) => b.total - a.total);
+  return { sums: sums, mist: mist };
+}
