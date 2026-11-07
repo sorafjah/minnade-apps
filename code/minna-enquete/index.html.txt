@@ -397,6 +397,51 @@ body.teacher .num { display: inline-flex; gap: 6px; align-items: center; flex-wr
 body.teacher .num input { width: 72px; text-align: center; font-size: 18px; min-height: 44px; border: 1px solid #b9c4d2; border-radius: 10px; }
 body.teacher .num input:disabled { background: #f1f4f9; color: var(--sub); }
 body.teacher .qcard.msg { background: #f7f9f2; }
+
+/* ----- 進行・全画面表示 ----- */
+body.teacher .lvbar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+body.teacher .lvbar button { min-width: 44px; min-height: 44px; padding: 4px 12px; }
+body.teacher .lvbar button.cur { background: var(--ok); border-color: var(--ok); color: #fff; font-weight: bold; }
+body.teacher .lvbar button.view { outline: 3px solid var(--pri); outline-offset: 1px; }
+body.teacher .lvbar button.msgb { background: #f7f9f2; }
+body.teacher .lvbar button.cur.msgb { background: var(--ok); }
+body.teacher .lvnow { background: var(--pri-weak); border-radius: 12px; padding: 10px 14px; margin: 8px 0; font-size: 17px; }
+body.teacher .lvprev { border: 2px dashed #b9c4d2; border-radius: 14px; padding: 14px; margin-top: 12px; background: #fff; }
+body.teacher .lvprev .lab { font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+body.teacher .rbn { font-size: 15px; color: var(--sub); margin-bottom: 6px; }
+body.teacher .rb-none { color: var(--sub); }
+body.teacher .br + .br { margin-top: 2px; }
+body.teacher .who { font-size: 13px; color: var(--sub); margin: 0 0 6px 4px; }
+body.teacher .opn { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+body.teacher .oc { background: #fff8d6; border: 1px solid #ecd9a0; border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; word-break: break-all; }
+body.teacher .oc b { display: block; font-size: 13px; color: var(--sub); margin-bottom: 2px; }
+body.teacher .oc p { margin: 0; }
+body.teacher .oc.hid { opacity: .5; background: #eee; border-style: dashed; }
+body.teacher .oct { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; white-space: normal; }
+body.teacher .oct button { font-size: 13px; min-height: 36px; min-width: 36px; padding: 2px 8px; }
+body.teacher #proj { position: fixed; inset: 0; z-index: 60; background: #fff; overflow: auto; font-size: clamp(16px, 1.9vw, 32px); padding: max(4vh, 76px) 4vw 8vh; }
+body.teacher #proj[hidden] { display: none; }
+body.teacher #proj .pbar { position: fixed; top: 10px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; z-index: 2; background: rgba(255,255,255,.94); padding: 6px; border-radius: 12px; border: 1px solid var(--line); max-width: 92vw; }
+body.teacher #proj .pbar button { font-size: 15px; min-height: 40px; min-width: 40px; padding: 4px 12px; }
+body.teacher #proj .ptitle { font-size: .6em; color: var(--sub); margin: 0 0 .4em; }
+body.teacher #proj .pq { font-size: 1.6em; font-weight: bold; line-height: 1.4; margin-bottom: .4em; }
+body.teacher #proj .pq .tag { font-size: .5em; vertical-align: middle; }
+body.teacher #proj .rbn { font-size: .75em; }
+body.teacher #proj .pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30em), 1fr)); gap: 1em; align-items: start; }
+body.teacher #proj .pcard { border: 1px solid var(--line); border-radius: 14px; padding: .7em 1em; background: #fff; }
+body.teacher #proj .pcard .pq { font-size: 1.1em; }
+body.teacher #proj .avg { font-size: .95em; }
+body.teacher #proj .avg .big { font-size: 2.2em; }
+body.teacher #proj .plot { height: 64px; }
+body.teacher #proj .plot .dot { width: 18px; height: 18px; margin-left: -9px; }
+body.teacher #proj .plot .al { font-size: .6em; }
+body.teacher #proj .plot-ends { font-size: .65em; }
+body.teacher #proj .bar { grid-template-columns: minmax(5em, 26%) 1fr 8em; font-size: 1em; gap: .6em; }
+body.teacher #proj .bar .b { height: 1.3em; border-radius: 8px; }
+body.teacher #proj .who { font-size: .7em; }
+body.teacher #proj .opn { grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); gap: .6em; }
+body.teacher #proj .oc { font-size: 1.1em; padding: .6em .8em; }
+body.teacher #proj .oc b { font-size: .65em; }
 @media (max-width: 640px) {
 body.teacher .status { grid-template-columns: 1fr;
 }
@@ -416,9 +461,10 @@ body.teacher .bar { grid-template-columns: 90px 1fr 96px;
 <div id="teacherRoot">
 <div class="wrap">
   <header class="t-head">
-    <h1>アンケート（先生用）</h1>
+    <h1>みんなにアンケート（先生用）</h1>
     <div class="tabs" role="tablist">
       <button data-tab="run" role="tab">受付</button>
+      <button data-tab="live" role="tab">進行・全画面</button>
       <button data-tab="edit" role="tab">質問をつくる</button>
       <button data-tab="res" role="tab">結果を見る</button>
     </div>
@@ -427,6 +473,7 @@ body.teacher .bar { grid-template-columns: 90px 1fr 96px;
   <main id="main"></main>
 </div>
 <div id="big" hidden></div>
+<div id="proj" hidden></div>
 </div>
 
 <!-- ===== 共通の処理・デモ用のにせサーバー ===== -->
@@ -439,7 +486,7 @@ function call(fn, ...args) {
   if (!IS_GAS) {
     return new Promise((res, rej) => setTimeout(() => {
       try {
-        if (DEMO.offline && fn === 'submit') throw new Error('通信できません（デモ）');
+        if (DEMO.offline && (fn === 'submit' || fn === 'submitQ')) throw new Error('通信できません（デモ）');
         const r = DEMO[fn](...args);
         res(r === undefined ? r : JSON.parse(JSON.stringify(r)));
       } catch (e) { rej(e); }
@@ -566,21 +613,25 @@ const DEMO = (function () {
   const people = {};
   let fakeCount = 0;
 
+  function fakeAns(q, i) {
+    let answer = '', value = null;
+    if (q.type === 'scale') {
+      const lb = scaleLabels(q); value = 1 + Math.floor(Math.random() * scaleSteps(q));
+      answer = lb ? plainText(lb[value - 1]) : String(value);
+    } else if (q.type === 'gauge') { value = Math.max(0, Math.min(100, Math.round(40 + Math.random() * 60 - (i % 2) * 15))); answer = String(value); }
+    else if (q.type === 'choice') {
+      const opts = q.options.map(plainText);
+      answer = q.multi ? opts.filter(() => Math.random() < .5).join(' / ') : opts[Math.floor(Math.random() * opts.length)];
+    } else answer = FREE[1 + Math.floor(Math.random() * (FREE.length - 1))] || 'たのしかった';
+    return { answer, value };
+  }
   function addFake(roundId, qs, name) {
     const sendId = 'f' + Math.random().toString(36).slice(2);
     const t = Date.now();
     qs.forEach((q, i) => {
       if (q.type === 'message') return;
-      let answer = '', value = null;
-      if (q.type === 'scale') {
-        const lb = scaleLabels(q); value = 1 + Math.floor(Math.random() * scaleSteps(q));
-        answer = lb ? plainText(lb[value - 1]) : String(value);
-      } else if (q.type === 'gauge') { value = Math.max(0, Math.min(100, Math.round(40 + Math.random() * 60 - (i % 2) * 15))); answer = String(value); }
-      else if (q.type === 'choice') {
-        const opts = q.options.map(plainText);
-        answer = q.multi ? opts.filter(() => Math.random() < .5).join(' / ') : opts[Math.floor(Math.random() * opts.length)];
-      } else answer = FREE[Math.floor(Math.random() * FREE.length)];
-      answers.push({ sendId, name, no: i + 1, type: q.type, q: plainText(q.text), answer, value, time: t });
+      const f = fakeAns(q, i);
+      answers.push({ sendId, name, no: i + 1, type: q.type, q: plainText(q.text), answer: f.answer, value: f.value, time: t });
     });
     people[name + '@' + sendId] = { name, status: 'done', t };
     return sendId;
@@ -592,7 +643,7 @@ const DEMO = (function () {
   rounds.push({ id: pastId, title: '今日の授業', started: past.getTime(), count: 6, questions: LESSON });
   NAMES.slice(0, 6).forEach(n => addFake(pastId, LESSON, n));
 
-  const s = { open: false, roundId: '', code: '1234', audience: 'adult', needCode: true, nameMode: 'roster', roster: '1組', showNumber: false, shared: false, title: '', startedAt: 0, qCount: 0 };
+  const s = { open: false, roundId: '', code: '1234', audience: 'adult', needCode: true, nameMode: 'roster', roster: '1組', showNumber: false, shared: false, title: '', startedAt: 0, qCount: 0, mode: 'group', cur: -1, total: 0 };
 
   function start(cfg) {
     const qs = cfg.source === 'sheet' ? sheet[cfg.sheetName] : cfg.questions;
@@ -606,6 +657,7 @@ const DEMO = (function () {
     s.showNumber = !!cfg.showNumber; s.shared = !!cfg.shared;
     s.title = cfg.source === 'sheet' ? cfg.sheetName : (cfg.title || 'アンケート');
     s.startedAt = Date.now(); s.qCount = qs.filter(q => q.type !== 'message').length; survey = qs; fakeCount = 0;
+    s.mode = (!cfg.shared && cfg.mode !== 'self') ? 'group' : 'self'; s.cur = -1; s.total = qs.length;
     rounds.push({ id: s.roundId, title: s.title, started: s.startedAt, count: 0, questions: qs });
   }
   // 回答者プレビューでは、はじめから受付中にしておく
@@ -616,11 +668,11 @@ const DEMO = (function () {
 
   const api = {
     offline: false,
-    getPublicState() { return { open: s.open, roundId: s.roundId, needCode: s.needCode, title: s.title, audience: s.audience }; },
+    getPublicState() { return { open: s.open, roundId: s.roundId, needCode: s.needCode, title: s.title, audience: s.audience, mode: s.mode, cur: s.mode === 'group' ? s.cur : -1 }; },
     join(code, prev) {
       if (!s.open) return { ok: false, reason: 'closed' };
       if (s.needCode && String(code) !== s.code && !(prev && prev !== s.roundId && rounds.some(r => r.id === prev))) return { ok: false, reason: 'code' };
-      return { ok: true, roundId: s.roundId, title: s.title, audience: s.audience, nameMode: s.nameMode, showNumber: s.showNumber, shared: s.shared, survey, names: s.nameMode === 'roster' ? rosters[s.roster] : undefined };
+      return { ok: true, roundId: s.roundId, title: s.title, audience: s.audience, nameMode: s.nameMode, showNumber: s.showNumber, shared: s.shared, survey, mode: s.mode, cur: s.mode === 'group' ? s.cur : -1, names: s.nameMode === 'roster' ? rosters[s.roster] : undefined };
     },
     setStatus(roundId, key, name, status) { if (roundId === s.roundId) people[key] = { name, status, t: Date.now() }; return true; },
     submit(p) {
@@ -628,6 +680,34 @@ const DEMO = (function () {
       p.answers.forEach(a => answers.push({ sendId: p.sendId, name: p.name || '（名前なし）', no: a.no, type: a.type, q: plainText(a.text), answer: String(a.answer), value: (a.type === 'gauge' || a.type === 'scale') && a.value != null ? a.value : null, time: Date.now(), _round: p.roundId }));
       if (p.statusKey && p.roundId === s.roundId) people[p.statusKey] = { name: p.name || '（名前なし）', status: 'done', t: Date.now() };
       return { ok: true };
+    },
+    submitQ(p) {
+      if (answers.some(a => a.sendId === p.rid && a.no === p.no)) return { ok: true, dup: true };
+      answers.push({ sendId: p.rid, name: p.name || '（名前なし）', no: p.no, type: p.type, q: plainText(p.text), answer: String(p.answer), value: (p.type === 'gauge' || p.type === 'scale') && p.value != null ? p.value : null, time: Date.now(), _round: p.roundId });
+      if (p.statusKey && p.roundId === s.roundId) people[p.statusKey] = { name: p.name || '（名前なし）', status: 'answering', t: Date.now() };
+      return { ok: true };
+    },
+    tGoto(pass, idx) {
+      if (!s.open || s.mode !== 'group') throw new Error('「みんなで」進めている受付中の回がありません。');
+      s.cur = Math.max(-1, Math.min(survey.length, Math.round(Number(idx))));
+      return api._tstate();
+    },
+    tLive() {
+      const id = s.roundId || (api._rounds()[0] || {}).id;
+      if (!id) return { roundId: '' };
+      // デモ：みんなで進めているときは、ときどき参加者の答えがとどく
+      if (s.open && s.mode === 'group' && s.cur >= 0 && s.cur < survey.length && survey[s.cur].type !== 'message') {
+        for (let k = 0; k < 5; k++) {
+          const sid = 'g-' + k, nmn = s.nameMode === 'none' ? '（名前なし）' : NAMES[k];
+          if (!answers.some(a => a.sendId === sid && a.no === s.cur + 1 && a._round === s.roundId) && Math.random() < .6) {
+            const f = fakeAns(survey[s.cur], s.cur);
+            answers.push({ sendId: sid, name: nmn, no: s.cur + 1, type: survey[s.cur].type, q: plainText(survey[s.cur].text), answer: f.answer, value: f.value, time: Date.now(), _round: s.roundId });
+          }
+        }
+      }
+      const r = rounds.find(x => x.id === id);
+      return { roundId: id, title: r ? r.title : s.title, open: s.open && id === s.roundId, state: api._tstate(), questions: r ? r.questions : survey,
+        answers: answers.filter(a => roundOf(a) === id), people: Object.keys(people).map(k => ({ name: people[k].name, status: people[k].status, t: people[k].t })) };
     },
     tInit() {
       return {
@@ -637,16 +717,20 @@ const DEMO = (function () {
       };
     },
     tGetSurvey(pass, name) { return sheet[name] || []; },
-    tStart(pass, cfg) { start(cfg); Object.keys(people).forEach(k => delete people[k]); return api.tStatus(); },
+    tStart(pass, cfg) {
+      start(cfg); Object.keys(people).forEach(k => delete people[k]);
+      if (s.mode === 'group' && typeof PAGE !== 'undefined' && PAGE !== 'student') for (let k = 0; k < 5; k++) people['g-' + k] = { name: s.nameMode === 'none' ? '（名前なし）' : NAMES[k], status: 'answering', t: Date.now() + k };
+      return api.tStatus();
+    },
     tStop() { s.open = false; return api.tStatus(); },
     tStatus() {
       // デモ：受付中は、ときどき回答がとどく
-      if (s.open && fakeCount < 6 && Math.random() < .7) {
+      if (s.open && s.mode !== 'group' && fakeCount < 6 && Math.random() < .7) {
         const n = s.nameMode === 'none' ? '（名前なし）' : NAMES[fakeCount];
         const sid = addFake(s.roundId, survey, n); answers.forEach(a => { if (a.sendId === sid) a._round = s.roundId; }); fakeCount++;
       }
       const list = Object.keys(people).map(k => people[k]);
-      return { state: api._tstate(), people: s.roundId ? list.map(p => ({ name: p.name, status: p.status, t: p.t })) : [], count: new Set(answers.filter(a => roundOf(a) === s.roundId).map(a => a.sendId)).size };
+      return { state: api._tstate(), people: s.roundId ? list.map(p => ({ name: p.name, status: p.status, t: p.t })) : [], count: s.mode === 'group' ? list.length : new Set(answers.filter(a => roundOf(a) === s.roundId).map(a => a.sendId)).size };
     },
     tResults(pass, roundId) {
       const id = roundId || s.roundId || (api._rounds()[0] || {}).id;
@@ -659,7 +743,7 @@ const DEMO = (function () {
     _rounds() { return rounds.map(r => ({ id: r.id, title: r.title, started: r.started, count: new Set(answers.filter(a => roundOf(a) === r.id).map(a => a.sendId)).size })).reverse(); },
     _set(o) { Object.assign(s, o); },
     _state: s,
-    _newRound() { const keep = { audience: s.audience, needCode: s.needCode, nameMode: s.nameMode, roster: s.roster, showNumber: s.showNumber, shared: s.shared }; start(Object.assign({ source: 'sheet', sheetName: '今日の授業' }, keep)); }
+    _newRound() { const keep = { audience: s.audience, needCode: s.needCode, nameMode: s.nameMode, roster: s.roster, showNumber: s.showNumber, shared: s.shared, mode: s.mode }; start(Object.assign({ source: 'sheet', sheetName: '今日の授業' }, keep)); }
   };
   // 回答がどの回のものか（デモ用の目印）
   function roundOf(a) { if (a._round) return a._round; return pastId; }
@@ -784,7 +868,8 @@ const CHARAS = [
 
 const S = {
   roundId: '', title: '', survey: [], nameMode: 'none', names: [], showNumber: false, shared: false,
-  name: '', answers: [], idx: 0, phase: 'boot', timer: null, sendBusy: false
+  name: '', answers: [], idx: 0, phase: 'boot', timer: null, sendBusy: false,
+  mode: 'self', cur: -1, rid: '', sent: {}, gBusy: false   // 「みんなで」進めるとき用
 };
 
 function stopPoll() { if (S.timer) { clearInterval(S.timer); S.timer = null; } }
@@ -883,10 +968,12 @@ function enter(r) {
   setAud(r.audience);
   S.roundId = r.roundId; S.title = r.title; S.survey = r.survey || []; S.nameMode = r.nameMode;
   S.names = r.names || []; S.showNumber = r.showNumber; S.shared = r.shared;
+  S.mode = r.mode === 'group' ? 'group' : 'self'; S.cur = r.cur == null ? -1 : r.cur;
+  S.rid = S.roundId + '-' + deviceId.slice(-6);
   const saved = store.get('svy_progress', null);   // 読みこみ直したときは、とちゅうから
   if (saved && saved.roundId === S.roundId && saved.answers && saved.answers.length === S.survey.length) {
-    S.answers = saved.answers; S.name = saved.name || ''; S.idx = saved.idx || 0;
-    if (S.name || S.nameMode === 'none') { showQ(S.idx); return; }
+    S.answers = saved.answers; S.name = saved.name || ''; S.idx = saved.idx || 0; S.sent = saved.sent || {};
+    if (S.name || S.nameMode === 'none') { if (S.mode === 'group') { groupBegin(); return; } showQ(S.idx); return; }
   } else {
     resetAnswers();
   }
@@ -895,10 +982,10 @@ function enter(r) {
 
 function resetAnswers() {
   S.answers = S.survey.map(q => q.type === 'choice' ? [] : (q.type === 'free' ? '' : null));
-  S.idx = 0; S.name = '';
+  S.idx = 0; S.name = ''; S.sent = {};
   store.del('svy_progress');
 }
-function saveProgress() { store.set('svy_progress', { roundId: S.roundId, answers: S.answers, name: S.name, idx: S.idx }); }
+function saveProgress() { store.set('svy_progress', { roundId: S.roundId, answers: S.answers, name: S.name, idx: S.idx, sent: S.sent }); }
 function statusKey() { return (S.name || '名前なし') + '@' + deviceId.slice(-4); }
 
 /* ---------- 名前 ---------- */
@@ -947,6 +1034,7 @@ function showName() {
 
 function beginAnswer() {
   call('setStatus', S.roundId, statusKey(), S.name || '（名前なし）', 'answering').catch(() => {});
+  if (S.mode === 'group') { groupBegin(); return; }
   S.idx = 0; saveProgress(); showQ(0);
 }
 
@@ -970,6 +1058,7 @@ function showQ(i) {
   S.phase = 'q'; S.idx = i; saveProgress();
   const q = S.survey[i]; const n = S.survey.length;
   const toConfirm = i >= lastQIndex();
+  const grp = S.mode === 'group';   // 「みんなで」：1問ずつ、その場で送る
   let body = '';
   if (q.type === 'choice') {
     body = '<p class="note">' + (q.multi ? J('いくつでも えらべるよ', '当てはまるものをすべて選んでください（複数選択可）') : J('1つ えらんでね', '1つ選んでください')) + '</p><div class="opts">' +
@@ -998,8 +1087,8 @@ function showQ(i) {
     '<div class="card" style="margin-top:8px">' +
       (isQ(q) ? '<div class="qtext">' + qt(q.text) + '</div>' + body : '<div class="msgbox">' + qt(q.text) + '</div>') +
     '<div class="gentle" style="margin-top:12px"></div>' +
-    '<div class="nav">' + (i > 0 ? '<button class="back btn-lg">' + J(R('前', 'まえ') + 'へ', '戻る') + '</button>' : '') +
-    '<button class="pri next btn-lg">' + (toConfirm ? J('かくにんへ', '確認へ') : J('つぎへ', '次へ')) + '</button></div></div>');
+    '<div class="nav">' + (!grp && i > 0 ? '<button class="back btn-lg">' + J(R('前', 'まえ') + 'へ', '戻る') + '</button>' : '') +
+    '<button class="pri next btn-lg">' + (grp ? J(R('送', 'おく') + 'る', '送信する') : (toConfirm ? J('かくにんへ', '確認へ') : J('つぎへ', '次へ'))) + '</button></div></div>');
 
   if (q.type === 'choice') {
     const draw = () => v.querySelectorAll('.opt').forEach(b => {
@@ -1056,6 +1145,7 @@ function showQ(i) {
       v.querySelector('.gentle').innerHTML = J('まだ ' + R('答', 'こた') + 'えて いないよ', 'この質問は回答が必要です');
       return;
     }
+    if (grp) { sendOne(i); return; }
     if (toConfirm) showConfirm(); else showQ(i + 1);
   });
 }
@@ -1129,13 +1219,114 @@ async function send() {
   showDone(false);
 }
 
+/* ---------- 「みんなで」進めるとき：先生が出した質問に答えて、その場で送る ---------- */
+function getGQueue() { return store.get('svy_gqueue', []); }
+
+async function flushG() {
+  if (S.gBusy) return getGQueue().length === 0;
+  S.gBusy = true;
+  try {
+    const q = getGQueue(); const rest = [];
+    for (const item of q) {
+      try { await call('submitQ', item); }
+      catch (e) { rest.push(item); }
+    }
+    const now = getGQueue().filter(x => !q.some(y => y.rid === x.rid && y.no === x.no));
+    store.set('svy_gqueue', rest.concat(now));
+    return rest.length + now.length === 0;
+  } finally { S.gBusy = false; }
+}
+
+function groupBegin() {
+  S.phase = 'group'; saveProgress();
+  renderGroup();
+  poll(groupTick, 4000);
+}
+
+async function groupTick() {
+  if (S.mode !== 'group' || (S.phase !== 'group' && S.phase !== 'q')) return;
+  if (getGQueue().length) {
+    const ok = await flushG();
+    const st = view.querySelector('.sendstate');
+    if (ok && st) st.innerHTML = '';
+  }
+  let p;
+  try { p = await call('getPublicState'); } catch (e) { return; }
+  if (S.mode !== 'group' || (S.phase !== 'group' && S.phase !== 'q')) return;
+  if (p.open && p.roundId && p.roundId !== S.roundId) {      // 先生が、つぎの回を始めた
+    stopPoll();
+    if (p.audience) setAud(p.audience);
+    try { const r = await call('join', '', S.roundId); if (r.ok) enter(r); else showCode(false); } catch (e) { showWait(); }
+    return;
+  }
+  if (!p.open) { finishGroup(); return; }                    // 受付が終わった
+  if (p.cur !== S.cur) { S.cur = p.cur; renderGroup(); }
+}
+
+function renderGroup() {
+  const i = S.cur;
+  if (i < 0) { showGroupWait(); return; }
+  if (i >= S.survey.length) { finishGroup(); return; }
+  const q = S.survey[i];
+  if (!isQ(q)) { showGroupMsg(i); return; }
+  if (S.sent[i]) { showGroupSent(i); return; }
+  showQ(i);
+}
+
+function showGroupWait() {
+  S.phase = 'group';
+  show(head() + '<div class="card center stack">' +
+    '<p class="big">' + J(R('先生', 'せんせい') + 'が ' + R('始', 'はじ') + 'めるまで まってね', '開始までお待ちください') + '</p>' +
+    '<p class="note">' + J(R('先生', 'せんせい') + 'が ' + R('質問', 'しつもん') + 'を ' + R('出', 'だ') + 'すと、' + R('自動', 'じどう') + 'で ' + R('画面', 'がめん') + 'が かわるよ',
+      '質問が出されると、自動で画面が切りかわります') + '</p></div>');
+}
+
+function showGroupMsg(i) {
+  S.phase = 'group';
+  show(head() + '<div class="card center stack"><div class="msgbox">' + qt(S.survey[i].text) + '</div>' +
+    '<p class="note">' + J('つぎの ' + R('画面', 'がめん') + 'に かわるまで まってね', '次の画面に切りかわるまでお待ちください') + '</p></div>');
+}
+
+function showGroupSent(i) {
+  S.phase = 'group';
+  const pending = getGQueue().length;
+  show(head() + '<div class="card center stack"><div class="done-mark">✓</div>' +
+    '<p class="big">' + J(R('答', 'こた') + 'えを ' + R('送', 'おく') + 'れたよ', '回答を送信しました') + '</p>' +
+    '<p class="note sendstate">' + (pending
+      ? J('いまは ' + R('通信', 'つうしん') + 'が つながって いないみたい。<br>つながったら ' + R('自動', 'じどう') + 'で ' + R('送', 'おく') + 'るね', '現在、通信できない状態です。<br>通信が回復すると自動で送信します')
+      : '') + '</p>' +
+    '<p class="note">' + J('みんなが ' + R('答', 'こた') + 'えるまで まってね。<br>' + R('先生', 'せんせい') + 'が ' + R('進', 'すす') + 'めると、' + R('自動', 'じどう') + 'で つぎに かわるよ',
+      '全員の回答をお待ちください。<br>先生が進めると、自動で次に切りかわります') + '</p></div>');
+}
+
+async function sendOne(i) {
+  const q = S.survey[i];
+  const item = {
+    rid: S.rid, roundId: S.roundId, title: S.title, name: S.name, device: deviceKind(), statusKey: statusKey(),
+    no: i + 1, type: q.type, text: q.text, answer: answerText(i),
+    value: (q.type === 'gauge' || q.type === 'scale') ? S.answers[i] : null
+  };
+  setGQ(getGQueue().filter(x => !(x.rid === item.rid && x.no === item.no)).concat([item]));
+  S.sent[i] = true; S.phase = 'group'; saveProgress();
+  show(head() + '<div class="card center msg">' + J(R('送', 'おく') + 'っているよ…', '送信中です…') + '</div>');
+  await flushG();
+  if (S.cur === i && S.phase === 'group') showGroupSent(i);
+}
+function setGQ(list) { store.set('svy_gqueue', list); }
+
+function finishGroup() {
+  stopPoll();
+  store.set('svy_lastDone', S.roundId); store.del('svy_progress');
+  showDone(false);
+}
+
 /* ---------- ありがとう・つぎの回を待つ ---------- */
 function sentText() { return J(R('送', 'おく') + 'れたよ', '送信しました'); }
 
 function showDone(already) {
   S.phase = 'done';
-  const pending = getQueue().length;
-  const msgs = endMessages();   // いちばん最後に置いたメッセージ（なければ、いつものお礼）
+  const pending = getQueue().length + getGQueue().length;
+  const msgs = S.mode === 'group' ? [] : endMessages();   // 「みんなで」のときは、メッセージを進行の中で出している   // いちばん最後に置いたメッセージ（なければ、いつものお礼）
   const v = show(head() + '<div class="card center stack">' +
     '<div class="done-mark">✓</div>' +
     (msgs.length
@@ -1154,8 +1345,8 @@ function showDone(already) {
   const myRound = S.roundId || store.get('svy_lastDone', '');
   poll(async () => {
     if (S.phase !== 'done') return;
-    if (getQueue().length) {
-      const ok = await flushQueue();
+    if (getQueue().length || getGQueue().length) {
+      const ok1 = await flushQueue(), ok2 = await flushG(), ok = ok1 && ok2;
       const st = view.querySelector('.sendstate');
       if (ok && st) st.innerHTML = sentText();
     }
@@ -1171,7 +1362,7 @@ function showDone(already) {
   }, 10000);
 }
 
-window.addEventListener('online', () => { if (getQueue().length) flushQueue(); });
+window.addEventListener('online', () => { if (getQueue().length) flushQueue(); if (getGQueue().length) flushG(); });
 setInterval(() => { if (getQueue().length && S.phase !== 'done') flushQueue(); }, 20000);
 
 /* ---------- おためし用の操作バー（GASでは出ない） ---------- */
@@ -1185,26 +1376,31 @@ function demoBar() {
     '<label>名前 <select id="dmName"><option value="none">集めない</option><option value="input">書いてもらう</option><option value="roster">名簿</option><option value="chara">キャラ</option></select></label>' +
     '<label><input type="checkbox" id="dmCode"> コード（1234）</label>' +
     '<label><input type="checkbox" id="dmNum"> 数字を見せる</label>' +
+    '<label>進め方 <select id="dmMode"><option value="group">みんなで</option><option value="self">ひとりずつ</option></select></label>' +
     '<label><input type="checkbox" id="dmShared"> 1台を順番に</label>' +
     '<label><input type="checkbox" id="dmOff"> 通信を切る</label>' +
     '<button id="dmApply">この設定で最初から</button>' +
-    '<button id="dmNext">先生が次の回を始めた</button></div>';
+    '<button id="dmNext">先生が次の回を始めた</button>' +
+    '<button id="dmQ">先生が次の質問を出した</button></div>';
   bar.querySelector('#dmAud').value = st.audience || 'adult';
   bar.querySelector('#dmName').value = st.nameMode;
   bar.querySelector('#dmCode').checked = st.needCode;
   bar.querySelector('#dmNum').checked = st.showNumber;
   bar.querySelector('#dmShared').checked = st.shared;
+  bar.querySelector('#dmMode').value = st.mode || 'group';
   bar.querySelector('#dmOff').addEventListener('change', e => { DEMO.offline = e.target.checked; });
   bar.querySelector('#dmApply').addEventListener('click', () => {
     DEMO._set({
       audience: bar.querySelector('#dmAud').value,
       nameMode: bar.querySelector('#dmName').value, needCode: bar.querySelector('#dmCode').checked,
-      showNumber: bar.querySelector('#dmNum').checked, shared: bar.querySelector('#dmShared').checked, code: '1234'
+      showNumber: bar.querySelector('#dmNum').checked, shared: bar.querySelector('#dmShared').checked, code: '1234',
+      mode: bar.querySelector('#dmShared').checked ? 'self' : bar.querySelector('#dmMode').value, cur: -1
     });
     store.del('svy_lastDone'); store.del('svy_progress');
     stopPoll(); boot();
   });
   bar.querySelector('#dmNext').addEventListener('click', () => { DEMO._newRound(); DEMO._set({ code: '1234' }); });
+  bar.querySelector('#dmQ').addEventListener('click', () => { try { DEMO.tGoto('', DEMO._state.cur + 1); } catch (e) {} });
 }
 
 demoBar();
@@ -1224,7 +1420,7 @@ const TYPE_LABEL = { gauge: '評価ゲージ', scale: '段階評価', choice: '�
 const T = {
   pass: store.get('svy_t_pass', ''),
   init: null, st: null, people: [], count: 0, tab: 'run',
-  cfg: Object.assign({ source: 'sheet', sheetName: '', audience: 'adult', nameMode: 'none', roster: '', needCode: true, showNumber: false, shared: false }, store.get('svy_t_cfg', {})),
+  cfg: Object.assign({ source: 'sheet', sheetName: '', audience: 'adult', mode: 'group', nameMode: 'none', roster: '', needCode: true, showNumber: false, shared: false }, store.get('svy_t_cfg', {})),
   ed: store.get('svy_t_ed', null) || { title: '', questions: [] },
   resRound: '', res: null, timer: null
 };
@@ -1307,13 +1503,13 @@ function renderStatus() {
   const nm = (NAME_MODES.find(x => x[0] === st.nameMode) || ['', ''])[1];
   box.innerHTML = '<div class="status"><div>' +
     '<span class="pill on">受付中</span>　<b style="font-size:18px">' + esc(plainText(st.title)) + '</b>' +
-    '<div class="sub" style="margin-top:4px">' + fmtTime(st.startedAt) + 'に開始　・　' + (st.audience === 'student' ? '生徒向け' : '大人向け') + '　・　質問 ' + st.qCount + '問　・　名前：' + nm + (st.nameMode === 'roster' && st.roster ? '（' + esc(st.roster) + '）' : '') + '</div>' +
+    '<div class="sub" style="margin-top:4px">' + fmtTime(st.startedAt) + 'に開始　・　' + (st.audience === 'student' ? '生徒向け' : '大人向け') + '　・　' + (st.mode === 'group' ? 'みんなで' : 'ひとりずつ') + '　・　質問 ' + st.qCount + '問　・　名前：' + nm + (st.nameMode === 'roster' && st.roster ? '（' + esc(st.roster) + '）' : '') + '</div>' +
     '<div class="row" style="margin-top:8px;align-items:baseline">' +
       (st.needCode ? '<span>参加コード</span><span class="code">' + esc(st.code) + '</span>' : '<span class="sub">参加コードなし</span>') +
-      '<span style="margin-left:12px">回答 <b style="font-size:26px">' + T.count + '</b> 件</span></div>' +
+      '<span style="margin-left:12px">' + (st.mode === 'group' ? '参加 <b style="font-size:26px">' + T.count + '</b> 人' : '回答 <b style="font-size:26px">' + T.count + '</b> 件') + '</span></div>' +
     '<div class="row" style="margin-top:8px"><button class="pri" id="bigBtn">コードとQRを大きく出す</button><button id="copyBtn">回答用のURLをコピーする</button><button id="stopBtn2">受付を終える</button></div>' +
     '<input class="urlbox" readonly value="' + esc(joinUrl()) + '" style="margin-top:8px">' +
-    '<div class="people">' + T.people.map(p => '<span class="' + (p.status === 'done' ? 'done' : '') + '">' + esc(p.name) + '：' + (p.status === 'done' ? '送信済み' : '回答中') + '</span>').join('') + '</div>' +
+    '<div class="people">' + T.people.map(p => '<span class="' + (p.status === 'done' ? 'done' : '') + '">' + esc(p.name) + '：' + (st.mode === 'group' ? '参加中' : (p.status === 'done' ? '送信済み' : '回答中')) + '</span>').join('') + '</div>' +
     '</div><div class="qr">' + qrImg(joinUrl(), 5) + '</div></div>';
   box.querySelector('#bigBtn').addEventListener('click', showBig);
   box.querySelector('#copyBtn').addEventListener('click', e => copyUrl(e.target));
@@ -1344,8 +1540,10 @@ function showBig() {
 /* ---------- タブ ---------- */
 function setTab(t) {
   T.tab = t;
+  if (T.liveTimer) { clearInterval(T.liveTimer); T.liveTimer = null; }
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'));
   if (t === 'run') renderRun();
+  else if (t === 'live') { renderLive(); T.liveTimer = setInterval(() => { if (T.st && T.st.open) refreshLive(); }, LIVE_MS); }
   else if (t === 'edit') renderEdit();
   else { renderResShell(); loadResults(T.resRound || (T.st && T.st.roundId) || '', false); }
 }
@@ -1368,6 +1566,8 @@ function renderRun() {
       '<button id="reload">シートを読み直す</button></div></div>' +
     '<div class="field"><div class="lab">回答する人（画面の言葉づかい）</div>' + chips('audience', AUDIENCES, c.audience) +
       '<p class="help">大人向け：ふつうの文章で、ふりがなは付きません（質問文の《》も表示しません）。生徒向け：やさしい言葉で、ふりがなが付きます。</p></div>' +
+    '<div class="field"><div class="lab">進め方</div>' + chips('mode', [['group', 'みんなで（先生が質問を1つずつ出す）'], ['self', 'ひとりずつ（回答者が自分のペースで答えて、最後にまとめて送る）']], c.mode) +
+      '<p class="help">みんなで：答えが1問ごとに届くので、その場で内容を確認して、プロジェクターなどに全画面で出せます。ひとりずつ：回答者が全部答えて送ると、結果に出ます（結果の全画面表示は、どちらでもできます）。「1台を順番に使う」を選ぶと、ひとりずつになります。</p></div>' +
     '<div class="field"><div class="lab">名前の集め方</div>' + chips('nameMode', NAME_MODES, c.nameMode) +
       '<div class="row" id="rosterRow" style="margin-top:8px">名簿：' + (ros ? '<select id="roster">' + ros + '</select>' : '<span class="help">「めいぼ」タブの1行目に名簿の名前を入れてください。</span>') + '</div></div>' +
     '<div class="field"><div class="lab">参加コード（4けた）</div>' + chips('needCode', [['1', '使う'], ['0', '使わない']], c.needCode ? '1' : '0') +
@@ -1389,6 +1589,9 @@ function renderRun() {
     c.needCode = (v.querySelector('input[name=needCode]:checked') || {}).value === '1';
     c.showNumber = (v.querySelector('input[name=showNumber]:checked') || {}).value === '1';
     c.shared = (v.querySelector('input[name=shared]:checked') || {}).value === '1';
+    c.mode = (v.querySelector('input[name=mode]:checked') || {}).value === 'self' ? 'self' : 'group';
+    if (c.shared) { c.mode = 'self'; const sr = v.querySelector('input[name=mode][value=self]'); if (sr) sr.checked = true; }
+    v.querySelectorAll('input[name=mode]').forEach(x => { x.disabled = c.shared; });
     const sn = v.querySelector('#sheetName'); if (sn) c.sheetName = sn.value;
     const rs = v.querySelector('#roster'); if (rs) c.roster = rs.value;
     v.querySelector('#sheetRow').style.display = c.source === 'sheet' ? '' : 'none';
@@ -1427,9 +1630,11 @@ async function startRound() {
   try {
     const r = await call('tStart', T.pass, Object.assign({}, c, { questions: T.ed.questions, title: T.ed.title }));
     T.st = r.state; T.people = r.people; T.count = r.count;
-    renderStatus(); renderRun();
+    T.resRound = T.st.roundId; T.view = null; T.live = null;
+    renderStatus();
+    if (T.st.mode === 'group') { setTab('live'); return; }   // みんなで：質問を出す画面へ
+    renderRun();
     const m2 = main.querySelector('#runMsg'); if (m2) { m2.className = 'msgline ok'; m2.textContent = '受付を始めました。'; }
-    T.resRound = T.st.roundId;
   } catch (e) {
     say('始められませんでした：' + errText(e), true);
     if (btn) btn.disabled = false;
@@ -1596,6 +1801,19 @@ function renderResShell() {
     '<div id="resBody" style="margin-top:12px" class="help">読みこみ中…</div></div>');
   main.querySelector('#roundSel').addEventListener('change', e => { T.resRound = e.target.value; loadResults(T.resRound, false); });
   main.querySelector('#resReload').addEventListener('click', () => loadResults(T.resRound, false));
+  main.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.proj !== undefined && T.res) {
+      if (b.dataset.proj === 'all') openProj('res', 'all', 0); else openProj('res', 'q', +b.dataset.proj.split(':')[1]);
+    } else if (b.dataset.hide !== undefined && T.res) { toggleHide(b.dataset.hide); drawRes(); drawProj(); }
+  });
+}
+
+function drawRes() {
+  if (T.tab !== 'res' || !T.res) return;
+  const body = main.querySelector('#resBody');
+  if (body) body.replaceWith(Object.assign(document.createElement('div'), { id: 'resBody', innerHTML: resultsHtml(T.res) }));
+  const nb = main.querySelector('#resBody'); if (nb) nb.style.marginTop = '12px';
 }
 
 async function loadResults(roundId, quiet) {
@@ -1604,13 +1822,11 @@ async function loadResults(roundId, quiet) {
   try { r = await call('tResults', T.pass, roundId); }
   catch (e) { if (!quiet) { const b = main.querySelector('#resBody'); if (b) b.innerHTML = '<span class="msgline err">' + esc(errText(e)) + '</span>'; } return; }
   if (T.tab !== 'res') return;
-  T.res = r; T.resRound = r.roundId;
+  T.res = r; T.resRound = r.roundId; if (r.roundId) loadHide(r.roundId);
   const sel = main.querySelector('#roundSel');
   if (sel) sel.innerHTML = (r.rounds || []).map(x => '<option value="' + esc(x.id) + '"' + (x.id === r.roundId ? ' selected' : '') + '>' +
     (x.started ? fmtDate(x.started) + ' ' + fmtTime(x.started) + '　' : '') + esc(plainText(x.title)) + '</option>').join('') || '<option>まだ記録がありません</option>';
-  const body = main.querySelector('#resBody');
-  if (body) body.replaceWith(Object.assign(document.createElement('div'), { id: 'resBody', innerHTML: resultsHtml(r) }));
-  const nb = main.querySelector('#resBody'); if (nb) nb.style.marginTop = '12px';
+  drawRes();
 }
 
 function stats(vals) {
@@ -1638,12 +1854,14 @@ function resultsHtml(r) {
   qs.forEach((q, k) => { q.label = k + 1; });
   const n = order.length;
   let html = '<div class="kpi"><div><span class="n">' + n + '</span> 人が回答</div>' +
-    '<div class="sub">' + esc(plainText(r.title)) + (r.started ? '　' + fmtDate(r.started) + ' ' + fmtTime(r.started) + 'に開始' : '') + (r.open ? '　<span class="pill on">受付中・自動で更新</span>' : '') + '</div></div>';
+    '<div class="sub">' + esc(plainText(r.title)) + (r.started ? '　' + fmtDate(r.started) + ' ' + fmtTime(r.started) + 'に開始' : '') + (r.open ? '　<span class="pill on">受付中・自動で更新</span>' : '') + '</div>' +
+    (n ? '<button class="pri" data-proj="all">ここまでの結果をまとめて全画面に表示</button>' : '') + '</div>';
   if (!n) return html + '<p class="help">まだ回答がありません。</p>';
 
   qs.forEach(q => {
-    const list = order.map(id => ({ p: people[id], a: people[id].by[q.no] })).filter(x => x.a);
-    html += '<div class="rq"><div class="qt"><span class="tag">' + q.label + '. ' + TYPE_LABEL[q.type] + (q.type === 'scale' ? ' ' + scaleSteps(q) + '段階' : '') + '</span>' + esc(plainText(q.text)) + '</div>';
+    const list = order.map(id => ({ id, p: people[id], a: people[id].by[q.no] })).filter(x => x.a);
+    html += '<div class="rq"><div class="qt"><span class="tag">' + q.label + '. ' + TYPE_LABEL[q.type] + (q.type === 'scale' ? ' ' + scaleSteps(q) + '段階' : '') + '</span>' + esc(plainText(q.text)) +
+      ' <button data-proj="q:' + (q.label - 1) + '" style="margin-left:8px;font-size:14px;min-height:38px">この質問を全画面に表示</button></div>';
     if (q.type === 'gauge') {
       const vals = list.filter(x => x.a.value !== null && x.a.value !== '' && !isNaN(x.a.value)).map(x => ({ v: Number(x.a.value), name: x.p.name }));
       const s = stats(vals.map(x => x.v));
@@ -1686,7 +1904,12 @@ function resultsHtml(r) {
         (q.multi ? '<p class="help">いくつでも選べる質問です（%は答えた人の数をもとにしています）。</p>' : '');
     } else {
       const fr = list.filter(x => String(x.a.answer || '').trim());
-      html += fr.length ? '<div class="frees">' + fr.map(x => '<div><b>' + esc(x.p.name) + '</b>' + esc(x.a.answer) + '</div>').join('') + '</div>' : '<p class="help">書かれた回答はありません。</p>';
+      html += fr.length ? '<div class="frees">' + fr.map(x => {
+        const k1 = 'a:' + x.id + '#' + q.no, k2 = 'p:' + x.id, hid = T.hide[k1] || T.hide[k2];
+        return '<div' + (hid ? ' style="opacity:.5"' : '') + '><b>' + esc(x.p.name) + '</b>' + esc(x.a.answer) +
+          '<span class="oct"><button data-hide="' + esc(k1) + '">' + (T.hide[k1] ? 'この意見を表示にもどす' : 'この意見を表示しない') + '</button>' +
+          '<button data-hide="' + esc(k2) + '">' + (T.hide[k2] ? 'この人の意見を表示にもどす' : 'この人の意見をすべて表示しない') + '</button></span></div>';
+      }).join('') + '</div><p class="help">「表示しない」にした意見は、全画面の表示に出ません（ここでは薄く出ます）。</p>' : '<p class="help">書かれた回答はありません。</p>';
     }
     html += '</div>';
   });
@@ -1706,6 +1929,308 @@ function resultsHtml(r) {
     }).join('') + '</tbody></table></div></div>';
   return html;
 }
+
+/* ---------- 進行・全画面表示 ---------- */
+const LIVE_MS = IS_GAS ? 5000 : 2500;
+Object.assign(T, { live: null, view: null, showNames: false, hide: {}, hideRound: '', proj: null, liveBusy: false, liveTimer: null, projTimer: null, lvHtml: {} });
+
+// 「表示しない」にした意見（回ごとに、この端末に覚えておく）
+function loadHide(rid) { if (T.hideRound === rid) return; T.hideRound = rid; T.hide = store.get('svy_t_hide_' + rid, {}) || {}; }
+function toggleHide(key) { if (T.hide[key]) delete T.hide[key]; else T.hide[key] = 1; store.set('svy_t_hide_' + T.hideRound, T.hide); }
+
+// 質問の一覧（メッセージは除く）。no：もとの番号、label：結果で使う番号
+function qsOf(d) {
+  let qs = d.questions && d.questions.length ? d.questions.map((q, i) => Object.assign({ no: i + 1 }, q)) : null;
+  if (!qs) {
+    const m = {}; (d.answers || []).forEach(a => { if (!m[a.no]) m[a.no] = { no: a.no, type: a.type, text: a.q, options: [] }; });
+    qs = Object.keys(m).sort((a, b) => a - b).map(k => m[k]);
+  }
+  qs = qs.filter(q => q.type !== 'message');
+  qs.forEach((q, k) => { q.label = k + 1; });
+  return qs;
+}
+function peopleOfData(d) {
+  const people = {}, order = [];
+  (d.answers || []).forEach(a => {
+    if (!people[a.sendId]) { people[a.sendId] = { name: a.name, by: {} }; order.push(a.sendId); }
+    people[a.sendId].by[a.no] = a;
+  });
+  return { people, order };
+}
+function hasNames(d) { return (d.answers || []).some(a => a.name && a.name !== '（名前なし）'); }
+function isAns(q, a) {
+  if (q.type === 'gauge' || q.type === 'scale') return a.value !== null && a.value !== undefined && a.value !== '' && !isNaN(a.value);
+  return String(a.answer || '').trim() !== '';
+}
+function answerCount(d, q) { let n = 0; const seen = {}; (d.answers || []).forEach(a => { if (a.no === q.no && !seen[a.sendId] && isAns(q, a)) { seen[a.sendId] = 1; n++; } }); return n; }
+function whoStr(arr, o) { return o.names && arr.length ? '<div class="who">' + arr.map(esc).join('、') + '</div>' : ''; }
+
+// 1つの質問の結果（先生の確認用と、全画面の表示で同じものを使う）
+// o.names：名前を出す ／ o.editable：意見に「表示しない」ボタンを付ける
+function qBlock(q, ord, o) {
+  const list = ord.order.map(id => ({ id, p: ord.people[id], a: ord.people[id].by[q.no] })).filter(x => x.a && isAns(q, x.a));
+  const nm = x => o.names ? x.p.name : '';
+  if (q.type === 'free') {
+    const cards = list.map(x => { const k1 = 'a:' + x.id + '#' + q.no, k2 = 'p:' + x.id; return { x, k1, k2, h1: !!T.hide[k1], h2: !!T.hide[k2] }; });
+    const hid = cards.filter(c => c.h1 || c.h2).length;
+    const vis = o.editable ? cards : cards.filter(c => !c.h1 && !c.h2);
+    const head = '<div class="rbn">' + (o.editable ? list.length + '件の意見' + (hid ? '（表示しない：' + hid + '件）' : '') : (list.length - hid) + '件の意見') + '</div>';
+    if (!vis.length) return head + '<p class="rb-none">まだ意見がありません。</p>';
+    return head + '<div class="opn">' + vis.map(c =>
+      '<div class="oc' + (c.h1 || c.h2 ? ' hid' : '') + '">' + (o.names ? '<b>' + esc(c.x.p.name) + '</b>' : '') + '<p>' + esc(c.x.a.answer) + '</p>' +
+      (o.editable ? '<div class="oct"><button data-hide="' + esc(c.k1) + '">' + (c.h1 ? 'この意見を表示にもどす' : 'この意見を表示しない') + '</button>' +
+        '<button data-hide="' + esc(c.k2) + '">' + (c.h2 ? 'この人の意見を表示にもどす' : 'この人の意見をすべて表示しない') + '</button></div>' : '') + '</div>').join('') + '</div>';
+  }
+  const head = '<div class="rbn">' + list.length + '人が回答</div>';
+  if (!list.length) return head + '<p class="rb-none">まだ回答がありません。</p>';
+  const row = (label, arr, tot, max) => '<div class="br"><div class="bar"><span>' + esc(label) + '</span><div class="b"><i style="width:' + (arr.length / max * 100) + '%"></i></div>' +
+    '<span><b>' + arr.length + '</b>人' + (tot ? '（' + Math.round(arr.length / tot * 100) + '%）' : '') + '</span></div>' + whoStr(arr, o) + '</div>';
+  if (q.type === 'gauge') {
+    const vals = list.map(x => ({ v: Number(x.a.value), name: nm(x) }));
+    const s = stats(vals.map(x => x.v));
+    const bands = [[], [], [], [], []]; vals.forEach(x => bands[Math.min(4, Math.floor(x.v / 20))].push(x.name ? x.name + '：' + x.v : ''));
+    const max = Math.max(1, ...bands.map(b => b.length));
+    return head + '<div class="avg"><div>平均 <span class="big">' + s.avg.toFixed(1) + '</span></div><div>中央値 <b>' + (Math.round(s.med * 10) / 10) + '</b></div>' +
+      '<div>いちばん低い <b>' + s.min + '</b></div><div>いちばん高い <b>' + s.max + '</b></div></div>' +
+      '<div class="plot"><div class="line"></div>' + vals.map((x, k) => '<span class="dot" style="left:' + x.v + '%;top:' + (14 + (k % 3) * 6) + 'px"></span>').join('') +
+      '<span class="am" style="left:' + s.avg + '%"></span><span class="al" style="left:' + s.avg + '%">平均 ' + s.avg.toFixed(1) + '</span></div>' +
+      '<div class="plot-ends"><span>0：' + esc(plainText(q.left || '')) + '</span><span>' + esc(plainText(q.right || '')) + '：100</span></div>' +
+      '<div class="bars">' + ['0〜19', '20〜39', '40〜59', '60〜79', '80〜100'].map((l, k) => row(l, bands[k], s.n, max)).join('') + '</div>';
+  }
+  if (q.type === 'scale') {
+    const steps = scaleSteps(q), lb = scaleLabels(q);
+    const by = Array.from({ length: steps + 1 }, () => []);
+    list.forEach(x => { const v = Number(x.a.value); if (v >= 1 && v <= steps) by[v].push(nm(x)); });
+    const vals = list.map(x => Number(x.a.value)); const s = stats(vals);
+    const max = Math.max(1, ...by.map(b => b.length));
+    const stepName = v => lb ? v + '：' + plainText(lb[v - 1]) : String(v) + (v === 1 && q.left ? '（' + plainText(q.left) + '）' : (v === steps && q.right ? '（' + plainText(q.right) + '）' : ''));
+    return head + '<div class="avg"><div>平均 <span class="big">' + s.avg.toFixed(1) + '</span> / ' + steps + '</div><div>中央値 <b>' + (Math.round(s.med * 10) / 10) + '</b></div></div>' +
+      '<div class="bars">' + Array.from({ length: steps }, (_, k) => k + 1).map(v => row(stepName(v), by[v], s.n, max)).join('') + '</div>';
+  }
+  // 選ぶ
+  const opts = (q.options || []).map(plainText);
+  const by = {}; opts.forEach(k => by[k] = []);
+  list.forEach(x => String(x.a.answer || '').split(' / ').map(t => t.trim()).filter(t => t).forEach(t => { (by[t] = by[t] || []).push(nm(x)); }));
+  const keys = Object.keys(by); const max = Math.max(1, ...keys.map(k => by[k].length));
+  return head + '<div class="bars">' + keys.map(k => row(k, by[k], list.length, max)).join('') + '</div>' +
+    (q.multi ? '<p class="rbn">いくつでも選べる質問です（%は答えた人の数をもとにしています）。</p>' : '');
+}
+
+function setIn(sel, html) {
+  if (T.lvHtml[sel] === html) return;
+  T.lvHtml[sel] = html;
+  const el = main.querySelector(sel); if (el) replaceView(el, html);
+}
+
+/* --- 先生の画面（進行と確認） --- */
+function renderLive() {
+  T.lvHtml = {};
+  const v = setMain('<div class="card"><h2>進行と全画面表示</h2><div id="lvCtl"></div>' +
+    '<div class="field"><div class="lab">結果に名前を出すか</div><div id="lvOpt"></div></div>' +
+    '<div class="lvprev"><div class="lab">ここは先生の画面だけに出ています（届いた内容の確認用）。確認してから「全画面に表示」を押すと、プロジェクターなどに出せます。</div>' +
+    '<div id="lvChips"></div><div id="lvPrev"></div></div>' +
+    '<div class="row" style="margin-top:12px" id="lvBtns"></div></div>');
+  v.addEventListener('click', onLiveClick);
+  v.addEventListener('change', e => {
+    if (e.target.matches('input[name=lvnames]')) { T.showNames = e.target.value === '1'; drawLive(); drawProj(); }
+  });
+  if (T.live) drawLive();
+  else setIn('#lvCtl', '<p class="help">読みこみ中…</p>');
+  refreshLive();
+}
+
+async function refreshLive() {
+  if (T.liveBusy || T.tab !== 'live') return;
+  T.liveBusy = true;
+  try {
+    const d = await call('tLive', T.pass);
+    if (T.tab !== 'live') return;
+    T.live = d;
+    if (d.roundId) { loadHide(d.roundId); if (d.state) { T.st = d.state; } if (d.people) T.people = d.people; }
+    drawLive();
+  } catch (e) {
+    if (T.tab === 'live' && !T.live) setIn('#lvCtl', '<p class="msgline err">読みこめませんでした：' + esc(errText(e)) + '</p>');
+  } finally { T.liveBusy = false; }
+}
+
+function labelOf(d, i) { let c = 0; (d.questions || []).forEach((q, k) => { if (k <= i && q.type !== 'message') c++; }); return c; }
+
+// いま確認している質問（番号は0から）
+function viewIdx(d, qs) {
+  if (!qs.length) return -1;
+  if (T.view !== null && T.view >= 0 && T.view < qs.length) return T.view;
+  const st = d.state || {};
+  if (st.mode === 'group' && d.open) {
+    const n = (d.questions || []).length, cur = st.cur;
+    if (cur >= n) return qs.length - 1;
+    if (cur >= 0) return Math.max(0, labelOf(d, cur) - 1);
+  }
+  return 0;
+}
+
+function drawLive() {
+  if (T.tab !== 'live') return;
+  const d = T.live;
+  if (!d || !d.roundId) {
+    setIn('#lvCtl', '<p class="help">まだ受付をしていません。「受付」タブで受付を始めると、ここで質問を出したり、届いた結果を確認したりできます。</p>');
+    setIn('#lvOpt', ''); setIn('#lvChips', ''); setIn('#lvPrev', ''); setIn('#lvBtns', '');
+    return;
+  }
+  const st = d.state || {}, items = d.questions || [], n = items.length;
+  const qs = qsOf(d), ord = peopleOfData(d);
+  const vi = viewIdx(d, qs);
+  // --- 進行（みんなで） ---
+  let ctl = '<p class="help" style="margin:0 0 6px">' + esc(plainText(d.title)) + (d.open ? '　<span class="pill on">受付中</span>' : '　<span class="pill off">受付していません</span>') + '</p>';
+  if (d.open && st.mode === 'group') {
+    const cur = st.cur;
+    let now;
+    if (cur < 0) now = 'まだ質問を出していません。回答者は「始まるまで待っててね」の画面です。';
+    else if (cur >= n) now = 'すべて出しました。回答者は「ありがとう」の画面です。';
+    else now = (items[cur].type === 'message' ? 'メッセージ' : '質問 ' + labelOf(d, cur) + ' / ' + qs.length) + ' を出しています：' + esc(plainText(items[cur].text));
+    const nextLabel = cur < 0 ? '最初の質問を出す' : cur >= n - 1 ? (cur >= n ? '終わりまで出しました' : '終わりにする（回答者に「ありがとう」を出す）') : 'つぎの質問を出す';
+    ctl += '<div class="lvnow">' + now + '</div>' +
+      '<div class="row"><button data-prev' + (cur < 0 ? ' disabled' : '') + '>前にもどす</button>' +
+      '<button class="pri" data-next' + (cur >= n ? ' disabled' : '') + '>' + nextLabel + '</button></div>' +
+      '<div class="lvbar" aria-label="進行の一覧">' + items.map((q, i) => q.type === 'message'
+        ? '<button class="msgb' + (i === cur ? ' cur' : '') + '" data-goto="' + i + '">メッセージ</button>'
+        : '<button class="' + (i === cur ? 'cur' : '') + '" data-goto="' + i + '">質問' + labelOf(d, i) + '（' + answerCount(d, qs[labelOf(d, i) - 1] || { no: -1 }) + '）</button>').join('') + '</div>' +
+      '<p class="help">緑のボタンが、回答者に出している質問です。ボタンを押すと、そこへ移れます。かっこの中は、答えた人の数です。「全画面に表示」を押しても、回答者の画面は動きません。</p>';
+  } else if (d.open) {
+    ctl += '<p class="help">ひとりずつ進める回です。回答者が最後に送るたびに、結果が増えます。</p>';
+  } else {
+    ctl += '<p class="help">この回は終わっています。結果は下で確認できます。</p>';
+  }
+  setIn('#lvCtl', ctl);
+  // --- 名前 ---
+  const nm = hasNames(d);
+  setIn('#lvOpt', nm
+    ? chips('lvnames', [['0', '出さない（だれが答えたか分からない）'], ['1', '出す']], T.showNames ? '1' : '0') +
+      '<p class="help">はじめは「出さない」です。意見（自由に書く質問）は、下の確認で「この意見を表示しない」を押すと、全画面に出ません。</p>'
+    : '<p class="help">名前を集めない回なので、だれが答えたかは出ません（無記名）。意見は、下の確認で「この意見を表示しない」を押すと、全画面に出ません。</p>');
+  // --- 確認 ---
+  if (!qs.length) { setIn('#lvChips', ''); setIn('#lvPrev', '<p class="help">質問がありません。</p>'); setIn('#lvBtns', ''); return; }
+  setIn('#lvChips', '<div class="lvbar"><span class="help" style="align-self:center;margin:0">確認する質問：</span>' + qs.map((q, k) =>
+    '<button class="' + (k === vi ? 'view' : '') + '" data-view="' + k + '">' + q.label + '（' + answerCount(d, q) + '）</button>').join('') + '</div>');
+  const q = qs[vi];
+  setIn('#lvPrev', '<div class="pq" style="font-weight:bold;font-size:18px;margin-bottom:6px"><span class="tag">' + q.label + '. ' + TYPE_LABEL[q.type] + '</span>' + esc(plainText(q.text)) + '</div>' +
+    (d.open && st.mode === 'group' ? '<div class="rbn">参加している人：' + (d.people || []).length + '人</div>' : '') +
+    qBlock(q, ord, { names: T.showNames && nm, editable: true }));
+  setIn('#lvBtns', '<button class="pri" data-proj="q:' + vi + '">この質問の結果を全画面に表示</button><button data-proj="all">ここまでの結果をまとめて全画面に表示</button>');
+}
+
+async function onLiveClick(e) {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = T.live;
+  const go = async idx => {
+    b.disabled = true;
+    try { const st = await call('tGoto', T.pass, idx); T.st = st; if (T.live) T.live.state = st; T.view = null; drawLive(); renderStatus(); await refreshLive(); }
+    catch (err) { alert('動かせませんでした：' + errText(err)); }
+  };
+  if (b.hasAttribute('data-next')) go((d.state.cur || 0) + 1);
+  else if (b.hasAttribute('data-prev')) go(Math.max(-1, d.state.cur - 1));
+  else if (b.dataset.goto !== undefined) go(+b.dataset.goto);
+  else if (b.dataset.view !== undefined) { T.view = +b.dataset.view; drawLive(); }
+  else if (b.dataset.hide !== undefined) { toggleHide(b.dataset.hide); drawLive(); drawProj(); }
+  else if (b.dataset.proj !== undefined) {
+    if (b.dataset.proj === 'all') openProj('live', 'all', 0); else openProj('live', 'q', +b.dataset.proj.split(':')[1]);
+  }
+}
+
+/* --- 全画面の表示（プロジェクターなど） --- */
+function openProj(source, mode, label) {
+  const d = source === 'live' ? T.live : T.res;
+  if (!d || !d.roundId) return;
+  loadHide(d.roundId);
+  const live = !!(d.open && T.st && T.st.open && d.roundId === T.st.roundId);
+  T.proj = { d, mode, label: label || 0, live, html: '' };
+  const el = document.getElementById('proj');
+  el.innerHTML = '<div class="pbar"><button data-p="prev">前の質問</button><button data-p="next">つぎの質問</button><button data-p="mode"></button>' +
+    '<button data-p="names"></button><button data-p="close" class="pri">閉じる</button></div><div id="projBody"></div>';
+  el.hidden = false;
+  try { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { const r = f.call(el); if (r && r.catch) r.catch(() => {}); } } catch (err) {}
+  drawProj();
+  if (T.projTimer) clearInterval(T.projTimer);
+  if (live) T.projTimer = setInterval(refreshProj, LIVE_MS);
+  document.addEventListener('keydown', projKey);
+}
+
+async function refreshProj() {
+  const P = T.proj; if (!P || !P.live) return;
+  try {
+    const d = await call('tLive', T.pass);
+    if (!T.proj || d.roundId !== T.proj.d.roundId) return;
+    T.proj.d = d;
+    if (T.live && T.live.roundId === d.roundId) T.live = d;
+    drawProj();
+  } catch (e) {}
+}
+
+function closeProj() {
+  const el = document.getElementById('proj');
+  el.hidden = true; el.innerHTML = '';
+  T.proj = null;
+  if (T.projTimer) { clearInterval(T.projTimer); T.projTimer = null; }
+  document.removeEventListener('keydown', projKey);
+  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen(); } catch (err) {}
+  if (T.tab === 'live') { T.lvHtml = {}; drawLive(); }
+}
+
+function projKey(e) {
+  if (!T.proj) return;
+  if (e.key === 'Escape') closeProj();
+  else if (e.key === 'ArrowRight') projMove(1);
+  else if (e.key === 'ArrowLeft') projMove(-1);
+}
+
+function projMove(dir) {
+  const P = T.proj; if (!P || P.mode !== 'q') return;
+  const n = qsOf(P.d).length;
+  P.label = Math.max(0, Math.min(n - 1, P.label + dir));
+  drawProj();
+}
+
+function drawProj() {
+  const P = T.proj; if (!P) return;
+  const el = document.getElementById('proj'); if (!el) return;
+  const d = P.d, qs = qsOf(d), ord = peopleOfData(d), nm = hasNames(d);
+  const o = { names: T.showNames && nm, editable: false };
+  const title = esc(plainText(d.title || ''));
+  let body;
+  if (!qs.length) body = '<div class="ptitle">' + title + '</div><p class="rb-none">質問がありません。</p>';
+  else if (P.mode === 'all') {
+    body = '<div class="ptitle">' + title + '　（まとめ）</div><div class="pgrid">' + qs.map(q =>
+      '<div class="pcard"><div class="pq"><span class="tag">' + q.label + '</span>' + esc(plainText(q.text)) + '</div>' + qBlock(q, ord, o) + '</div>').join('') + '</div>';
+  } else {
+    P.label = Math.max(0, Math.min(qs.length - 1, P.label));
+    const q = qs[P.label];
+    body = '<div class="ptitle">' + title + '　質問 ' + q.label + ' / ' + qs.length + '</div>' +
+      '<div class="pq">' + esc(plainText(q.text)) + '</div>' + qBlock(q, ord, o);
+  }
+  const bar = el.querySelector('.pbar');
+  if (bar) {
+    const q1 = P.mode === 'q';
+    bar.querySelector('[data-p=prev]').hidden = !q1 || P.label <= 0;
+    bar.querySelector('[data-p=next]').hidden = !q1 || P.label >= qs.length - 1;
+    bar.querySelector('[data-p=mode]').textContent = q1 ? 'まとめて表示' : '1問ずつ表示';
+    const nb = bar.querySelector('[data-p=names]'); nb.hidden = !nm; nb.textContent = T.showNames ? '名前を出さない' : '名前を出す';
+  }
+  if (P.html === body) return;
+  P.html = body;
+  const sc = el.scrollTop;
+  const old = el.querySelector('#projBody');
+  if (old) replaceView(old, body).id = 'projBody';
+  el.scrollTop = sc;
+}
+
+document.getElementById('proj').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !T.proj) return;
+  const k = b.dataset.p;
+  if (k === 'close') closeProj();
+  else if (k === 'prev') projMove(-1);
+  else if (k === 'next') projMove(1);
+  else if (k === 'mode') { T.proj.mode = T.proj.mode === 'q' ? 'all' : 'q'; drawProj(); }
+  else if (k === 'names') { T.showNames = !T.showNames; drawProj(); if (T.tab === 'live') drawLive(); }
+});
 
 window.__tBoot = boot;
 boot();
