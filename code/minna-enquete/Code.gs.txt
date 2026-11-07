@@ -13,11 +13,12 @@ const HEADERS = {
   'しつもん':   ['アンケート名', '番号', '種類', '質問文', '選択肢', '複数選択', 'ゲージ左', 'ゲージ右', '必須', '段階数'],
   'かいとう':   ['日時', '回ID', 'アンケート名', '送信ID', '名前', '番号', '種類', '質問', '回答', '数値'],
   'まとめ':     ['日時', '回ID', 'アンケート名', '送信ID', '名前', '端末', '回答の一覧'],
-  '回のきろく': ['回ID', 'アンケート名', '始めた日時', '終えた日時', '対象', '名前の集め方', '参加コード', '回答数', 'ゲージの平均', '質問の内容']
+  '回のきろく': ['回ID', 'アンケート名', '始めた日時', '終えた日時', '対象', '進め方', '名前の集め方', '参加コード', '回答数', 'ゲージの平均', '質問の内容']
 };
 
 const TYPE_JA = { free: '自由', choice: '選択', gauge: 'ゲージ', scale: '段階', message: 'メッセージ' };
 const AUDIENCE_JA = { adult: '大人向け', student: '生徒向け' };
+const MODE_JA = { group: 'みんなで', self: 'ひとりずつ' };
 const NAME_MODE_JA = { none: '集めない', input: '書いてもらう', roster: '名簿から選ぶ', chara: 'キャラで参加' };
 const TZ = 'Asia/Tokyo';
 const YES = ['○', '◯', 'はい', 'TRUE', 'true', '1', 'する', 'あり', 'y', 'yes'];
@@ -278,13 +279,16 @@ function getRoster_(col) {
 
 /* ========== 回答者用 ========== */
 
+// 「みんなで」進めるときの、いま出している質問の番号（まだ出していないときは -1）
+function curOf_(s) { return s.mode === 'group' && s.cur != null ? Number(s.cur) : -1; }
+
 function getPublicState() {
   const cache = CacheService.getScriptCache();
   const c = cache.get('pub');
   if (c) return JSON.parse(c);
   const s = getState_();
-  const p = { open: !!s.open, roundId: s.roundId || '', needCode: !!s.needCode, title: s.title || '', audience: s.audience === 'student' ? 'student' : 'adult' };
-  cache.put('pub', JSON.stringify(p), 30);
+  const p = { open: !!s.open, roundId: s.roundId || '', needCode: !!s.needCode, title: s.title || '', audience: s.audience === 'student' ? 'student' : 'adult', mode: s.mode === 'group' ? 'group' : 'self', cur: curOf_(s) };
+  cache.put('pub', JSON.stringify(p), p.mode === 'group' ? 2 : 30);   // みんなで進めるときは、質問が切りかわるのをすぐ伝えるため短くする
   return p;
 }
 
@@ -310,7 +314,8 @@ function join(code, prevRoundId) {
   }
   const res = {
     ok: true, roundId: s.roundId, title: s.title, audience: s.audience === 'student' ? 'student' : 'adult', nameMode: s.nameMode || 'none',
-    showNumber: !!s.showNumber, shared: !!s.shared, survey: survey
+    showNumber: !!s.showNumber, shared: !!s.shared, survey: survey,
+    mode: s.mode === 'group' ? 'group' : 'self', cur: curOf_(s)
   };
   if (res.nameMode === 'roster') res.names = getRoster_(s.roster);
   return res;
@@ -380,6 +385,42 @@ function submit(p) {
   return { ok: true };
 }
 
+/**
+ * 「みんなで」進めるとき：1問ぶんの回答を、その場で記録する
+ * 送信ID（かいとうタブ）は、1人ごとに回の中で同じ値（rid）を使う
+ */
+function submitQ(p) {
+  if (!p || !p.rid || !/^\d{8}-\d{6}$/.test(String(p.roundId || ''))) throw new Error('送る内容が正しくありません。');
+  const rid = String(p.rid).slice(0, 60);
+  const no = Math.round(Number(p.no)) || 0;
+  if (no < 1 || no > 100) throw new Error('送る内容が正しくありません。');
+  const key = 'sq_' + encodeURIComponent(rid + '#' + no);
+  const cache = CacheService.getScriptCache();
+  if (cache.get(key)) return { ok: true, dup: true };
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    if (cache.get(key)) return { ok: true, dup: true };
+    const name = String(p.name || '').trim().slice(0, 40) || '（名前なし）';
+    const v = Number(p.value);
+    const isNum = (p.type === 'gauge' || p.type === 'scale') && p.value !== null && p.value !== '' && isFinite(v);
+    const num = !isNum ? '' : p.type === 'gauge' ? Math.max(0, Math.min(100, Math.round(v))) : Math.max(1, Math.min(10, Math.round(v)));
+    appendObjs_(sheet_(SH.ANS), [{
+      '日時': new Date(), '回ID': p.roundId, 'アンケート名': safe_(String(p.title || '').slice(0, 100)), '送信ID': rid,
+      '名前': safe_(name), '番号': no, '種類': TYPE_JA[p.type] || '',
+      '質問': safe_(plain_(p.text).slice(0, 500)),
+      '回答': safe_(String(p.answer == null ? '' : p.answer).slice(0, 2000)),
+      '数値': num
+    }]);
+    cache.put(key, '1', 21600);
+    if (p.statusKey) updateStatus_(p.roundId, p.statusKey, name, 'answering');
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true };
+}
+
 /* ========== 先生用 ========== */
 
 // スクリプトプロパティ TEACHER_PASS を入れたときだけ、あいことばを確かめる
@@ -394,7 +435,8 @@ function teacherState_() {
     open: !!s.open, roundId: s.roundId || '', code: s.code || '', needCode: !!s.needCode,
     audience: s.audience === 'student' ? 'student' : 'adult',
     nameMode: s.nameMode || 'none', roster: s.roster || '', showNumber: !!s.showNumber,
-    shared: !!s.shared, title: s.title || '', startedAt: s.startedAt || 0, qCount: s.qCount || 0
+    shared: !!s.shared, title: s.title || '', startedAt: s.startedAt || 0, qCount: s.qCount || 0,
+    mode: s.mode === 'group' ? 'group' : 'self', cur: curOf_(s), total: s.total || 0
   };
 }
 
@@ -452,7 +494,9 @@ function tStart(pass, cfg) {
       open: true, roundId: roundId, code: code, needCode: !!cfg.needCode, nameMode: nameMode,
       audience: cfg.audience === 'student' ? 'student' : 'adult',
       roster: nameMode === 'roster' ? String(cfg.roster || '') : '', showNumber: !!cfg.showNumber,
-      shared: !!cfg.shared, title: title, startedAt: now.getTime(), qCount: questions.filter(q => q.type !== 'message').length
+      shared: !!cfg.shared, title: title, startedAt: now.getTime(), qCount: questions.filter(q => q.type !== 'message').length,
+      // 1台を順番に使うときは「ひとりずつ」。それ以外は、はじめは「みんなで」
+      mode: (!cfg.shared && cfg.mode !== 'self') ? 'group' : 'self', cur: -1, total: questions.length
     };
     const qStr = JSON.stringify(questions);
     setBig_('SURVEY', qStr);
@@ -462,7 +506,7 @@ function tStart(pass, cfg) {
     PropertiesService.getScriptProperties().setProperty('ROUNDS', JSON.stringify(rounds.slice(-30)));
     appendObjs_(sheet_(SH.ROUND), [{
       '回ID': roundId, 'アンケート名': safe_(title), '始めた日時': now,
-      '対象': AUDIENCE_JA[s.audience],
+      '対象': AUDIENCE_JA[s.audience], '進め方': MODE_JA[s.mode],
       '名前の集め方': NAME_MODE_JA[nameMode] + (s.roster ? '（' + s.roster + '）' : ''),
       '参加コード': s.needCode ? "'" + code : 'なし', '回答数': 0,
       '質問の内容': qStr.length < 45000 ? qStr : ''
@@ -491,6 +535,7 @@ function tStop(pass) {
 // 回を閉じるときに、回答数とゲージ・段階評価の平均を「回のきろく」に書く
 function finishRound_(s) {
   const rows = answersOf_(s.roundId);
+  if (s.mode === 'group') buildSummaries_(s, rows);
   const ids = {}, g = {};
   rows.forEach(r => {
     ids[r.sendId] = 1;
@@ -513,18 +558,39 @@ function finishRound_(s) {
   }
 }
 
+// 「みんなで」の回は、1問ごとに記録しているので、終えるときに1人1行の「まとめ」を作る
+function buildSummaries_(s, rows) {
+  const sum = sheet_(SH.SUM);
+  if (sum.createTextFinder(s.roundId).matchEntireCell(true).findNext()) return;   // もう作ってある
+  const by = {}, order = [];
+  rows.forEach(r => {
+    if (!by[r.sendId]) { by[r.sendId] = { name: r.name, time: r.time, list: [] }; order.push(r.sendId); }
+    by[r.sendId].list.push(r.no + ') ' + (r.answer === '' ? '（なし）' : r.answer.slice(0, 300)));
+  });
+  appendObjs_(sum, order.map(id => ({
+    '日時': new Date(by[id].time || Date.now()), '回ID': s.roundId, 'アンケート名': safe_(s.title || ''), '送信ID': id,
+    '名前': safe_(by[id].name), '端末': '', '回答の一覧': safe_(by[id].list.join('\n'))
+  })));
+}
+
+function peopleOf_(roundId) {
+  try {
+    const map = JSON.parse(CacheService.getScriptCache().get('st_' + encodeURIComponent(roundId)) || '{}');
+    const people = Object.keys(map).map(k => ({ name: map[k].n, status: map[k].s, t: map[k].t }));
+    people.sort((a, b) => a.t - b.t);
+    return people;
+  } catch (e) { return []; }
+}
+
 function tStatus(pass) {
   checkPass_(pass);
   const st = teacherState_();
   let people = [];
   let count = 0;
   if (st.roundId) {
-    try {
-      const map = JSON.parse(CacheService.getScriptCache().get('st_' + encodeURIComponent(st.roundId)) || '{}');
-      people = Object.keys(map).map(k => ({ name: map[k].n, status: map[k].s, t: map[k].t }));
-      people.sort((a, b) => a.t - b.t);
-    } catch (e) { people = []; }
-    count = sheet_(SH.SUM).createTextFinder(st.roundId).matchEntireCell(true).findAll().length;
+    people = peopleOf_(st.roundId);
+    // 「みんなで」の回は、参加している人の数。「ひとりずつ」の回は、送られた回答の数
+    count = st.mode === 'group' ? people.length : sheet_(SH.SUM).createTextFinder(st.roundId).matchEntireCell(true).findAll().length;
   }
   return { state: st, people: people, count: count };
 }
@@ -536,14 +602,24 @@ function answersOf_(roundId) {
   const hm = headerMap_(sh);
   const m = hm.map;
   const rev = { '自由': 'free', '選択': 'choice', 'ゲージ': 'gauge', '段階': 'scale' };
-  return sh.getRange(2, 1, lr - 1, hm.width).getValues()
-    .filter(r => String(r[m['回ID']]) === String(roundId))
-    .map(r => ({
+  const rid = String(roundId);
+  let out = [];
+  // 新しい回は下に足されるので、下から1000行ずつ読む（記録が増えても、すばやく読める）
+  let end = lr;
+  while (end >= 2) {
+    const start = Math.max(2, end - 999);
+    const rows = sh.getRange(start, 1, end - start + 1, hm.width).getValues();
+    const part = rows.filter(r => String(r[m['回ID']]) === rid).map(r => ({
       sendId: String(r[m['送信ID']]), name: String(r[m['名前']]), no: Number(r[m['番号']]) || 0,
       type: rev[String(r[m['種類']])] || 'free', q: String(r[m['質問']]),
       answer: String(r[m['回答']]), value: r[m['数値']] === '' ? null : Number(r[m['数値']]),
       time: ms_(r[m['日時']])
     }));
+    out = part.concat(out);
+    if (String(rows[0][m['回ID']]) < rid) break;   // いちばん上の行が、この回より前の回なら、これより上は見なくてよい
+    end = start - 1;
+  }
+  return out;
 }
 
 function listRounds_() {
@@ -570,6 +646,38 @@ function tResults(pass, roundId) {
     roundId: rid, title: title || st.title || '', started: started,
     open: !!st.open && rid === st.roundId,
     questions: questions || [], answers: answersOf_(rid), rounds: listRounds_()
+  };
+}
+
+/**
+ * 「みんなで」の回で、回答者に出す質問を動かす（-1：まだ出さない ／ 質問の数：おわり）
+ */
+function tGoto(pass, idx) {
+  checkPass_(pass);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const s = getState_();
+    if (!s.open || s.mode !== 'group') throw new Error('「みんなで」進めている受付中の回がありません。');
+    const n = getSurvey_().length;
+    s.cur = Math.max(-1, Math.min(n, Math.round(Number(idx))));
+    setState_(s);
+  } finally {
+    lock.releaseLock();
+  }
+  return teacherState_();
+}
+
+/**
+ * 受付中（または直前）の回の、届いた回答（先生の画面と全画面の表示で、すばやく読み直す用）
+ */
+function tLive(pass) {
+  checkPass_(pass);
+  const st = getState_();
+  if (!st.roundId) return { roundId: '' };
+  return {
+    roundId: st.roundId, title: st.title || '', open: !!st.open, state: teacherState_(),
+    questions: getSurvey_(), answers: answersOf_(st.roundId), people: peopleOf_(st.roundId)
   };
 }
 
