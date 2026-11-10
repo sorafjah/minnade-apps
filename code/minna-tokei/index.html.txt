@@ -200,7 +200,7 @@ body.t-page{overflow-y:auto}
 .runstate{font-size:19px;line-height:1.9;font-weight:700}
 .runstate .sub{font-size:15px;color:var(--sub);font-weight:400;display:block}
 .bignum{font-size:32px;color:var(--main-d)}
-.danger{border-color:#e0b4ae;color:var(--ng)}
+.danger{border-color:var(--line);color:var(--main-d)}
 .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table.mt{width:100%;border-collapse:collapse;font-size:15px;margin-top:10px}
 table.mt th{font-size:13px;color:var(--sub);text-align:left;padding:6px;border-bottom:2px solid var(--line);white-space:nowrap}
@@ -228,6 +228,83 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
 .lvlist li .ex{color:var(--sub);display:block;padding-left:4.2em}
 @media (max-width:900px){ .run-grid,.tq{grid-template-columns:1fr} }
 
+/* 先生画面：いまの問題を大きく映す（プロジェクター用） */
+.qview{position:fixed;inset:0;z-index:60;background:var(--bg);overflow:auto;padding:12px 24px 120px;display:flex;flex-direction:column;gap:10px}
+.qv-top{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.qv-top h2{font-size:30px;margin:0;color:var(--main-d)}
+.qv-state{font-size:24px;font-weight:700}
+.qv-state .bignum{font-size:44px}
+.qv-top .ghost{margin-left:auto;min-height:46px}
+.qview .tq{grid-template-columns:1.1fr 1fr;gap:24px;align-items:center;flex:1}
+.qview .prompt{font-size:38px}
+.qview .clock-box svg{width:min(44vw,50vh,520px)}
+.qview .clock-box.sm svg{width:min(28vw,32vh,320px)}
+.qview .choice{font-size:44px;min-height:110px}
+.qview .choice .cmark{font-size:24px}
+.qv-bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid var(--line);padding:10px 24px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;z-index:61}
+.permbar{background:#fff4e0;border-bottom:3px solid #e0a030;color:#5a3d00;font-size:18px;font-weight:700;padding:12px 18px;line-height:1.7}
+@media (max-width:900px){ .qview .tq{grid-template-columns:1fr} }
+
+/* 先生画面は水色系でそろえる（緑を使わない） */
+.t-page{--ok:#1f6fb2;--ok-weak:#dcecf9}
+.t-page .tog.on{background:var(--main);color:#fff}
+.t-page .choice.is-correct{border-width:4px}
+
+/* 問題文と選択肢を目立たせる（みんなでクイズと同じ考え方） */
+.prompt{font-size:clamp(24px,3vw,34px);line-height:1.9}
+.dr-text{font-size:clamp(22px,2.6vw,30px);font-weight:700;line-height:2}
+.dr-text b,.dr-text .t{color:var(--main-d)}
+.jk-grid{font-size:clamp(22px,2.4vw,28px)}
+.jk-title{font-size:16px}
+.choice{position:relative;background:#eef8fe;border:3px solid #b3d9f2;box-shadow:0 4px 0 rgba(0,0,0,.08);font-size:clamp(26px,3vw,34px);min-height:84px;padding:6px 10px 6px 52px}
+button.choice:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.choice .chip{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:10px;background:#c6e3f7;color:var(--ink);font-size:20px;display:flex;align-items:center;justify-content:center}
+.choice.dim{opacity:.45}
+.qbar{opacity:.85}
+/* 先生の映す画面：上の帯は小さく、問題と選択肢を大きく */
+.qv-top h2{font-size:20px;color:var(--sub)}
+.qv-state{font-size:18px;color:var(--sub)}
+.qview .prompt{font-size:clamp(30px,3vw,46px)}
+.qview .dr-text{font-size:clamp(26px,2.6vw,42px);max-width:none}
+.qview .jk-grid{font-size:clamp(26px,2.6vw,36px)}
+.qview .choice{font-size:clamp(34px,3.4vw,50px);min-height:110px;padding-left:64px}
+.qview .choice .chip{width:44px;height:44px;font-size:26px}
+.who{margin-top:16px}
+.who-lab{font-size:20px;font-weight:700;color:var(--sub)}
+.who-n{font-size:34px;color:var(--main-d)}
+.who-names{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.who-name{background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 14px;font-size:20px;font-weight:700}
+.qv-top .qv-who{margin-left:auto;font-size:16px;min-height:46px}
+.qv-top .qv-who + .ghost{margin-left:0}
+.choice .cmark:empty{display:none}
+
+/* 先生の映す画面の下のボタン：3つとも同じ大きさ・同じ色でひかえめに */
+.qv-bar{padding:8px 24px;gap:10px}
+.qv-bar button{background:#fff;color:var(--main-d);border:2px solid var(--line);border-radius:12px;font-size:17px;font-weight:700;min-height:46px;padding:4px 18px;box-shadow:none}
+.qv-bar .danger{color:var(--main-d);border-color:var(--line)}
+/* 問題文・時刻表・選択肢は、同じ大きさの文字にそろえる */
+:root{--qfs:clamp(24px,2.8vw,32px)}
+.qview{--qfs:clamp(26px,2.5vw,36px)}
+.prompt,.dr-text,.dr-text b,.jk-grid,.choice{font-size:var(--qfs)}
+.qview .prompt,.qview .dr-text,.qview .jk-grid,.qview .choice{font-size:var(--qfs)}
+.jk-grid th,.jk-grid td{padding:3px 12px}
+.jk-title{font-size:calc(var(--qfs) * .6)}
+.qview .choice .chip{width:40px;height:40px;font-size:24px}
+.qview .choice{min-height:84px;padding-left:60px}
+
+.qview .dr-text,.qview .prompt{line-height:1.75}
+.qview .jk-grid th,.qview .jk-grid td{padding:1px 12px}
+
+/* くわしい設定・生徒ごとの設定（ボタンで開く） */
+.t-top .ghost{min-height:40px;font-size:15px;padding:2px 14px}
+.t-ov{position:fixed;inset:0;z-index:70;background:rgba(38,50,56,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.t-panel{background:#fff;border-radius:20px;width:min(760px,100%);max-height:92vh;overflow:auto;padding:18px 24px}
+.t-panel.wide{width:min(1180px,100%)}
+.t-panel h2{margin:0 0 6px;font-size:22px;color:var(--main-d)}
+.t-block{margin-bottom:18px}
+.t-block h2{border-bottom:2px solid var(--main-weak);padding-bottom:4px}
+.cfgtbl td:first-child,.cfgtbl .tog{white-space:nowrap}
+
 </style>
 </head>
 <body>
@@ -238,7 +315,7 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
 
   <section id="wait" class="screen active">
     <div class="center">
-      <h1 class="apptitle">みんなで{時計|とけい}</h1>
+      <h1 class="apptitle rb" data-src="みんなで{時計|とけい}">みんなで<ruby>時計<rt>とけい</rt></ruby></h1>
       <div class="card msgcard">
         <div id="waitMsg">じゅんびしているよ</div>
         <div id="waitSub" class="sub"></div>
@@ -249,7 +326,7 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
 
   <section id="code" class="screen">
     <div class="center">
-      <h1 class="apptitle rb">{参加|さんか}コードを {入|い}れてね</h1>
+      <h1 class="apptitle rb" data-src="{参加|さんか}コードを {入|い}れてね"><ruby>参加<rt>さんか</rt></ruby>コードを <ruby>入<rt>い</rt></ruby>れてね</h1>
       <div class="card">
         <div id="codeBoxes" class="codeboxes"></div>
         <p id="codeErr" class="errmsg"></p>
@@ -272,20 +349,20 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
       </div>
       <div class="joinbar">
         <span id="joinSel" class="sel"></span>
-        <button id="joinBtn" class="primary rb" disabled>{参加|さんか}する</button>
+        <button id="joinBtn" class="primary rb" disabled data-src="{参加|さんか}する"><ruby>参加<rt>さんか</rt></ruby>する</button>
       </div>
     </div>
   </section>
 
   <section id="ready" class="screen">
     <div class="center">
-      <h1 class="apptitle">みんなで{時計|とけい}</h1>
+      <h1 class="apptitle rb" data-src="みんなで{時計|とけい}">みんなで<ruby>時計<rt>とけい</rt></ruby></h1>
       <div class="card msgcard">
         <div id="readyMsg"></div>
         <div id="readyDots" class="dots"><span></span><span></span><span></span></div>
         <div id="readyGoRow" class="joinbar hidden"><button id="readyGo" class="primary">はじめる</button></div>
       </div>
-      <div class="joinbar"><button id="renameBtn" class="ghost rb">{名前|なまえ}を {選|えら}びなおす</button></div>
+      <div class="joinbar"><button id="renameBtn" class="ghost rb" data-src="{名前|なまえ}を {選|えら}びなおす"><ruby>名前<rt>なまえ</rt></ruby>を <ruby>選<rt>えら</rt></ruby>びなおす</button></div>
     </div>
   </section>
 
@@ -309,6 +386,16 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
     </div>
   </section>
 
+  <section id="done" class="screen">
+    <div class="center">
+      <h1 class="apptitle rb">おわったよ</h1>
+      <div class="card msgcard">
+        <div class="rb" data-src="よく がんばったね。<br><span class=&quot;sub&quot;>{先生|せんせい}が {結果|けっか}を {見|み}せるまで、まってね。</span>">よく がんばったね。<br><span class="sub"><ruby>先生<rt>せんせい</rt></ruby>が <ruby>結果<rt>けっか</rt></ruby>を <ruby>見<rt>み</rt></ruby>せるまで、まってね。</span></div>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  </section>
+
   <section id="result" class="screen">
     <div class="center" style="max-width:760px">
       <div class="card">
@@ -316,8 +403,11 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
         <p class="res-msg" id="resMsg"></p>
         <ul class="res-list" id="resList"></ul>
       </div>
-      <div class="card msgcard rb" style="margin-top:14px;font-size:20px;padding:16px">
+      <div class="card msgcard rb" style="margin-top:14px;font-size:20px;padding:16px" data-src="
         つぎの{回|かい}が はじまったら、{自動|じどう}で {入|はい}るよ。まってね。
+        <div class=&quot;dots&quot;><span></span><span></span><span></span></div>
+      ">
+        つぎの<ruby>回<rt>かい</rt></ruby>が はじまったら、<ruby>自動<rt>じどう</rt></ruby>で <ruby>入<rt>はい</rt></ruby>るよ。まってね。
         <div class="dots"><span></span><span></span><span></span></div>
       </div>
     </div>
@@ -331,8 +421,11 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
     <h1>みんなで時計<small>先生用</small></h1>
     <span id="tBadge" class="tbadge">受付していません</span>
     <span id="tNet" class="tnet hidden">通信できていません（自動でやり直します）</span>
+    <button id="detailBtn" class="ghost">くわしい設定</button>
+    <button id="stuBtn" class="ghost">生徒ごとの設定・レベルごとの内容</button>
   </header>
   <button id="tHelpBtn" class="helpbtn">使い方</button>
+  <div id="permBar" class="permbar hidden">スプレッドシートを使う許可が、まだ出ていないようです。Apps Script のエディタで <b>setup</b> を実行して許可し、「デプロイを管理」から<b>新バージョン</b>でデプロイしてください。そのあと、この画面を開きなおします。</div>
   <main class="t-wrap">
 
     <section id="runCard" class="card t-card hidden">
@@ -352,15 +445,24 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
       </div>
     </section>
 
-    <section id="qCard" class="card t-card hidden">
-      <h2 id="tqTitle">いまの問題</h2>
-      <div id="tLvTabs" class="gchips" style="margin-bottom:8px"></div>
+    <section id="qCard" class="qview hidden">
+      <header class="qv-top">
+        <h2 id="tqTitle">いまの問題</h2>
+        <div id="tqState" class="qv-state"></div>
+        <button id="whoBtn" class="ghost qv-who">答えた人を人数だけにする</button>
+        <button id="qvClose" class="ghost">生徒のようすの画面にもどる</button>
+      </header>
+      <div id="tLvTabs" class="gchips"></div>
       <div class="tq">
         <div class="stage"><div id="tqPrompt" class="prompt"></div><div id="tqVisual"></div></div>
         <div>
-          <div class="t-actions" style="margin-top:0"><button id="revealBtn" class="ghost">正解と答えの分かれ方を表示する</button></div>
-          <div id="tqChoices" style="margin-top:10px"></div>
+          <div id="tqChoices"></div>
+          <div id="tqWho" class="who"></div>
         </div>
+      </div>
+      <div class="qv-bar">
+        <button id="revealBtn" class="ghost">正解と答えの分かれ方を表示する</button>
+        <span id="tqCtrl" class="t-actions" style="margin-top:0"></span>
       </div>
     </section>
 
@@ -377,7 +479,7 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
       <!-- みんなで -->
       <div class="t-row m-all"><span class="t-name">レベルの決め方</span>
         <div class="seg" data-key="levelMode"><button data-val="all">全員同じレベル</button><button data-val="each">生徒ごとのレベル</button></div>
-        <p class="note">「生徒ごと」では、「生徒設定」タブ（下の「生徒ごとの設定」からも変えられます）のレベルを使います。レベルが空の生徒は「前回のレベル」、それもなければ下で選ぶレベルになります。</p>
+        <p class="note">「生徒ごと」では、「生徒設定」タブ（上の「生徒ごとの設定・レベルごとの内容」ボタンからも変えられます）のレベルを使います。レベルが空の生徒は「前回のレベル」、それもなければ下で選ぶレベルになります。</p>
       </div>
       <div class="t-row m-all"><span class="t-name" id="lvLabel">レベル</span>
         <div class="stepper"><button data-step="level" data-d="-1">▽</button><input id="in-level" data-key="level" inputmode="numeric"><button data-step="level" data-d="1">△</button></div>
@@ -395,6 +497,11 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
       <div class="t-row m-self m-multi"><span class="t-name">ジャンルの出し方</span>
         <div class="seg" data-key="order"><button data-val="seq">じゅんばん</button><button data-val="mix">まぜる</button></div>
         <p class="note">じゅんばん：時間をジャンルの数で分けて、むずかしさの順に出します。まぜる：1問ごとにばらばらに出します。</p>
+      </div>
+      <div class="t-row m-self"><span class="t-name">はじめのレベル</span>
+        <div class="stepper"><button data-step="startLv" data-d="-1">▽</button><input id="in-startLv" data-key="startLv" inputmode="numeric"><button data-step="startLv" data-d="1">△</button></div>
+        <span class="note" id="startDesc" style="width:auto"></span>
+        <p class="note">0は「指定なし」です。数字を入れると、生徒ごとの設定にレベルを入れていない生徒は、そのレベルから始めます（ジャンルの最高レベルより大きいときは、最高レベルから）。生徒ごとの設定のレベルは、そちらが先になります。</p>
       </div>
       <div class="t-row m-self"><span class="t-name">レベルの自動上下</span>
         <div class="seg" data-key="autoLv"><button data-val="true">する</button><button data-val="false">しない</button></div>
@@ -434,15 +541,6 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
         <div class="seg" data-key="answer"><button data-val="four">4択</button><button data-val="two">2択</button><button data-val="input">時刻を入力する</button></div>
         <p class="note">レベル1（いちばんやさしい段）は、いつも2択で、ヒントボタンがつきます。</p>
       </div>
-      <div class="t-row"><span class="t-name">効果音</span>
-        <div class="seg" data-key="sound"><button data-val="true">あり</button><button data-val="false">なし</button></div>
-      </div>
-      <div class="t-row"><span class="t-name">生徒画面の文字</span>
-        <div class="seg" data-key="kana"><button data-val="ruby">漢字＋ふりがな</button><button data-val="hira">ひらがなだけ</button></div>
-      </div>
-      <div class="t-row"><span class="t-name">生徒の使い方の説明</span>
-        <div class="seg" data-key="guide"><button data-val="first">はじめて使う端末だけ</button><button data-val="every">毎回出す</button></div>
-      </div>
       <div class="t-row"><span class="t-name">参加のしかた</span>
         <div class="seg" data-key="join"><button data-val="roster">名簿から名前を選ぶ</button><button data-val="chara">キャラを選ぶ</button><button data-val="guest">名前を入れない</button></div>
         <p class="note">「名前を入れない」は、端末ごとに「ゲスト1」「ゲスト2」…と番号をつけます。同じ端末なら、つぎの回も同じゲストです。</p>
@@ -461,28 +559,46 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
       </div>
     </section>
 
-    <section id="cfgCard" class="card t-card">
-      <h2>生徒ごとの設定</h2>
-      <div class="t-row"><span class="t-name">ジャンル</span><div id="cfgGenre" class="seg"></div></div>
-      <div class="t-row"><span class="t-name">名簿</span><div id="cfgGroup" class="seg"></div></div>
-      <p class="note">出す：「ひとりずつ」で、この生徒にこのジャンルを出すかどうか。レベル：はじめのレベル（空なら前回のレベル、それもなければ下限かレベル1）。下限・上限：自動で上下する範囲。習得を外すと、ふつうの練習にもどります。スプレッドシートの「生徒設定」タブで変えてもかまいません。</p>
-      <div class="tblwrap"><table class="mt cfgtbl"><thead><tr><th>名前</th><th>出す</th><th>レベル</th><th>下限</th><th>上限</th><th>自動調整</th><th>前回のレベル</th><th>習得</th><th>タイムアタック最高</th></tr></thead><tbody id="cfgBody"></tbody></table></div>
-      <div class="t-actions"><button id="cfgSave" class="primary" style="font-size:18px">生徒ごとの設定を保存する</button><span id="cfgMsg" class="note" style="width:auto"></span></div>
-    </section>
-
-    <section id="lvCard" class="card t-card">
-      <h2>レベルごとの内容</h2>
-      <p class="note">例は、問題を作るしくみで、いま作ったものです。「例を作り直す」で別の例になります。</p>
-      <div class="t-actions" style="margin-top:4px"><button id="lvRefresh" class="ghost">例を作り直す</button></div>
-      <div id="lvList" class="lvlist" style="margin-top:10px"></div>
-    </section>
-
     <section id="recCard" class="card t-card">
       <h2>記録</h2>
       <div class="t-actions" style="margin-top:0"><button id="recBtn" class="ghost">スプレッドシートの記録を読み込む</button></div>
       <div id="recOut"></div>
     </section>
   </main>
+  <div id="detailOv" class="t-ov hidden"><div class="t-panel">
+    <h2>くわしい設定</h2>
+    <p class="note">次に始める回から変わります（いまの回には、すぐには変わりません）。</p>
+      <div class="t-row"><span class="t-name">効果音</span>
+        <div class="seg" data-key="sound"><button data-val="true">あり</button><button data-val="false">なし</button></div>
+      </div>
+      <div class="t-row"><span class="t-name">生徒画面の文字</span>
+        <div class="seg" data-key="kana"><button data-val="ruby">漢字＋ふりがな</button><button data-val="hira">ひらがなだけ</button></div>
+      </div>
+      <div class="t-row"><span class="t-name">生徒の使い方の説明</span>
+        <div class="seg" data-key="guide"><button data-val="first">はじめて使う端末だけ</button><button data-val="every">毎回出す</button></div>
+      </div>
+    <div class="t-actions"><button class="primary" data-close="detailOv">閉じる</button></div>
+  </div></div>
+  <div id="stuOv" class="t-ov hidden"><div class="t-panel wide">
+    <div class="t-actions" style="margin:0 0 6px"><button class="ghost" data-close="stuOv">閉じる</button></div>
+    <div id="cfgCard" class="t-block">
+      <h2>生徒ごとの設定</h2>
+      <div class="t-row"><span class="t-name">ジャンル</span><div id="cfgGenre" class="seg"></div></div>
+      <div class="t-row"><span class="t-name">名簿</span><div id="cfgGroup" class="seg"></div></div>
+      <p class="note">出す：「ひとりずつ」で、この生徒にこのジャンルを出すかどうか。レベル：はじめのレベル（空なら前回のレベル、それもなければ下限かレベル1）。下限・上限：自動で上下する範囲。答え方：押すたびに「全体の設定→2択→4択→記入式」と変わります（「ひとりずつ」のときに使われます。レベルのいちばんやさしい段は、いつも2択です）。習得を外すと、ふつうの練習にもどります。スプレッドシートの「生徒設定」タブで変えてもかまいません。</p>
+      <div class="tblwrap"><table class="mt cfgtbl"><thead><tr><th>名前</th><th>出す</th><th>レベル</th><th>下限</th><th>上限</th><th>自動調整</th><th>答え方</th><th>前回のレベル</th><th>習得</th><th>タイムアタック最高</th></tr></thead><tbody id="cfgBody"></tbody></table></div>
+      <div class="t-actions"><button id="cfgSave" class="primary" style="font-size:18px">生徒ごとの設定を保存する</button><span id="cfgMsg" class="note" style="width:auto"></span></div>
+    </div>
+
+    <div id="lvCard" class="t-block">
+      <h2>レベルごとの内容</h2>
+      <p class="note">例は、問題を作るしくみで、いま作ったものです。「例を作り直す」で別の例になります。</p>
+      <div class="t-actions" style="margin-top:4px"><button id="lvRefresh" class="ghost">例を作り直す</button></div>
+      <div id="lvList" class="lvlist" style="margin-top:10px"></div>
+    </div>
+
+    <div class="t-actions"><button class="ghost" data-close="stuOv">閉じる</button></div>
+  </div></div>
   <div id="qrBig" class="qrbig hidden">
     <div id="qrBigSvg" class="qrsvg"></div>
     <div id="qrBigCode" class="code-big"></div>
@@ -880,23 +996,18 @@ window.GENRE_ORDER = ['clock', 'maeato', 'deru', 'jikoku'];
   /* ==================== 時刻表 ==================== */
   (function () {
     var EKI = '{駅|えき}', DEN = '{電車|でんしゃ}', NO = '{乗|の}', IMA = '{今|いま}';
+    // どのレベルも、表（時と分の行）の時刻表を読む
     var CONF = [
-      { style: 'list', n: 4, gap: [15, 20], step: 5 },
-      { style: 'list', n: 7, gap: [5, 14], step: 1 },
-      { style: 'grid', hours: 3, gap: [6, 16], step: 1, rel: 'same' },
-      { style: 'grid', hours: 3, gap: [6, 16], step: 1, rel: 'next' },
-      { style: 'grid', hours: 3, gap: [6, 16], step: 1, deadline: true }
+      { hours: 2, gap: [20, 25], step: 5, rel: 'same' },
+      { hours: 2, gap: [12, 18], step: 1, rel: 'same' },
+      { hours: 3, gap: [10, 15], step: 1, rel: 'next' },
+      { hours: 3, gap: [8, 14], step: 1, ride: true },
+      { hours: 3, gap: [6, 12], step: 1, deadline: true }
     ];
     function trainsOf(c) {
-      var list = [], t;
-      if (c.style === 'list') {
-        t = rint(Math.ceil(390 / c.step), Math.floor(510 / c.step)) * c.step;   // 6時30分〜8時30分ごろ
-        for (var i = 0; i < c.n; i++) { list.push(t); t += rstep(c.gap, c.step); }
-      } else {
-        var bh = rint(6, 8);
-        t = bh * 60 + rint(0, 9);
-        while (t < (bh + c.hours) * 60) { list.push(t); t += rstep(c.gap, c.step); }
-      }
+      var list = [], bh = rint(6, 8);
+      var t = bh * 60 + rint(0, Math.floor(9 / c.step)) * c.step;
+      while (t < (bh + c.hours) * 60) { list.push(t); t += rstep(c.gap, c.step); }
       return list;
     }
     function rowsOf(trains) {
@@ -917,7 +1028,7 @@ window.GENRE_ORDER = ['clock', 'maeato', 'deru', 'jikoku'];
     function make(level, prev) {
       var c = CONF[level - 1];
       for (var g = 0; g < 600; g++) {
-        var tr = trainsOf(c), q = { g: 'jikoku', level: level, style: c.style, trains: tr };
+        var tr = trainsOf(c), q = { g: 'jikoku', level: level, style: 'grid', trains: tr };
         if (c.deadline) {
           var ai = rint(1, tr.length - 2), dur = rstep([10, 30], 5);
           var lo = tr[ai] + dur, hi = tr[ai + 1] + dur - 1;
@@ -932,10 +1043,12 @@ window.GENRE_ORDER = ['clock', 'maeato', 'deru', 'jikoku'];
           if (c.rel === 'same' && Math.floor(now / 60) !== Math.floor(tr[bi] / 60)) continue;
           if (c.rel === 'next' && Math.floor(tr[bi] / 60) !== Math.floor(now / 60) + 1) continue;
           q.now = now; q.ai = bi;
+          if (c.ride) q.ride = rstep([10, 30], 5);
         }
-        var a = hm24(tr[q.ai]);
+        var a = hm24(q.ride ? tr[q.ai] + q.ride : tr[q.ai]);
         q.h = a.h; q.m = a.m;
-        q.text = c.deadline ? fmtT(q.D) + 'までにつく（電車' + q.dur + '分）いちばんおそい電車' : '今' + fmtT(q.now) + '・次の電車';
+        q.text = c.deadline ? fmtT(q.D) + 'までにつく（電車' + q.dur + '分）いちばんおそい電車'
+          : q.ride ? '今' + fmtT(q.now) + '・次の電車に乗って' + q.ride + '分・つく時刻' : '今' + fmtT(q.now) + '・次の電車';
         q.answerText = fmt(a.h, a.m);
         if (prev && prev.trains && prev.trains[0] === tr[0] && prev.ai === q.ai) continue;
         return q;
@@ -943,7 +1056,7 @@ window.GENRE_ORDER = ['clock', 'maeato', 'deru', 'jikoku'];
       return null;
     }
     function candidates(q) {
-      var tr = q.trains, ans = tr[q.ai], list = [];
+      var tr = q.trains, ans = tr[q.ai] + (q.ride || 0), list = [];
       var add = function (t, type) {
         var x = hm24(t);
         if (x.h === q.h && x.m === q.m) return;
@@ -956,21 +1069,26 @@ window.GENRE_ORDER = ['clock', 'maeato', 'deru', 'jikoku'];
         if (late != null && late !== ans) add(late, 'かかる時間を考えていない');
         if (q.ai > 0) add(tr[q.ai - 1], 'もっと早い電車');
         if (tr.indexOf(q.D - q.dur) < 0) add(q.D - q.dur, '時刻表にない時刻');
+      } else if (q.ride) {
+        add(tr[q.ai], 'かかる時間をたしていない');
+        if (q.ai + 1 < tr.length) add(tr[q.ai + 1] + q.ride, '1本あとの電車');
+        add(tr[q.ai - 1] + q.ride, 'もう出た電車');
+        add(q.now + q.ride, '今の時刻にたした');
       } else {
         add(tr[q.ai - 1], 'もう出た電車');
         if (q.ai + 1 < tr.length) add(tr[q.ai + 1], '1本あとの電車');
-        if (q.style === 'grid') { add(ans + 60, '時の行のまちがい'); add(ans - 60, '時の行のまちがい'); }
+        add(ans + 60, '時の行のまちがい'); add(ans - 60, '時の行のまちがい');
         add(q.now, '今の時刻を答えた');
       }
       return list;
     }
     function choices(q, n) {
-      var tr = q.trains, others = tr.filter(function (t, i) { return i !== q.ai; });
+      var tr = q.trains, plus = q.ride || 0, others = tr.filter(function (t, i) { return i !== q.ai; }).map(function (t) { return t + plus; });
       shuffle(others);
       var st = CONF[q.level - 1].step;
       return assemble(q, candidates(q), n, function (k) {
         if (k <= others.length) { var x = hm24(others[k - 1]); return { h: x.h, m: x.m, type: 'そのほかの電車' }; }
-        var y = hm24(tr[q.ai] + (k % 2 ? 1 : -1) * Math.ceil((k - others.length) / 2) * st);
+        var y = hm24(tr[q.ai] + plus + (k % 2 ? 1 : -1) * Math.ceil((k - others.length) / 2) * st);
         return { h: y.h, m: y.m, type: 'そのほか' };
       });
     }
@@ -983,6 +1101,8 @@ window.GENRE_ORDER = ['clock', 'maeato', 'deru', 'jikoku'];
       'まにあわない電車': 'その {電車|でんしゃ}に {乗|の}ると、つくのが おそくなるよ。かかる {時間|じかん}を たしてみてね。',
       'かかる時間を考えていない': '{電車|でんしゃ}に {乗|の}ってから つくまでの {時間|じかん}も かかるよ。',
       'もっと早い電車': 'それより あとの {電車|でんしゃ}でも まにあうよ。いちばん おそい {電車|でんしゃ}を さがしてね。',
+      'かかる時間をたしていない': '{乗|の}る {電車|でんしゃ}の {時刻|じこく}に、かかる {時間|じかん}を たしてね。',
+      '今の時刻にたした': 'まず、{今|いま}から {乗|の}れる {電車|でんしゃ}を さがしてね。',
       '時刻表にない時刻': '{時刻表|じこくひょう}に ある {時刻|じこく}から えらぶよ。',
       'そのほかの電車': '{今|いま}の {時刻|じこく}と、{電車|でんしゃ}の {時刻|じこく}を じゅんばんに くらべてみてね。',
       'そのほか': '{今|いま}の {時刻|じこく}と、{電車|でんしゃ}の {時刻|じこく}を じゅんばんに くらべてみてね。'
@@ -996,41 +1116,41 @@ window.GENRE_ORDER = ['clock', 'maeato', 'deru', 'jikoku'];
         return t < q.now ? ' gone' : '';
       };
       var h = '<div class="jk-title">' + EKI + 'の {時刻表|じこくひょう}</div>';
-      if (q.style === 'list') {
-        h += '<div class="jk-list">' + tr.map(function (t) { return '<span class="jk-cell' + cls(t) + '">' + fmtT(t) + '</span>'; }).join('') + '</div>';
-      } else {
-        h += '<table class="jk-grid"><tr><th>時</th><th class="jm">分</th></tr>';
-        rowsOf(tr).forEach(function (r) {
-          h += '<tr><th>' + r.h + '</th><td class="jm">' + r.mins.map(function (m) { return '<span class="jk-min' + cls(r.h * 60 + m) + '">' + m + '</span>'; }).join('') + '</td></tr>';
-        });
-        h += '</table>';
-      }
+      h += '<table class="jk-grid"><tr><th>時</th><th class="jm">分</th></tr>';
+      rowsOf(tr).forEach(function (r) {
+        h += '<tr><th>' + r.h + '</th><td class="jm">' + r.mins.map(function (m) { return '<span class="jk-min' + cls(r.h * 60 + m) + '">' + m + '</span>'; }).join('') + '</td></tr>';
+      });
+      h += '</table>';
       return h;
     }
     function sentence(q) {
       if (q.D != null) return '<b>' + fmtT(q.D) + '</b>までに {学校|がっこう}の {駅|えき}に つきたいよ。' + DEN + 'は <b>' + q.dur + '分</b> かかるよ。<br>' + NO + 'れる いちばん おそい ' + DEN + 'は {何時何分|なんじなんぷん}かな？';
+      if (q.ride) return IMA + 'は <b>' + fmtT(q.now) + '</b>。' + EKI + 'に いるよ。<br>' + IMA + 'から ' + NO + 'れる いちばん {早|はや}い ' + DEN + 'に ' + NO + 'るよ。<br>' + DEN + 'は <b>' + q.ride + '分</b> かかるよ。つくのは {何時何分|なんじなんぷん}かな？';
       return IMA + 'は <b>' + fmtT(q.now) + '</b>。' + EKI + 'に いるよ。<br>' + IMA + 'から ' + NO + 'れる いちばん {早|はや}い ' + DEN + 'は {何時何分|なんじなんぷん}かな？';
     }
     window.GENRES.jikoku = {
       key: 'jikoku', name: '時刻表', nameS: '{時刻表|じこくひょう}', h12: false,
       prompt: '',
       levels: [
-        { t: 'ならんだ時刻から次の電車（4本・5分きざみ・2択・ヒントあり）', easy: true },
-        { t: 'ならんだ時刻から次の電車（7本・1分きざみ）' },
-        { t: '表の時刻表から次の電車（同じ時の行）' },
-        { t: '表の時刻表から次の電車（次の時の行になる）' },
-        { t: '着きたい時刻に間に合う、いちばんおそい電車（かかる時間つき）' }
+        { t: '表の時刻表から次の電車（2行・1行に3本ほど・5分きざみ・同じ時の行・2択・ヒントあり）', easy: true },
+        { t: '表の時刻表から次の電車（2行・1行に4本ほど・1分きざみ・同じ時の行）' },
+        { t: '表の時刻表から次の電車（3行・1行に5本ほど・次の時の行になる）' },
+        { t: '次の電車に乗って、つく時刻（3行・かかる時間つき）' },
+        { t: '着きたい時刻に間に合う、いちばんおそい電車（3行・1行に6本以上・かかる時間つき）' }
       ],
       make: make, choices: choices, judge: judge,
       render: function (q, o) {
         o = o || {};
         var h = '<div class="dr-text">' + sentence(q) + '</div>' + table(q, o);
         if (o.explain && q.D != null) h += '<div class="jk-note">' + fmtT(q.trains[q.ai]) + 'の ' + DEN + 'に ' + NO + 'ると、' + q.dur + '分で ' + fmtT(q.trains[q.ai] + q.dur) + 'に つくよ。</div>';
-        if (o.explain && q.D == null) h += '<div class="jk-note">{灰色|はいいろ}の ' + DEN + 'は、もう {出|で}たよ。</div>';
+        if (o.explain && q.ride) h += '<div class="jk-note">' + fmtT(q.trains[q.ai]) + 'の ' + DEN + 'に ' + NO + 'ると、' + q.ride + '分で ' + fmtT(q.trains[q.ai] + q.ride) + 'に つくよ。</div>';
+        else if (o.explain && q.D == null) h += '<div class="jk-note">{灰色|はいいろ}の ' + DEN + 'は、もう {出|で}たよ。</div>';
         return h;
       },
       hint: function (type) { return HINTS[type] || HINTS['そのほか']; },
-      help: function (q) { return q.D != null ? '{電車|でんしゃ}の {時刻|じこく}に ' + q.dur + '分 たして、まにあうか しらべてね。' : IMA + 'の {時刻|じこく}より あとの {電車|でんしゃ}の なかで、いちばん {左|ひだり}（{上|うえ}）に あるのは どれかな。'; }
+      help: function (q) {
+        if (q.ride) return IMA + 'の {時刻|じこく}より あとの {電車|でんしゃ}を さがして、その {時刻|じこく}に ' + q.ride + '分 たしてね。';
+        return q.D != null ? '{電車|でんしゃ}の {時刻|じこく}に ' + q.dur + '分 たして、まにあうか しらべてね。' : IMA + 'の {時刻|じこく}より あとの {電車|でんしゃ}の なかで、いちばん {左|ひだり}（{上|うえ}）に あるのは どれかな。'; }
     };
   })();
 })();
@@ -1079,11 +1199,20 @@ function lsSet(k, v) {
 
 // サーバーとのやりとり（google.script.run がないときは、にせサーバー DEMO）
 var HAS_GAS = !!(window.google && google.script && google.script.run);
+// 許可がないときのエラーかどうか（英語のエラーは、先生にはそのまま見せない）
+function isPermErr(e) { return /権限|permission|authoriz|not allowed|Authorization/i.test(String((e && e.message) || e || '')); }
+function errText(e, base) {
+  if (isPermErr(e)) return '許可がまだ出ていません。エディタで setup を実行して許可し、新バージョンでデプロイしてください。';
+  return base;
+}
 function api(name) {
   var args = Array.prototype.slice.call(arguments, 1);
   if (!HAS_GAS) return DEMO.call(name, args);
   return new Promise(function (resolve, reject) {
-    var run = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+    var run = google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) {
+      if (isPermErr(e)) { var pb = $('permBar'); if (pb) pb.classList.remove('hidden'); }
+      reject(e);
+    });
     run[name].apply(run, args);
   });
 }
@@ -1183,11 +1312,11 @@ function drawGuide() {
 var DEMO = (function () {
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var clone = function (o) { return o == null ? o : JSON.parse(JSON.stringify(o)); };
-  var DEF = { mode: 'all', genres: ['clock'], level: 2, levelMode: 'all', count: 4, minutes: 10, order: 'seq', answer: 'four', autoLv: true, up: 3, down: 2, master: 20, sometimes: true, rate: 20, ta: true, taSec: 60, next: true, flagN: 3, sound: true, kana: 'ruby', guide: 'first', join: 'roster', roster: '1組', useCode: false };
+  var DEF = { mode: 'all', genres: ['clock'], level: 2, levelMode: 'all', count: 4, minutes: 10, order: 'seq', answer: 'four', startLv: 0, autoLv: true, up: 3, down: 2, master: 20, sometimes: true, rate: 20, ta: true, taSec: 60, next: true, flagN: 3, sound: true, kana: 'ruby', guide: 'first', join: 'roster', roster: '1組', useCode: false };
   var ROSTERS = [{ title: '1組', names: ['あおやま', 'いしかわ', 'うちだ', 'えのもと', 'おかの'] }, { title: '2組', names: ['きむら', 'くどう', 'さとう'] }];
   var S = { round: null, mem: [], st: {}, seen: {}, sets: {}, prevMem: [], last: clone(DEF), guests: {}, conf: {}, logs: [], sums: [], timer: null, seenIds: {} };
   // 例：いしかわさんは時計を習得ずみ、うちださんは時計を出さない
-  function blank() { return { show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
+  function blank() { return { ans: '', show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
   function confOf(name) { var o = {}; GENRE_ORDER.forEach(function (k) { o[k] = Object.assign(blank(), (S.conf[name] || {})[k] || {}); }); return o; }
   function setConf(name, k, patch) { S.conf[name] = S.conf[name] || {}; S.conf[name][k] = Object.assign(blank(), S.conf[name][k] || {}, patch); }
   setConf('いしかわ', 'clock', { mastered: true, mdate: '10月30日', best: 12, level: 6 });
@@ -1195,7 +1324,7 @@ var DEMO = (function () {
   setConf('あおやま', 'clock', { level: 3 });
   function pub(r) {
     if (!r) return null;
-    var o = { id: r.id, prevId: r.prevId, status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt };
+    var o = { id: r.id, prevId: r.prevId, status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt, showRes: !!r.showRes };
     Object.keys(DEF).forEach(function (k) { if (k !== 'roster' && k !== 'level' && k !== 'levelMode' && k !== 'useCode') o[k] = r.settings[k]; });
     return o;
   }
@@ -1274,7 +1403,7 @@ var DEMO = (function () {
   function studentBar() {
     var bar = document.createElement('div');
     bar.className = 'demobar';
-    bar.innerHTML = '<b>おためし（先生のかわり）</b><button data-d="all">「みんなで」を始める</button><button data-d="self">「ひとりずつ」を始める</button><button data-d="end">回を終える</button><button data-d="join"></button><button data-d="kana"></button>';
+    bar.innerHTML = '<b>おためし（先生のかわり）</b><button data-d="all">「みんなで」を始める</button><button data-d="self">「ひとりずつ」を始める</button><button data-d="end">回を終える</button><button data-d="res">結果を見せる</button><button data-d="join"></button><button data-d="kana"></button>';
     document.body.appendChild(bar);
     var label = function () {
       bar.querySelector('[data-d="join"]').textContent = '参加：' + { roster: '名簿', chara: 'キャラ', guest: '名前なし' }[demoJoin];
@@ -1286,6 +1415,7 @@ var DEMO = (function () {
       var d = b.dataset.d;
       if (d === 'all' || d === 'self') startDemoRound(d);
       else if (d === 'end') end();
+      else if (d === 'res') { if (S.round) S.round.showRes = true; }
       else if (d === 'join') { demoJoin = joinCycle[(joinCycle.indexOf(demoJoin) + 1) % 3]; label(); }
       else if (d === 'kana') { demoKana = demoKana === 'hira' ? 'ruby' : 'hira'; label(); }
     });
@@ -1369,11 +1499,12 @@ var DEMO = (function () {
     },
     api_tSetQ: function (rid, idx) { var r = S.round; if (r && r.id === rid && r.status === 'open') r.curQ = idx; return r; },
     api_tEnd: function () { end(); return S.round; },
+    api_tShowRes: function (rid, on) { if (S.round) S.round.showRes = on === true; return S.round; },
     api_tGetConf: function (k, group) {
       var names = group === '__guest' ? guestList() : (ROSTERS.filter(function (x) { return x.title === group; })[0] || ROSTERS[0]).names;
       return names.map(function (n) { return Object.assign({ name: n }, confOf(n)[k]); });
     },
-    api_tSaveConf: function (k, rows) { rows.forEach(function (r) { var p = { show: r.show, level: r.level, lower: r.lower, upper: r.upper, auto: r.auto }; if (r.unmaster) { p.mastered = false; p.mdate = ''; } setConf(r.name, k, p); }); return true; },
+    api_tSaveConf: function (k, rows) { rows.forEach(function (r) { var p = { show: r.show, level: r.level, lower: r.lower, upper: r.upper, auto: r.auto, ans: r.ans || '' }; if (r.unmaster) { p.mastered = false; p.mdate = ''; } setConf(r.name, k, p); }); return true; },
     api_tRecords: function () {
       var by = {};
       S.logs.forEach(function (l) { if (!l.ml) return; var k = l.name + '｜' + l.genre; by[k] = by[k] || {}; by[k][l.ml] = (by[k][l.ml] || 0) + 1; });
@@ -1476,6 +1607,11 @@ function onRound(rd) {
   busy = true;
   return Promise.resolve().then(function () {
     if (rd) { ST.round = rd; setRoundLook(rd); }
+    // 結果は、先生が「生徒の画面に結果を出す」を押したときだけ見せる
+    if (rd && rd.id === me.roundId) {
+      if (ST.view === 'done' && rd.showRes) show('result');
+      else if (ST.view === 'result' && !rd.showRes) show('done');
+    }
     var open = rd && rd.status === 'open';
     var inRound = ST.view === 'quiz' || ST.view === 'ready';
     if (!open) {
@@ -1489,8 +1625,8 @@ function onRound(rd) {
     // 読みこみ直したとき（同じ回にもどる）
     if (me.roundId === rd.id && me.name) return doJoin(me.name, '', me.roundId);
     // 前の回に参加していた生徒は、自動で入る
-    if (me.name && me.roundId && me.roundId === rd.prevId && (ST.view === 'result' || ST.view === 'wait')) return doJoin(me.name, '', me.roundId);
-    if (ST.view === 'wait' || ST.view === 'result') {
+    if (me.name && me.roundId && me.roundId === rd.prevId && (ST.view === 'result' || ST.view === 'done' || ST.view === 'wait')) return doJoin(me.name, '', me.roundId);
+    if (ST.view === 'wait' || ST.view === 'result' || ST.view === 'done') {
       if (rd.code) { showCode(false); return; }
       if (rd.join === 'guest') return doJoin('', '', '');
       return showName();
@@ -1680,8 +1816,21 @@ function setupSelf(rd, conf) {
   var allowed = rd.genres.filter(function (k) { return !conf[k] || conf[k].show !== false; });
   if (!allowed.length) allowed = rd.genres.slice();
   allowed.forEach(function (k) { initG(k); });
+  // 画面を読みこみ直したときは、それまでの解いた数・レベルなどをもどす
+  if (saved && saved.gs) {
+    D.count = saved.count || 0; D.correct = saved.correct || 0; D.taKey = saved.taKey || ''; D.cur = saved.cur || '';
+    Object.keys(saved.gs).forEach(function (k) {
+      if (!GENRES[k]) return;
+      var g = initG(k), sv = saved.gs[k];
+      ['level', 'okRun', 'ngRun', 'topRun', 'lowNg', 'rvNg', 'types', 'n', 'correct', 'mastered', 'newly', 'best'].forEach(function (f) { if (sv[f] !== undefined) g[f] = sv[f]; });
+    });
+  }
   D.main = allowed.filter(function (k) { return !D.gs[k].mastered; });
   D.review = allowed.filter(function (k) { return D.gs[k].mastered; });
+  if (saved && saved.gs && saved.main) {
+    D.main = saved.main.filter(function (k) { return D.gs[k]; });
+    D.review = (saved.review || []).filter(function (k) { return D.gs[k]; });
+  }
   if (!D.main.length && rd.next) {
     var nk = nextGenre(allowed[allowed.length - 1]);
     if (nk) { initG(nk); D.main.push(nk); }
@@ -1694,7 +1843,7 @@ function initG(k) {
   var lo = c.lower || 1, up = c.upper || max;
   if (lo > up) { var t = lo; lo = up; up = t; }
   lo = Math.max(1, Math.min(max, lo)); up = Math.max(1, Math.min(max, up));
-  var start = c.level || c.last || lo;
+  var start = c.level || rd.startLv || c.last || lo;
   start = Math.max(lo, Math.min(up, start));
   return (D.gs[k] = {
     key: k, level: start, start: start, min: lo, max: up, auto: rd.autoLv && c.auto !== false,
@@ -1729,7 +1878,7 @@ function showSelfReady() {
 }
 function startSelf() {
   if (!D.endAt) D.endAt = Date.now() + ST.round.minutes * 60000;
-  me.selfState = { rid: me.roundId, endAt: D.endAt }; saveMe();
+  saveSelf();
   startClock();
   sendSnap();
   nextSelf();
@@ -1794,7 +1943,8 @@ function askSelf(key, lv, src) {
   var g = initG(key), G = GENRES[key];
   var q = G.make(lv, g.prev);
   g.prev = q;
-  var k = choiceCount(q, ST.round.answer);
+  var cf = D.conf[key] || {};
+  var k = choiceCount(q, cf.ans || ST.round.answer);
   D.src = src;
   showQuestion(q, k ? G.choices(q, k) : null);
 }
@@ -1839,6 +1989,21 @@ function endTA() {
 
 /* --- 1問の答えのあと（ひとりずつ） --- */
 function afterSelf(ok, type, pick, given) {
+  afterSelf0(ok, type, pick, given);
+  saveSelf();
+}
+// 途中経過を端末にとっておく（iPadの画面が読みこみ直されても、解いた数が消えないように）
+function saveSelf() {
+  if (!D || !me.roundId) return;
+  var gs = {};
+  Object.keys(D.gs).forEach(function (k) {
+    var g = D.gs[k];
+    gs[k] = { level: g.level, okRun: g.okRun, ngRun: g.ngRun, topRun: g.topRun, lowNg: g.lowNg, rvNg: g.rvNg, types: g.types, n: g.n, correct: g.correct, mastered: g.mastered, newly: g.newly, best: g.best };
+  });
+  me.selfState = { rid: me.roundId, endAt: D.endAt, count: D.count, correct: D.correct, taKey: D.taKey, cur: D.cur, main: D.main, review: D.review, gs: gs };
+  saveMe();
+}
+function afterSelf0(ok, type, pick, given) {
   var q = ST.q, src = D.src, g = initG(q.g), rd = ST.round;
   D.count++; g.n++;
   if (ok) { D.correct++; g.correct++; }
@@ -1923,6 +2088,9 @@ function finishSelf() {
   }
   showSelfResult();
 }
+function showResultOrWait() {
+  show(ST.round && ST.round.showRes ? 'result' : 'done');
+}
 function showSelfResult() {
   swap('score', R(D.count + '{問|もん} といて <b>' + D.correct + '</b> {問|もん} せいかい'));
   swap('resMsg', R('よく がんばったね。'));
@@ -1935,7 +2103,7 @@ function showSelfResult() {
     li += '<li><span>' + GENRES[k].nameS + '</span><span>' + g.n + 'もん（せいかい ' + g.correct + '）' + tb + '</span>' + b + '</li>';
   });
   swap('resList', R(li));
-  show('result');
+  showResultOrWait();
 }
 
 /* ==================== 問題の画面（両方で使う） ==================== */
@@ -1959,7 +2127,7 @@ function showQuestion(q, ch) {
   var html;
   if (ch) {
     html = '<div class="choices' + (ch.length === 2 ? ' two' : '') + '">' + ch.map(function (c, i) {
-      return '<button class="choice" data-i="' + i + '"><span>' + c.text + '</span><span class="cmark"></span></button>';
+      return '<button class="choice" data-i="' + i + '"><span class="chip">' + 'ABCD'.charAt(i) + '</span><span class="ctext">' + c.text + '</span><span class="cmark"></span></button>';
     }).join('') + '</div>';
   } else {
     html = '<div class="timein"><span class="slot cur" id="slotH"></span><span>時</span><span class="slot" id="slotM"></span><span>分</span></div>' +
@@ -2108,7 +2276,7 @@ function endAllRound() {
   }
   swap('resList', R(li));
   ST.Q = null;
-  show('result');
+  showResultOrWait();
 }
 
 function initStudent() {
@@ -2155,9 +2323,9 @@ function initStudent() {
 </script>
 <script>
 /* ==================== 先生画面 ==================== */
-var T = { settings: null, rosters: [], guests: [], url: '', round: null, members: [], sets: {}, viewKey: '', reveal: false, pollTimer: null, shownQ: '', qrFor: '', cfg: { genre: 'clock', group: '', rows: [] } };
-var DEF_T = { mode: 'all', genres: ['clock'], level: 2, levelMode: 'all', count: 5, minutes: 10, order: 'seq', answer: 'four', autoLv: true, up: 3, down: 2, master: 20, sometimes: true, rate: 20, ta: true, taSec: 60, next: true, flagN: 3, sound: true, kana: 'ruby', guide: 'first', join: 'roster', roster: '', useCode: false };
-var LIMITS = { level: [1, 6], count: [1, 30], minutes: [1, 60], up: [1, 10], down: [1, 10], master: [3, 50], rate: [5, 50], taSec: [20, 300], flagN: [2, 10] };
+var T = { settings: null, rosters: [], guests: [], url: '', round: null, members: [], sets: {}, viewKey: '', reveal: false, qView: true, pollTimer: null, shownQ: '', qrFor: '', cfg: { genre: 'clock', group: '', rows: [] } };
+var DEF_T = { mode: 'all', genres: ['clock'], level: 2, levelMode: 'all', count: 5, minutes: 10, order: 'seq', answer: 'four', startLv: 0, autoLv: true, up: 3, down: 2, master: 20, sometimes: true, rate: 20, ta: true, taSec: 60, next: true, flagN: 3, sound: true, kana: 'ruby', guide: 'first', join: 'roster', roster: '', useCode: false };
+var LIMITS = { level: [1, 6], count: [1, 30], minutes: [1, 60], startLv: [0, 6], up: [1, 10], down: [1, 10], master: [3, 50], rate: [5, 50], taSec: [20, 300], flagN: [2, 10] };
 function gname(k) { return GENRES[k] ? GENRES[k].name : k; }
 function setNetT(ok) { $('tNet').classList.toggle('hidden', ok); }
 function rosterOf(title) { var r = T.rosters.filter(function (x) { return x.title === title; })[0] || T.rosters[0]; return r ? r.names : []; }
@@ -2168,7 +2336,7 @@ function renderSettingsT() {
   if (!self) s.genres = s.genres.slice(0, 1);
   LIMITS.level[1] = GENRES[s.genres[0]].levels.length;
   s.level = Math.max(1, Math.min(LIMITS.level[1], s.level));
-  document.querySelectorAll('#setCard .seg[data-key]').forEach(function (seg) {
+  document.querySelectorAll('#setCard .seg[data-key], #detailOv .seg[data-key]').forEach(function (seg) {
     var k = seg.dataset.key;
     seg.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', String(s[k]) === b.dataset.val); });
   });
@@ -2184,6 +2352,7 @@ function renderSettingsT() {
   document.querySelectorAll('#setCard .r-auto').forEach(function (el) { el.classList.toggle('hidden', !self || !s.autoLv); });
   document.querySelector('#setCard .r-rate').classList.toggle('hidden', !s.sometimes);
   document.querySelector('#setCard .r-ta').classList.toggle('hidden', !s.ta);
+  swap('startDesc', s.startLv > 0 ? esc('レベル' + s.startLv + '：' + (GENRES[s.genres[0]].levels[Math.min(s.startLv, GENRES[s.genres[0]].levels.length) - 1].t) + (s.genres.length > 1 ? '（ジャンルによって内容がちがいます）' : '')) : '指定なし（生徒ごとの設定、なければ前回のレベル、それもなければレベル1から）');
   swap('lvLabel', s.levelMode === 'each' ? 'レベル（決めていない生徒）' : 'レベル');
   swap('lvDesc', esc(GENRES[s.genres[0]].levels[s.level - 1].t));
   if (T.rosters.length && !T.rosters.some(function (r) { return r.title === s.roster; })) s.roster = T.rosters[0].title;
@@ -2217,12 +2386,12 @@ function startRound() {
       keys.forEach(function (k) { var list = buildSet(key, +k, s.count, s.answer); sets[k] = JSON.stringify(list); mem[k] = list; });
     }
     return api('api_tStart', s, sets, levelMap || {}).then(function (r) {
-      T.sets = mem; T.sets.rid = r.id; T.round = r; T.members = []; T.viewKey = String(s.level); T.reveal = false; T.shownQ = '';
+      T.sets = mem; T.sets.rid = r.id; T.round = r; T.members = []; T.viewKey = String(s.level); T.reveal = false; T.shownQ = ''; T.qView = true;
       renderAll(); startPollT();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }).catch(function (e) {
-    swap('startMsg', '受付を始められませんでした：' + esc((e && e.message) || e));
+    swap('startMsg', esc(errText(e, '受付を始められませんでした。もう一度押してください。')));
   }).then(function () { btn.disabled = false; btn.textContent = 'この設定で受付を始める'; });
 }
 
@@ -2292,22 +2461,45 @@ function renderRunState() {
     var done = T.members.filter(function (x) { return x.done; }).length;
     line = '参加した人 <span class="bignum">' + m + '</span> 人　終わった人 <span class="bignum">' + done + '</span> 人';
   }
-  swap('runState', head + '<div>' + line + '</div>');
+  var resNote = '<div class="sub">生徒の画面の結果：' + (r.showRes ? '<b>出しています</b>' : '出していません（終わった生徒は「おわったよ」の画面で待っています）') + '</div>';
+  swap('runState', head + '<div>' + line + '</div>' + resNote);
+  var c = ctrlHtml(r, s, open, false), cv = ctrlHtml(r, s, open, true);
+  var box = swap('ctrlBox', c);
+  bindCtrl(box);
+  bindCtrl(swap('tqCtrl', cv));
+  if (!open) $('setCard').classList.remove('hidden');
+}
+function ctrlHtml(r, s, open, inView) {
   var c = '';
   if (open) {
     if (s.mode === 'all') {
       if (r.curQ < 0) c += '<button class="primary" data-act="next">1問目を出す</button>';
       else if (r.curQ < s.count - 1) c += '<button class="primary" data-act="next">つぎの問題へ（' + (r.curQ + 2) + '問目を出す）</button>';
-      else c += '<button class="primary" data-act="endnow">この回を終えて、生徒に結果を見せる</button>';
-      if (r.curQ < s.count - 1) c += '<button class="ghost danger" data-act="end">ここでこの回を終える</button>';
-    } else c += '<button class="ghost danger" data-act="end">この回を終える（生徒はいまの問題のあと結果画面になります）</button>';
-  } else c += '<span class="note">新しい回は、下の「設定」から始めます。結果画面の生徒は、新しい回に自動で入ります。</span>';
-  var box = swap('ctrlBox', c);
+      else c += '<button class="primary" data-act="endnow">この回を終える</button>';
+      if (r.curQ >= 0 && !inView) c += '<button class="ghost" data-act="qview">いまの問題を大きく映す</button>';
+      if (r.curQ < s.count - 1) c += '<button class="ghost" data-act="end">ここでこの回を終える</button>';
+    } else {
+      c += '<button class="ghost" data-act="end">この回を終える（生徒はいまの問題のあと「おわったよ」の画面で待ちます）</button>';
+      if (!inView) c += resBtn(r);
+    }
+  } else if (!inView) c += resBtn(r) + '<span class="note">新しい回は、下の「設定」から始めます。待っている生徒は、新しい回に自動で入ります。</span>';
+  return c;
+}
+function resBtn(r) {
+  return r.showRes ? '<button class="ghost" data-act="showres">生徒の画面の結果をかくす</button>' : '<button class="ghost" data-act="showres">生徒の画面に結果を出す</button>';
+}
+function bindCtrl(box) {
+  if (!box) return;
   box.querySelectorAll('[data-act]').forEach(function (b) { b.addEventListener('click', function () { ctrlAct(b.dataset.act, b); }); });
-  if (!open) $('setCard').classList.remove('hidden');
 }
 function ctrlAct(act, btn) {
   var r = T.round;
+  if (act === 'qview') { T.qView = true; renderTQ(); return; }
+  if (act === 'showres') {
+    btn.disabled = true;
+    api('api_tShowRes', r.id, !r.showRes).then(function (x) { if (x) T.round = x; setNetT(true); }).catch(function () { setNetT(false); }).then(function () { renderAll(); });
+    return;
+  }
   // 途中で終えるときは、もう一度押して確かめる
   if (act === 'end' && btn.dataset.sure !== '1') {
     btn.dataset.sure = '1'; btn.textContent = 'もう一度押すと、この回を終えます';
@@ -2316,7 +2508,7 @@ function ctrlAct(act, btn) {
   }
   btn.disabled = true;
   var p = act === 'next' ? api('api_tSetQ', r.id, r.curQ + 1) : api('api_tEnd', r.id);
-  p.then(function (x) { T.round = x; T.reveal = false; setNetT(true); }).catch(function () { setNetT(false); }).then(tPoll);
+  p.then(function (x) { T.round = x; T.reveal = false; T.qView = act === 'next'; setNetT(true); }).catch(function () { setNetT(false); }).then(tPoll);
 }
 function lvChange(a, b) { a = +a; b = +b; if (!a || !b || a === b) return String(b || a || ''); return a + '→<span class="' + (b > a ? 'lvup' : 'lvdn') + '">' + b + '</span>'; }
 function netCell(r, m) {
@@ -2360,8 +2552,9 @@ function renderMembers() {
 /* --- いまの問題（みんなで：大きな画面に映して説明できる） --- */
 function renderTQ() {
   var r = T.round, s = r.settings, on = r.status === 'open' && s.mode === 'all' && r.curQ >= 0;
-  $('qCard').classList.toggle('hidden', !on);
-  if (!on) return;
+  if (!on) T.qView = false;
+  $('qCard').classList.toggle('hidden', !(on && T.qView));
+  if (!on || !T.qView) return;
   KANA_ONLY = s.kana === 'hira';
   var keys = (r.sets || []).filter(function (k) { return T.sets[k]; });
   if (!keys.length) return;
@@ -2372,6 +2565,7 @@ function renderTQ() {
   if (!it) return;
   var q = it.q, G = GENRES[q.g];
   swap('tqTitle', (r.curQ + 1) + '問目（' + G.name + '・レベル' + q.level + '）');
+  swap('tqState', '全部で ' + s.count + '問');
   var sig = r.id + '|' + T.viewKey + '|' + r.curQ + '|' + T.reveal;
   if (T.shownQ !== sig) {
     T.shownQ = sig;
@@ -2383,13 +2577,26 @@ function renderTQ() {
   $('revealBtn').textContent = rv ? '正解と答えの分かれ方をかくす' : '正解と答えの分かれ方を表示する';
   var html;
   if (it.ch) {
-    html = '<div class="choices' + (it.ch.length === 2 ? ' two' : '') + '">' + it.ch.map(function (c) {
-      return '<div class="choice' + (rv && c.correct ? ' is-correct' : '') + '"><span>' + c.text + '</span><span class="cmark">' + (rv ? (cnt[c.text] || 0) + '人' + (c.correct ? '・正解' : '') : '') + '</span></div>';
+    html = '<div class="choices' + (it.ch.length === 2 ? ' two' : '') + '">' + it.ch.map(function (c, i) {
+      return '<div class="choice' + (rv && c.correct ? ' is-correct' : '') + (rv && !c.correct ? ' dim' : '') + '"><span class="chip">' + 'ABCD'.charAt(i) + '</span><span class="ctext">' + c.text + '</span><span class="cmark">' + (rv ? (cnt[c.text] || 0) + '人' + (c.correct ? '・正解' : '') : '') + '</span></div>';
     }).join('') + '</div>';
   } else {
     html = '<div class="feedback">時刻を入力する問題です。' + (rv ? '正解は <b>' + q.answerText + '</b>。<div>' + (Object.keys(cnt).map(function (k) { return esc(k) + '：' + cnt[k] + '人'; }).join('<br>') || '<span class="subc">まだ答えた人はいません</span>') + '</div>' : '') + '</div>';
   }
   swap('tqChoices', html);
+  renderWho(r);
+}
+// 答えた人：名前で出すか、人数だけ出すか（だれが何を答えたかは出さない）
+function whoMode() { try { return localStorage.getItem('minna-tokei-who') === 'count' ? 'count' : 'name'; } catch (e) { return T.who || 'name'; } }
+function setWhoMode(v) { T.who = v; try { localStorage.setItem('minna-tokei-who', v); } catch (e) {} }
+function renderWho(r) {
+  var names = T.members.filter(function (m) { return m.ans && m.ans[r.curQ]; }).map(function (m) { return m.name; });
+  var mode = T.who || whoMode(), h;
+  if (mode === 'count') h = '<div class="who-lab">答えた人 <span class="who-n">' + names.length + '</span> / ' + T.members.length + '人</div>';
+  else h = '<div class="who-lab">答えた人（' + names.length + ' / ' + T.members.length + '人）</div><div class="who-names">' +
+    (names.length ? names.map(function (n) { return '<span class="who-name">' + esc(n) + '</span>'; }).join('') : '<span class="subc">まだだれも答えていません</span>') + '</div>';
+  swap('tqWho', h);
+  $('whoBtn').textContent = mode === 'count' ? '答えた人の名前を出す' : '答えた人を人数だけにする';
 }
 
 /* --- 生徒ごとの設定 --- */
@@ -2402,20 +2609,21 @@ function renderCfgTabs() {
 }
 function loadCfg() {
   renderCfgTabs();
-  swap('cfgBody', '<tr><td colspan="9" class="subc">読み込んでいます…</td></tr>');
+  swap('cfgBody', '<tr><td colspan="10" class="subc">読み込んでいます…</td></tr>');
   api('api_tGetConf', T.cfg.genre, T.cfg.group).then(function (rows) { T.cfg.rows = rows || []; drawCfg(); })
-    .catch(function (e) { swap('cfgBody', '<tr><td colspan="9">読み込めませんでした：' + esc((e && e.message) || e) + '</td></tr>'); });
+    .catch(function (e) { swap('cfgBody', '<tr><td colspan="10">' + esc(errText(e, '読み込めませんでした。もう一度ページを開きなおしてください。')) + '</td></tr>'); });
 }
 function stepCell(i, k, v) {
   return '<div class="stepper"><button data-i="' + i + '" data-k="' + k + '" data-d="-1">▽</button><input data-i="' + i + '" data-k="' + k + '" inputmode="numeric" value="' + (v === '' || v == null ? '' : v) + '"><button data-i="' + i + '" data-k="' + k + '" data-d="1">△</button></div>';
 }
 function drawCfg() {
   var rows = T.cfg.rows;
-  if (!rows.length) { swap('cfgBody', '<tr><td colspan="9" class="subc">' + (T.cfg.group === '__guest' ? 'まだゲストで参加した端末はありません。' : 'この名簿には名前がありません。') + '</td></tr>'); return; }
+  if (!rows.length) { swap('cfgBody', '<tr><td colspan="10" class="subc">' + (T.cfg.group === '__guest' ? 'まだゲストで参加した端末はありません。' : 'この名簿には名前がありません。') + '</td></tr>'); return; }
   var b = swap('cfgBody', rows.map(function (r, i) {
     return '<tr><td><b>' + esc(r.name) + '</b></td><td><button class="tog' + (r.show ? ' on' : '') + '" data-i="' + i + '" data-t="show">' + (r.show ? '○ 出す' : '× 出さない') + '</button></td>' +
       '<td>' + stepCell(i, 'level', r.level) + '</td><td>' + stepCell(i, 'lower', r.lower) + '</td><td>' + stepCell(i, 'upper', r.upper) + '</td>' +
       '<td><button class="tog' + (r.auto ? ' on' : '') + '" data-i="' + i + '" data-t="auto">' + (r.auto ? 'する' : 'しない') + '</button></td>' +
+      '<td><button class="tog' + (r.ans ? ' on' : '') + '" data-i="' + i + '" data-t="ans">' + ({ two: '2択', four: '4択', input: '記入式' }[r.ans] || '全体の設定') + '</button></td>' +
       '<td>' + (r.last || '<span class="subc">—</span>') + '</td>' +
       '<td>' + (r.mastered && !r.unmaster ? '<span class="mst">習得 ' + esc(r.mdate || '') + '</span> <button class="ghost" style="font-size:14px;min-height:40px" data-i="' + i + '" data-t="unmaster">外す</button>' : (r.unmaster ? '<span class="subc">外します（保存で反映）</span>' : '<span class="subc">—</span>')) + '</td>' +
       '<td>' + (r.best === '' || r.best == null ? '<span class="subc">—</span>' : r.best + '問') + '</td></tr>';
@@ -2439,7 +2647,9 @@ function drawCfg() {
   b.querySelectorAll('[data-t]').forEach(function (x) {
     x.addEventListener('click', function () {
       var r = T.cfg.rows[+x.dataset.i], t = x.dataset.t;
-      if (t === 'unmaster') r.unmaster = true; else r[t] = !r[t];
+      if (t === 'unmaster') r.unmaster = true;
+      else if (t === 'ans') r.ans = { '': 'two', two: 'four', four: 'input', input: '' }[r.ans || ''];
+      else r[t] = !r[t];
       swap('cfgMsg', ''); drawCfg();
     });
   });
@@ -2447,7 +2657,7 @@ function drawCfg() {
 function saveCfg() {
   swap('cfgMsg', '保存しています…');
   api('api_tSaveConf', T.cfg.genre, T.cfg.rows).then(function () { swap('cfgMsg', '保存しました（' + fmtHM(Date.now()) + '）'); loadCfg(); })
-    .catch(function () { swap('cfgMsg', '保存できませんでした。もう一度押してください。'); });
+    .catch(function (e) { swap('cfgMsg', errText(e, '保存できませんでした。もう一度押してください。')); });
 }
 
 /* --- レベルごとの内容（問題を作るのと同じ定義から出す） --- */
@@ -2476,7 +2686,7 @@ function loadRecords() {
       '<div class="tblwrap"><table class="mt"><thead><tr><th>日時</th><th>名前</th><th>進め方</th><th>ジャンル</th><th>レベル</th><th>正解</th><th>多かったまちがい</th><th>習得</th></tr></thead><tbody>' + (sums || '<tr><td colspan="8" class="subc">まだ記録がありません。</td></tr>') + '</tbody></table></div>' +
       '<h2 style="margin-top:18px">生徒ごと・ジャンルごとのまちがいの型（「記録」タブの直近3000行）</h2>' +
       '<div class="tblwrap"><table class="mt"><thead><tr><th>名前</th><th>ジャンル</th><th>まちがい</th><th>まちがいの型（回数）</th></tr></thead><tbody>' + (mist || '<tr><td colspan="4" class="subc">まだ記録がありません。</td></tr>') + '</tbody></table></div>');
-  }).catch(function () { swap('recOut', '<p class="note">読み込めませんでした。もう一度押してください。</p>'); });
+  }).catch(function (e) { swap('recOut', '<p class="note">' + esc(errText(e, '読み込めませんでした。もう一度押してください。')) + '</p>'); });
 }
 
 /* --- 使い方（先生） --- */
@@ -2485,9 +2695,10 @@ function teacherGuide() {
     title: '使い方',
     text: '<ol><li>「設定」で <b>進め方</b>（みんなで／ひとりずつ）、<b>ジャンル</b>、答え方などを選び、<b>「この設定で受付を始める」</b>を押します。</li>' +
       '<li>QRコードが出ます。<b>「QRコードを大きく表示」</b>で教室の大きな画面に映し、生徒のiPadで読み取ります（「ふつうの表示にもどす」でもどります）。</li>' +
-      '<li><b>みんなで</b>：全員がそろったら<b>「1問目を出す」</b>。答えた人数を見て<b>「つぎの問題へ」</b>。「いまの問題」の<b>「正解と答えの分かれ方を表示する」</b>で、みんなで答え合わせができます。</li>' +
+      '<li><b>みんなで</b>：全員がそろったら<b>「1問目を出す」</b>。問題だけの大きな画面になるので、そのまま映せます。答えた人数を見て<b>「つぎの問題へ」</b>、<b>「正解と答えの分かれ方を表示する」</b>でみんなで答え合わせができます。答えた人は、名前か人数で出せます（<b>「答えた人を人数だけにする」</b>で切りかえ。だれが何を答えたかは出ません）。生徒のようすを見るときは<b>「生徒のようすの画面にもどる」</b>、もう一度映すときは<b>「いまの問題を大きく映す」</b>を押します。</li>' +
       '<li><b>ひとりずつ</b>：生徒は自分で進みます。レベルは自動で上下し、いちばん上のレベルで続けて正解すると<b>「習得」</b>になります。終えるときは<b>「この回を終える」</b>。</li>' +
-      '<li><b>「生徒ごとの設定」</b>で、生徒×ジャンルの「出す」・レベル・下限・上限・自動調整を決め、<b>「生徒ごとの設定を保存する」</b>を押します。習得を外すこともできます。</li>' +
+      '<li>終わった生徒は「おわったよ」の画面で待ちます。<b>「生徒の画面に結果を出す」</b>を押すと、生徒の画面に結果が出ます（<b>「生徒の画面の結果をかくす」</b>でもどせます）。</li>' +
+      '<li>上の<b>「生徒ごとの設定・レベルごとの内容」</b>ボタンで、生徒×ジャンルの「出す」・レベル・下限・上限・自動調整を決め、<b>「生徒ごとの設定を保存する」</b>を押します。習得を外すことや、レベルごとの問題の内容を見ることもできます。効果音・生徒画面の文字・使い方の説明は、上の<b>「くわしい設定」</b>ボタンで変えます。</li>' +
       '<li>記録はスプレッドシートの「記録」「回ごとの記録」タブに残ります。<b>「スプレッドシートの記録を読み込む」</b>で、ここでも見られます。</li></ol>'
   }], true, null);
 }
@@ -2495,6 +2706,15 @@ function teacherGuide() {
 function initTeacher() {
   document.body.classList.add('t-page');
   $('teacherApp').classList.remove('hidden');
+  function openOv(id) { $(id).classList.remove('hidden'); }
+  $('detailBtn').addEventListener('click', function () { renderSettingsT(); openOv('detailOv'); });
+  $('stuBtn').addEventListener('click', function () { loadCfg(); renderLevels(); openOv('stuOv'); });
+  document.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { $(b.dataset.close).classList.add('hidden'); }); });
+  ['detailOv', 'stuOv'].forEach(function (id) { $(id).addEventListener('click', function (e) { if (e.target === $(id)) $(id).classList.add('hidden'); }); });
+  $('detailOv').addEventListener('click', function (e) {
+    var bb = e.target.closest('.seg[data-key] button');
+    if (bb) { var key = bb.parentElement.dataset.key, v = bb.dataset.val; T.settings[key] = v === 'true' ? true : v === 'false' ? false : v; renderSettingsT(); }
+  });
   $('setCard').addEventListener('click', function (e) {
     var g = e.target.closest('.gchip[data-g]');
     if (g) {
@@ -2527,6 +2747,8 @@ function initTeacher() {
   $('cfgSave').addEventListener('click', saveCfg);
   $('lvRefresh').addEventListener('click', renderLevels);
   $('recBtn').addEventListener('click', loadRecords);
+  $('whoBtn').addEventListener('click', function () { setWhoMode(whoMode() === 'count' ? 'name' : 'count'); if (T.round) renderWho(T.round); });
+  $('qvClose').addEventListener('click', function () { T.qView = false; renderTQ(); });
   $('revealBtn').addEventListener('click', function () { T.reveal = !T.reveal; renderTQ(); });
   $('qrBigBtn').addEventListener('click', function () {
     $('qrBigSvg').innerHTML = qrSvg(studentUrl()) || '<p style="font-size:24px">' + esc(studentUrl()) + '</p>';
@@ -2541,7 +2763,7 @@ function initTeacher() {
     setNetT(true);
   }).catch(function (e) {
     T.settings = Object.assign({}, DEF_T);
-    swap('startMsg', '読み込めませんでした：' + esc((e && e.message) || e));
+    swap('startMsg', esc(errText(e, '読み込めませんでした。もう一度ページを開きなおしてください。')));
     setNetT(false);
   }).then(function () {
     renderSettingsT();
