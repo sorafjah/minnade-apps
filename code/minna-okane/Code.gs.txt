@@ -13,7 +13,7 @@ const SHEET_ROSTER_OLD = 'めいぼ';     // 前の版のタブ名でも読め�
 const SHEET_CONF = '生徒設定';
 const SHEET_LOG = '記録';
 const SHEET_SUM = '回ごとの記録';
-const HEAD_CONF = ['名前', 'ジャンル', '出す', 'レベル', '下限', '上限', '自動調整', '習得', '習得した日', 'タイムアタック最高', '前回のレベル'];
+const HEAD_CONF = ['名前', 'ジャンル', '出す', 'レベル', '下限', '上限', '自動調整', '習得', '習得した日', 'タイムアタック最高', '前回のレベル', '答え方'];
 const HEAD_LOG = ['日時', '回ID', '名前', '進め方', 'ジャンル', 'レベル', '出し方', '問題', '正しい答え', '答え', '正誤', 'まちがいの型', '答え方', 'かかった秒数'];
 const HEAD_SUM = ['日時', '回ID', '名前', '進め方', 'ジャンル', 'はじめのレベル', 'おわりのレベル', '解いた数', '正解数', '正答率', '多かったまちがい', '習得'];
 const CACHE_SEC = 21600; // 6時間
@@ -136,6 +136,15 @@ function readConf_() {
   const rows = last > 1 ? sh.getRange(2, 1, last - 1, heads.length).getValues() : [];
   return { sh: sh, heads: heads, col: col, rows: rows };
 }
+// 答え方：空＝全体の設定にあわせる。2択・4択・記述式
+function answerOf_(v) {
+  const s = String(v == null ? '' : v).trim().replace(/[２４]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+  if (/^2/.test(s)) return 'two';
+  if (/^4/.test(s)) return 'four';
+  if (/記述|入力|input/i.test(s)) return 'input';
+  return '';
+}
+function answerLabel_(a) { return a === 'two' ? '2択' : a === 'four' ? '4択' : a === 'input' ? '記述式' : ''; }
 function confRow_(d, r) {
   const c = d.col, mx = v => (v === '' ? '' : v);
   const md = r[c('習得した日')];
@@ -143,10 +152,11 @@ function confRow_(d, r) {
     show: yes_(r[c('出す')], true), level: mx(num_(r[c('レベル')])), lower: mx(num_(r[c('下限')])), upper: mx(num_(r[c('上限')])),
     auto: yes_(r[c('自動調整')], true), mastered: String(r[c('習得')]).trim() !== '' && yes_(r[c('習得')], false),
     mdate: md instanceof Date ? Utilities.formatDate(md, TZ, 'M月d日') : String(md || ''),
-    best: num_(r[c('タイムアタック最高')]), last: num_(r[c('前回のレベル')])
+    best: num_(r[c('タイムアタック最高')]), last: num_(r[c('前回のレベル')]),
+    answer: c('答え方') >= 0 ? answerOf_(r[c('答え方')]) : ''
   };
 }
-function blankConf_() { return { show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
+function blankConf_() { return { show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '', answer: '' }; }
 // ある生徒の、ジャンルごとの設定
 function confFor_(name) {
   const d = readConf_(), out = {};
@@ -331,7 +341,7 @@ function api_join(o) {
     if (r.code && !me && !prevOk && String(o.code) !== r.code) return { ok: false, err: 'code' };
     if (me && me.kind === 'chara' && me.tok !== tok) return { ok: false, err: 'taken' };
     let lv = String(r.settings.level);
-    if (r.settings.mode === 'all' && r.settings.levelMode === 'each' && r.levelMap && r.levelMap[name]) lv = String(r.levelMap[name]);
+    if (r.settings.mode === 'all' && r.levelMap && r.levelMap[name]) lv = String(r.levelMap[name]);
     if (r.sets && r.sets.length && r.sets.indexOf(lv) < 0) lv = r.sets[0];
     if (me) me.tok = tok;
     else mem.push({ name: name, kind: kind, tok: tok, lv: lv });
@@ -427,7 +437,8 @@ function api_tInit() {
   };
 }
 
-// 「みんなで」で生徒ごとのレベルを使うとき：生徒設定のレベル（なければ前回のレベル）
+// 「みんなで」で、生徒ごとのレベル・答え方を使うとき：生徒設定のレベル（なければ前回のレベル）と、答え方
+// 返すもの：名前 → { lv: レベル（なければ空）, ans: 答え方（なければ空） }
 function api_tPrepare(key, names) {
   mustTeacher_();
   const d = readConf_(), map = {};
@@ -436,7 +447,7 @@ function api_tPrepare(key, names) {
     if (!n || (names && names.indexOf(n) < 0) || genreKeyOf_(r[d.col('ジャンル')]) !== key) return;
     const c = confRow_(d, r);
     const lv = c.level || c.last;
-    if (lv) map[n] = Math.max(1, Math.min(GENRES[key].max, lv));
+    if (lv || c.answer) map[n] = { lv: lv ? Math.max(1, Math.min(GENRES[key].max, lv)) : '', ans: c.answer || '' };
   });
   return map;
 }
@@ -537,7 +548,7 @@ function api_tSaveConf(key, rows) {
     const lv = v => { const n = num_(v); return n === '' ? '' : Math.max(1, Math.min(max, n)); };
     (rows || []).forEach(r => {
       if (!r || !r.name) return;
-      const patch = { '出す': r.show ? '○' : '×', 'レベル': lv(r.level), '下限': lv(r.lower), '上限': lv(r.upper), '自動調整': r.auto ? '○' : '×' };
+      const patch = { '出す': r.show ? '○' : '×', 'レベル': lv(r.level), '下限': lv(r.lower), '上限': lv(r.upper), '自動調整': r.auto ? '○' : '×', '答え方': answerLabel_(String(r.answer || '')) };
       if (r.unmaster) { patch['習得'] = ''; patch['習得した日'] = ''; }
       patchConf_(d, String(r.name), key, patch);
     });
