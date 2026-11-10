@@ -1,0 +1,469 @@
+/**
+ * @OnlyCurrentDoc
+ */
+/************************************************************
+ * みんなで立体（積み木の見え方・数え方）
+ *   使い方：はじめに一度だけ setup を実行し、ウェブアプリとしてデプロイ。生徒用はURL、先生用はURLの最後に ?page=teacher（URLを知っている人だけが開ける）
+ *   利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+ ************************************************************/
+
+var TAB = { roster: '名簿', conf: '生徒設定', rec: '記録', sum: '回ごとの記録' };
+var H_CONF = ['名簿', '名前', 'レベル', '下限', '上限', '自動調整', '数の答え方', '前回のレベル', '習得', '習得日'];
+var H_REC = ['日時', '回', '名簿', '名前', '進め方', '番号', 'レベル', '問題', '正解', '答え', '正誤', 'まちがいの型', '秒', '記録ID'];
+var H_SUM = ['日時', '回', '名簿', '名前', '進め方', '問題数', '正解数', 'レベル', '習得'];
+var TOP_LV = 5;
+var DEF_CONF = {
+  mode: 'teacher', join: 'roster', roster: '', codeOn: false, level: 1, count: 6, numMode: 'auto',
+  auto: true, up: 3, down: 2, masterN: 20, markN: 3, sound: true, kana: false, guide: 'first'
+};
+
+/* ---------- はじめに一度だけ実行 ---------- */
+function setup() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(TAB.roster);
+  if (!sh) {
+    sh = ss.insertSheet(TAB.roster);
+    sh.getRange(1, 1, 4, 2).setValues([['1組', '2組'], ['たろう', 'あおい'], ['はなこ', 'ゆうと'], ['じろう', 'さくら']]);
+    sh.setFrozenRows(1);
+  }
+  sheet_(TAB.conf, H_CONF);
+  sheet_(TAB.rec, H_REC);
+  sheet_(TAB.sum, H_SUM);
+  CacheService.getScriptCache().put('setup', '1', 60);
+  PropertiesService.getScriptProperties().getProperty('ROUND');
+  return 'できました';
+}
+
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+  var page = (p.page === 'teacher' || p.p === 'teacher') ? 'teacher' : 'student';
+  var t = HtmlService.createTemplateFromFile('index');
+  t.page = page;
+  return t.evaluate()
+    .setTitle(page === 'teacher' ? 'みんなで立体（先生用）' : 'みんなで立体')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ---------- 小さな部品 ---------- */
+function props_() { return PropertiesService.getScriptProperties(); }
+function cache_() { return CacheService.getScriptCache(); }
+function getJSON_(k, def) {
+  var v = props_().getProperty(k);
+  if (!v) return def;
+  try { return JSON.parse(v); } catch (e) { return def; }
+}
+function setJSON_(k, o) { props_().setProperty(k, JSON.stringify(o)); }
+function withLock_(fn) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+function sheet_(name, heads) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); }
+  var have = heads_(sh);
+  var add = heads.filter(function (h) { return have.indexOf(h) < 0; });
+  if (add.length) {
+    sh.getRange(1, have.length + 1, 1, add.length).setValues([add]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function heads_(sh) {
+  var n = sh.getLastColumn();
+  if (n < 1) return [];
+  return sh.getRange(1, 1, 1, n).getValues()[0].map(function (v) { return String(v).trim(); })
+    .filter(function (v, i, a) { return v !== '' || a.slice(i).some(function (x) { return x !== ''; }); });
+}
+function appendRows_(sh, objs) {
+  if (!objs.length) return;
+  var hs = heads_(sh);
+  var rows = objs.map(function (o) { return hs.map(function (h) { return o[h] == null ? '' : o[h]; }); });
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, hs.length).setValues(rows);
+}
+function rosterSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(TAB.roster) || ss.getSheetByName('めいぼ');
+}
+function rosters_() {
+  var sh = rosterSheet_(), out = {};
+  if (!sh || sh.getLastRow() < 1 || sh.getLastColumn() < 1) return out;
+  var v = sh.getDataRange().getValues();
+  for (var c = 0; c < v[0].length; c++) {
+    var head = String(v[0][c]).trim();
+    if (!head) continue;
+    var names = [];
+    for (var r = 1; r < v.length; r++) { var n = String(v[r][c]).trim(); if (n && names.indexOf(n) < 0) names.push(n); }
+    out[head] = names;
+  }
+  return out;
+}
+function nowStr_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm:ss'); }
+function dayStr_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd'); }
+function jpTime_(v) {
+  var d = (v instanceof Date) ? v : new Date(String(v));
+  if (isNaN(d.getTime())) return String(v);
+  var tz = Session.getScriptTimeZone();
+  var m = Number(Utilities.formatDate(d, tz, 'm'));
+  return Utilities.formatDate(d, tz, 'M月d日 H時') + (m ? m + '分' : '');
+}
+function stKey_(rid, name) { return 'S_' + rid + '_' + encodeURIComponent(name); }
+function num_(v, def, lo, hi) {
+  var n = parseInt(v, 10);
+  if (isNaN(n)) n = def;
+  return Math.max(lo, Math.min(hi, n));
+}
+function round_() { return getJSON_('ROUND', null); }
+function conf_() {
+  var c = getJSON_('CONF', {}), o = {};
+  for (var k in DEF_CONF) o[k] = (c[k] === undefined ? DEF_CONF[k] : c[k]);
+  return o;
+}
+function cleanConf_(c) {
+  var b = conf_(), o = {};
+  c = c || {};
+  o.mode = c.mode === 'self' ? 'self' : 'teacher';
+  o.join = (c.join === 'chara' || c.join === 'guest') ? c.join : 'roster';
+  o.roster = String(c.roster == null ? b.roster : c.roster);
+  o.codeOn = !!c.codeOn;
+  o.level = (c.level === 'mix' && o.mode === 'teacher') ? 'mix' : num_(c.level, 1, 1, TOP_LV);
+  o.count = num_(c.count, b.count, 1, 50);
+  o.numMode = (c.numMode === 'choice' || c.numMode === 'input') ? c.numMode : 'auto';
+  o.auto = c.auto !== false;
+  o.up = num_(c.up, b.up, 1, 20);
+  o.down = num_(c.down, b.down, 1, 20);
+  o.masterN = num_(c.masterN, b.masterN, 1, 50);
+  o.markN = num_(c.markN, b.markN, 1, 20);
+  o.sound = c.sound !== false;
+  o.kana = !!c.kana;
+  o.guide = c.guide === 'every' ? 'every' : 'first';
+  return o;
+}
+// 生徒に返してよい項目だけ（参加コードや名簿は入れない）
+function pub_(r) {
+  if (!r) return null;
+  var o = {}, ks = ['id', 'prevId', 'state', 'mode', 'join', 'codeOn', 'level', 'count', 'qi', 'seed', 'numMode',
+    'auto', 'up', 'down', 'masterN', 'markN', 'sound', 'kana', 'guide'];
+  ks.forEach(function (k) { o[k] = r[k]; });
+  return o;
+}
+
+/* ---------- 生徒設定 ---------- */
+function confRow_(hs, row) {
+  var g = function (h) { var i = hs.indexOf(h); return i < 0 ? '' : row[i]; };
+  var lo = num_(g('下限'), 1, 1, TOP_LV), hi = num_(g('上限'), TOP_LV, 1, TOP_LV);
+  if (hi < lo) hi = lo;
+  var nm = String(g('数の答え方')).trim();
+  var d = g('習得日');
+  return {
+    lv: num_(g('レベル'), 1, lo, hi), lo: lo, hi: hi,
+    auto: String(g('自動調整')).trim() !== 'しない',
+    num: nm === '選ぶ' ? 'choice' : (nm === '入れる' ? 'input' : ''),
+    prev: String(g('前回のレベル')),
+    master: String(g('習得')).trim() !== '',
+    date: (d instanceof Date) ? Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy/MM/dd') : String(d)
+  };
+}
+function defStu_() { return { lv: 1, lo: 1, hi: TOP_LV, auto: true, num: '', prev: '', master: false, date: '' }; }
+function confMap_(roster) {
+  var sh = sheet_(TAB.conf, H_CONF), out = {};
+  if (sh.getLastRow() < 2) return out;
+  var hs = heads_(sh), v = sh.getRange(2, 1, sh.getLastRow() - 1, hs.length).getValues();
+  var ir = hs.indexOf('名簿'), inm = hs.indexOf('名前');
+  v.forEach(function (row) {
+    if (String(row[ir]).trim() === roster && String(row[inm]).trim()) out[String(row[inm]).trim()] = confRow_(hs, row);
+  });
+  return out;
+}
+// patches：[{roster, name, set:{見出し:値}}] をまとめて書く
+function updateConf_(patches) {
+  if (!patches.length) return;
+  var sh = sheet_(TAB.conf, H_CONF), hs = heads_(sh);
+  var n = sh.getLastRow() - 1;
+  var v = n > 0 ? sh.getRange(2, 1, n, hs.length).getValues() : [];
+  var ir = hs.indexOf('名簿'), inm = hs.indexOf('名前'), idx = {};
+  v.forEach(function (row, i) { idx[String(row[ir]).trim() + '\n' + String(row[inm]).trim()] = i; });
+  patches.forEach(function (p) {
+    var k = p.roster + '\n' + p.name, i = idx[k];
+    if (i === undefined) {
+      var row = hs.map(function () { return ''; });
+      row[ir] = p.roster; row[inm] = p.name;
+      v.push(row); i = v.length - 1; idx[k] = i;
+    }
+    for (var h in p.set) { var c = hs.indexOf(h); if (c >= 0) v[i][c] = p.set[h]; }
+  });
+  sh.getRange(2, 1, v.length, hs.length).setValues(v);
+}
+
+/* ---------- 生徒用 ---------- */
+function api_poll() {
+  return { round: pub_(round_()) };
+}
+
+function api_joinInfo(code) {
+  var r = round_();
+  if (!r || r.state !== 'open') return { err: 'closed' };
+  if (r.codeOn && String(code || '') !== String(r.code)) return { err: 'code' };
+  var out = { ok: true, join: r.join };
+  if (r.join === 'roster') out.names = rosters_()[r.roster] || [];
+  if (r.join === 'chara') {
+    out.taken = getJSON_('J_' + r.id, []).map(function (j) { return j.name; });
+  }
+  return out;
+}
+
+function api_join(p) {
+  p = p || {};
+  return withLock_(function () {
+    var r = round_();
+    if (!r || r.state !== 'open' || r.id !== p.rid) return { err: 'closed' };
+    if (r.codeOn && String(p.code || '') !== String(r.code)) return { err: 'code' };
+    var tok = String(p.tok || ''), name = String(p.name || '').trim(), roster = r.roster;
+    var list = getJSON_('J_' + r.id, []);
+    if (r.join === 'guest') {
+      var g = getJSON_('GUESTS', {});
+      if (!g[tok]) {
+        var mx = 0;
+        for (var k in g) mx = Math.max(mx, g[k]);
+        g[tok] = mx + 1;
+        setJSON_('GUESTS', g);
+      }
+      name = 'ゲスト' + g[tok]; roster = 'ゲスト';
+    } else if (r.join === 'chara') {
+      roster = 'キャラ';
+      if (!name) return { err: 'name' };
+      if (list.some(function (j) { return j.name === name && j.tok !== tok; })) return { err: 'taken' };
+    } else {
+      if ((rosters_()[r.roster] || []).indexOf(name) < 0) return { err: 'name' };
+    }
+    if (!list.some(function (j) { return j.name === name; })) {
+      list.push({ name: name, tok: tok });
+      setJSON_('J_' + r.id, list);
+    } else {
+      list.forEach(function (j) { if (j.name === name) j.tok = tok; });
+      setJSON_('J_' + r.id, list);
+    }
+    var c = confMap_(roster)[name] || defStu_();
+    var key = stKey_(r.id, name);
+    if (!cache_().get(key)) {
+      cache_().put(key, JSON.stringify({ name: name, roster: roster, n: 0, ok: 0, lv: '', lv0: '', cur: -1 }), 21600);
+    }
+    return { ok: true, name: name, roster: roster, conf: { lv: c.lv, lo: c.lo, hi: c.hi, auto: c.auto, num: c.num, master: c.master } };
+  });
+}
+
+// entries：[{rid, name, roster, mode, item, snap}]。item は1問ごとの記録、snap は生徒のいまのようす
+function api_submit(p) {
+  var es = (p && p.entries) || [];
+  if (!es.length) return { ok: true };
+  return withLock_(function () {
+    var ca = cache_(), rows = [], last = {}, patches = [], sums = [];
+    es.forEach(function (e) {
+      if (!e || !e.rid || !e.name) return;
+      var it = e.item;
+      if (it && it.id && !ca.get('D_' + it.id)) {
+        ca.put('D_' + it.id, '1', 21600);
+        rows.push({
+          '日時': nowStr_(), '回': e.rid, '名簿': e.roster, '名前': e.name, '進め方': e.mode === 'self' ? 'ひとりずつ' : 'みんなで',
+          '番号': it.no, 'レベル': it.lv, '問題': it.q, '正解': it.correct, '答え': it.ans,
+          '正誤': it.ok ? '○' : '×', 'まちがいの型': it.kind || '', '秒': it.sec, '記録ID': it.id
+        });
+      }
+      if (e.snap) last[e.rid + '\n' + e.name] = e;
+    });
+    if (rows.length) appendRows_(sheet_(TAB.rec, H_REC), rows);
+    var r = round_();
+    for (var k in last) {
+      var e = last[k], s = e.snap, key = stKey_(e.rid, e.name);
+      var old = {};
+      try { old = JSON.parse(ca.get(key) || '{}'); } catch (err) { old = {}; }
+      var st = {
+        name: e.name, roster: e.roster, n: s.n, ok: s.ok, lv: s.lv, lv0: s.lv0, cur: s.cur, a: s.a, aok: s.aok,
+        done: !!s.done, master: !!s.master || !!old.master, mark: !!s.mark, summed: !!old.summed
+      };
+      if (s.master && !old.master) {
+        patches.push({ roster: e.roster, name: e.name, set: { '習得': '習得', '習得日': dayStr_() } });
+      }
+      if (s.done && e.mode === 'self' && !st.summed) {
+        st.summed = true;
+        sums.push(sumRow_(e.rid, 'self', st));
+        patches.push({ roster: e.roster, name: e.name, set: { '前回のレベル': s.lv } });
+      }
+      // 終わった回の記録は、あとから届いても、ようすは書きかえない
+      if (!r || r.id === e.rid) ca.put(key, JSON.stringify(st), 21600);
+    }
+    if (sums.length) appendRows_(sheet_(TAB.sum, H_SUM), sums);
+    if (patches.length) updateConf_(patches);
+    return { ok: true };
+  });
+}
+function sumRow_(rid, mode, st) {
+  var lv = (st.lv0 !== '' && st.lv0 != null && String(st.lv0) !== String(st.lv)) ? (st.lv0 + '→' + st.lv) : st.lv;
+  return {
+    '日時': nowStr_(), '回': rid, '名簿': st.roster, '名前': st.name, '進め方': mode === 'self' ? 'ひとりずつ' : 'みんなで',
+    '問題数': st.n || 0, '正解数': st.ok || 0, 'レベル': lv == null ? '' : lv, '習得': st.master ? '習得' : ''
+  };
+}
+
+/* ---------- 先生用 ---------- */
+function students_(r) {
+  var list = getJSON_('J_' + r.id, []);
+  if (!list.length) return [];
+  var keys = list.map(function (j) { return stKey_(r.id, j.name); });
+  var all = cache_().getAll(keys);
+  return list.map(function (j, i) {
+    var s = null;
+    try { s = JSON.parse(all[keys[i]] || 'null'); } catch (e) { s = null; }
+    return s || { name: j.name, roster: '', n: 0, ok: 0, lv: '', lv0: '', cur: -1 };
+  });
+}
+
+function api_tInit() {
+  var url = '';
+  try { url = ScriptApp.getService().getUrl(); } catch (e) { url = ''; }
+  var r = round_();
+  var ros = rosters_(), names = [];
+  for (var k in ros) names.push(k);
+  return { url: url, conf: conf_(), rosters: names, round: r, students: (r ? students_(r) : []) };
+}
+
+function api_tSaveSet(c) {
+  var o = cleanConf_(c);
+  setJSON_('CONF', o);
+  // 受付中の回にも、すぐに使える設定を入れる
+  withLock_(function () {
+    var r = round_();
+    if (r && r.state === 'open') {
+      ['masterN', 'markN', 'sound', 'kana', 'guide'].forEach(function (k) { r[k] = o[k]; });
+      setJSON_('ROUND', r);
+    }
+  });
+  return { conf: o };
+}
+
+function api_tStart(c) {
+  return withLock_(function () {
+    var o = cleanConf_(c);
+    if (o.join === 'roster') {
+      var ros = rosters_();
+      if (!ros[o.roster]) { for (var k in ros) { o.roster = k; break; } }
+      if (!ros[o.roster]) return { err: '「名簿」タブに名簿がありません。1行目に名簿の名前、その下に生徒の名前を入れてください。' };
+    }
+    setJSON_('CONF', o);
+    var old = round_();
+    if (old && old.state === 'open') endRound_(old);
+    if (old) props_().deleteProperty('J_' + old.id);
+    var d = new Date();
+    var r = {};
+    for (var key in o) r[key] = o[key];
+    r.id = Utilities.formatDate(d, Session.getScriptTimeZone(), 'MMdd-HHmmss') + '-' + ('0' + Math.floor(Math.random() * 100)).slice(-2);
+    r.prevId = old ? old.id : '';
+    r.state = 'open';
+    r.qi = -1;
+    r.seed = Math.floor(Math.random() * 2000000000) + 1;
+    r.code = o.codeOn ? String(Math.floor(1000 + Math.random() * 9000)) : '';
+    r.at = d.getTime();
+    setJSON_('ROUND', r);
+    setJSON_('J_' + r.id, []);
+    return { round: r, students: [] };
+  });
+}
+
+function api_tPoll() {
+  var r = round_();
+  return { round: r, students: (r ? students_(r) : []) };
+}
+
+function api_tSetQ(qi) {
+  return withLock_(function () {
+    var r = round_();
+    if (!r || r.state !== 'open') return { round: r, students: [] };
+    r.qi = num_(qi, 0, 0, r.count - 1);
+    setJSON_('ROUND', r);
+    return { round: r, students: students_(r) };
+  });
+}
+
+function api_tEnd() {
+  return withLock_(function () {
+    var r = round_();
+    if (r && r.state === 'open') endRound_(r);
+    r = round_();
+    return { round: r, students: (r ? students_(r) : []) };
+  });
+}
+
+// 回を終える：まだまとめを書いていない生徒の分を「回ごとの記録」に書く
+function endRound_(r) {
+  var sts = students_(r), sums = [], patches = [], ca = cache_();
+  sts.forEach(function (s) {
+    if (s.summed || !s.n) return;
+    sums.push(sumRow_(r.id, r.mode, s));
+    if (r.mode === 'self' && s.lv !== '' && s.lv != null) patches.push({ roster: s.roster, name: s.name, set: { '前回のレベル': s.lv } });
+    s.summed = true;
+    ca.put(stKey_(r.id, s.name), JSON.stringify(s), 21600);
+  });
+  if (sums.length) appendRows_(sheet_(TAB.sum, H_SUM), sums);
+  if (patches.length) updateConf_(patches);
+  r.state = 'closed';
+  setJSON_('ROUND', r);
+}
+
+// 生徒ごとの設定：名簿の名前（または「ゲスト」）ごとに返す
+function api_tGetConf(roster) {
+  roster = String(roster || '');
+  var names = [];
+  if (roster === 'ゲスト') {
+    var g = getJSON_('GUESTS', {}), ns = [];
+    for (var k in g) ns.push(g[k]);
+    ns.sort(function (a, b) { return a - b; });
+    names = ns.map(function (n) { return 'ゲスト' + n; });
+  } else {
+    names = rosters_()[roster] || [];
+  }
+  var map = confMap_(roster);
+  if (roster === 'キャラ') { for (var nm in map) names.push(nm); }
+  return {
+    roster: roster,
+    rows: names.map(function (n) {
+      var c = map[n] || defStu_();
+      return { name: n, lv: c.lv, lo: c.lo, hi: c.hi, auto: c.auto, num: c.num, prev: c.prev, master: c.master, date: c.date };
+    })
+  };
+}
+
+function api_tSaveConf(roster, rows) {
+  roster = String(roster || '');
+  return withLock_(function () {
+    var patches = (rows || []).map(function (x) {
+      var lo = num_(x.lo, 1, 1, TOP_LV), hi = num_(x.hi, TOP_LV, 1, TOP_LV);
+      if (hi < lo) hi = lo;
+      var set = {
+        'レベル': num_(x.lv, 1, lo, hi), '下限': lo, '上限': hi, '自動調整': x.auto === false ? 'しない' : 'する',
+        '数の答え方': x.num === 'choice' ? '選ぶ' : (x.num === 'input' ? '入れる' : '')
+      };
+      if (x.unmaster) { set['習得'] = ''; set['習得日'] = ''; }
+      return { roster: roster, name: String(x.name), set: set };
+    });
+    updateConf_(patches);
+    return api_tGetConf(roster);
+  });
+}
+
+function api_tRecords() {
+  var sh = sheet_(TAB.sum, H_SUM), n = sh.getLastRow() - 1;
+  if (n < 1) return { rows: [] };
+  var hs = heads_(sh), take = Math.min(n, 80);
+  var v = sh.getRange(sh.getLastRow() - take + 1, 1, take, hs.length).getValues();
+  var rows = v.map(function (row) {
+    var o = {};
+    H_SUM.forEach(function (h) { var i = hs.indexOf(h); o[h] = i < 0 ? '' : row[i]; });
+    o['日時'] = jpTime_(o['日時']);
+    for (var k in o) o[k] = String(o[k]);
+    return o;
+  });
+  rows.reverse();
+  return { rows: rows };
+}
