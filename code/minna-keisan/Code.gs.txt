@@ -13,7 +13,7 @@ const SHEET_ROSTER_OLD = 'めいぼ';     // 前の版のタブ名でも読め�
 const SHEET_CONF = '生徒設定';
 const SHEET_LOG = '記録';
 const SHEET_SUM = '回ごとの記録';
-const HEAD_CONF = ['名前', 'ジャンル', '出す', 'レベル', '下限', '上限', '自動調整', '習得', '習得した日', 'タイムアタック最高', '前回のレベル'];
+const HEAD_CONF = ['名前', 'ジャンル', '出す', 'レベル', '下限', '上限', '自動調整', '習得', '習得した日', 'タイムアタック最高', '前回のレベル', '答え方'];
 const HEAD_LOG = ['日時', '回ID', '名前', '進め方', 'ジャンル', 'レベル', '出し方', '問題', '正しい答え', '答え', '正誤', 'まちがいの型', '答え方', 'かかった秒数'];
 const HEAD_SUM = ['日時', '回ID', '名前', '進め方', 'ジャンル', 'はじめのレベル', 'おわりのレベル', '解いた数', '正解数', '正答率', '多かったまちがい', '習得'];
 const CACHE_SEC = 21600; // 6時間
@@ -142,10 +142,19 @@ function confRow_(d, r) {
     show: yes_(r[c('出す')], true), level: mx(num_(r[c('レベル')])), lower: mx(num_(r[c('下限')])), upper: mx(num_(r[c('上限')])),
     auto: yes_(r[c('自動調整')], true), mastered: String(r[c('習得')]).trim() !== '' && yes_(r[c('習得')], false),
     mdate: md instanceof Date ? Utilities.formatDate(md, TZ, 'M月d日') : String(md || ''),
-    best: num_(r[c('タイムアタック最高')]), last: num_(r[c('前回のレベル')])
+    best: num_(r[c('タイムアタック最高')]), last: num_(r[c('前回のレベル')]),
+    answer: ansKey_(c('答え方') >= 0 ? r[c('答え方')] : '')
   };
 }
-function blankConf_() { return { show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
+function ansKey_(v) {
+  const s = String(v == null ? '' : v).trim().replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+  if (/入力|記入|input/i.test(s)) return 'input';
+  if (/^(2|二|two)/i.test(s)) return 'two';
+  if (/^(4|四|four)/i.test(s)) return 'four';
+  return '';
+}
+function ansLabel_(k) { return k === 'two' ? '2択' : k === 'four' ? '4択' : k === 'input' ? '入力' : ''; }
+function blankConf_() { return { answer: '', show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
 // ある生徒の、ジャンルごとの設定
 function confFor_(name) {
   const d = readConf_(), out = {};
@@ -336,7 +345,7 @@ function api_join(o) {
     else mem.push({ name: name, kind: kind, tok: tok, lv: lv });
     setJSON_('MEM', mem);
     const out = { ok: true, name: name, setKey: me ? me.lv : lv, round: pub_(r) };
-    if (r.settings.mode === 'self') out.conf = confFor_(name);
+    out.conf = confFor_(name);
     return out;
   });
 }
@@ -536,7 +545,7 @@ function api_tSaveConf(key, rows) {
     const lv = v => { const n = num_(v); return n === '' ? '' : Math.max(1, Math.min(max, n)); };
     (rows || []).forEach(r => {
       if (!r || !r.name) return;
-      const patch = { '出す': r.show ? '○' : '×', 'レベル': lv(r.level), '下限': lv(r.lower), '上限': lv(r.upper), '自動調整': r.auto ? '○' : '×' };
+      const patch = { '出す': r.show ? '○' : '×', 'レベル': lv(r.level), '下限': lv(r.lower), '上限': lv(r.upper), '自動調整': r.auto ? '○' : '×', '答え方': ansLabel_(ansKey_(r.answer)) };
       if (r.unmaster) { patch['習得'] = ''; patch['習得した日'] = ''; }
       patchConf_(d, String(r.name), key, patch);
     });
