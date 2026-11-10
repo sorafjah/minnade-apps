@@ -508,7 +508,7 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
       <div class="t-row"><span class="t-name">ジャンル</span><div id="cfgGenre" class="seg"></div></div>
       <div class="t-row"><span class="t-name">名簿</span><div id="cfgGroup" class="seg"></div></div>
       <p class="note">出す：「ひとりずつ」で、この生徒にこのジャンルを出すかどうか（×のジャンルは、つぎのジャンルへ進む先にも、まぜる問題にも入りません）。レベル：はじめのレベル（空なら前回のレベル、それもなければ下限かレベル1）。下限・上限：自動で上下する範囲。習得を外すと、ふつうの練習にもどります。スプレッドシートの「生徒設定」タブで変えてもかまいません。</p>
-      <div class="tblwrap"><table class="mt cfgtbl"><thead><tr><th>名前</th><th>出す</th><th>レベル</th><th>下限</th><th>上限</th><th>自動調整</th><th>前回のレベル</th><th>習得</th><th>タイムアタック最高</th></tr></thead><tbody id="cfgBody"></tbody></table></div>
+      <div class="tblwrap"><table class="mt cfgtbl"><thead><tr><th>名前</th><th>出す</th><th>レベル</th><th>下限</th><th>上限</th><th>答え方</th><th>自動調整</th><th>前回のレベル</th><th>習得</th><th>タイムアタック最高</th></tr></thead><tbody id="cfgBody"></tbody></table></div>
       <div class="t-actions"><button id="cfgSave" class="primary" style="font-size:18px">生徒ごとの設定を保存する</button><span id="cfgMsg" class="note" style="width:auto"></span></div>
     </section>
 
@@ -1059,11 +1059,24 @@ function choiceCount(q, answer) {
   if (L && L.easy) return 2;
   return answer === 'two' ? 2 : answer === 'input' ? 0 : 4;
 }
+// 答え方は生徒ごとにちがうことがあるので、問題の選択肢は（やさしいレベル以外）いつも4つ作っておく。
+// 2択の生徒には、正解とまちがい1つに へらして出す。入力の生徒には、選択肢を出さない。
+function deriveCh(ch, ans, q, seed) {
+  if (!ch) return null;
+  var L = GENRES[q.g].levels[q.level - 1];
+  if (L && L.easy) return ch;
+  if (ans === 'input') return null;
+  if (ans === 'two' && ch.length > 2) {
+    var wrong = ch.filter(function (c) { return !c.correct; }), w = wrong[(seed || 0) % wrong.length];
+    return ch.filter(function (c) { return c.correct || c === w; });
+  }
+  return ch;
+}
 function buildSet(key, level, n, answer) {
   var G = GENRES[key], out = [], prev = null;
   for (var i = 0; i < n; i++) {
     var q = G.make(level, prev); prev = q;
-    var k = choiceCount(q, answer);
+    var k = choiceCount(q, 'four');
     out.push({ q: q, ch: k ? G.choices(q, k) : null });
   }
   return out;
@@ -1111,7 +1124,7 @@ var DEMO = (function () {
   var DEF = { mode: 'all', genres: ['tashi'], level: 2, levelMode: 'all', count: 4, minutes: 10, order: 'seq', answer: 'four', autoLv: true, up: 3, down: 2, master: 20, sometimes: true, rate: 20, ta: true, taSec: 60, next: true, mixPrev: false, mixRate: 30, flagN: 3, sound: true, kana: 'ruby', guide: 'first', join: 'roster', roster: '1組', useCode: false };
   var ROSTERS = [{ title: '1組', names: ['あおやま', 'いしかわ', 'うちだ', 'えのもと', 'おかの'] }, { title: '2組', names: ['きむら', 'くどう', 'さとう'] }];
   var S = { round: null, mem: [], st: {}, seen: {}, sets: {}, prevMem: [], last: clone(DEF), guests: {}, conf: {}, logs: [], sums: [], timer: null, seenIds: {} };
-  function blank() { return { show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
+  function blank() { return { answer: '', show: true, level: '', lower: '', upper: '', auto: true, mastered: false, mdate: '', best: '', last: '' }; }
   function confOf(name) { var o = {}; GENRE_ORDER.forEach(function (k) { o[k] = Object.assign(blank(), (S.conf[name] || {})[k] || {}); }); return o; }
   function setConf(name, k, patch) { S.conf[name] = S.conf[name] || {}; S.conf[name][k] = Object.assign(blank(), S.conf[name][k] || {}, patch); }
   // 例：いしかわさんは たし算を習得ずみ、うちださんは わり算を出さない
@@ -1152,7 +1165,7 @@ var DEMO = (function () {
     if (r.sets.length && r.sets.indexOf(lv) < 0) lv = r.sets[0];
     if (me) me.tok = o.tok; else S.mem.push({ name: name, kind: kind, tok: o.tok, lv: lv });
     var out = { ok: true, name: name, setKey: me ? me.lv : lv, round: pub(r) };
-    if (r.settings.mode === 'self') out.conf = confOf(name);
+    out.conf = confOf(name);
     return out;
   }
   function submit(items) {
@@ -1302,7 +1315,7 @@ var DEMO = (function () {
       var names = group === '__guest' ? guestList() : (ROSTERS.filter(function (x) { return x.title === group; })[0] || ROSTERS[0]).names;
       return names.map(function (n) { return Object.assign({ name: n }, confOf(n)[k]); });
     },
-    api_tSaveConf: function (k, rows) { rows.forEach(function (r) { var p = { show: r.show, level: r.level, lower: r.lower, upper: r.upper, auto: r.auto }; if (r.unmaster) { p.mastered = false; p.mdate = ''; } setConf(r.name, k, p); }); return true; },
+    api_tSaveConf: function (k, rows) { rows.forEach(function (r) { var p = { show: r.show, level: r.level, lower: r.lower, upper: r.upper, auto: r.auto, answer: r.answer || '' }; if (r.unmaster) { p.mastered = false; p.mdate = ''; } setConf(r.name, k, p); }); return true; },
     api_tRecords: function () {
       var by = {};
       S.logs.forEach(function (l) { if (!l.ml) return; var k = l.name + '｜' + l.genre; by[k] = by[k] || {}; by[k][l.ml] = (by[k][l.ml] || 0) + 1; });
@@ -1521,7 +1534,7 @@ function doJoin(name, code, prevId) {
     }
     var rd = r.round, same = me.roundId === rd.id;
     ST.round = rd; setRoundLook(rd);
-    me.name = r.name; me.setKey = r.setKey;
+    me.name = r.name; me.setKey = r.setKey; ME_CONF = r.conf || {};
     if (!same) { me.roundId = rd.id; me.qi = 0; me.res = []; me.fin = false; me.started = 0; me.selfState = null; }
     clearInterval(clockTimer); clearTimeout(ST.autoNext);
     swap('timer', '').classList.add('hidden');
@@ -1549,8 +1562,12 @@ function loadSet(rd, key) {
 }
 
 /* --- 使い方の説明（参加のあとに出す） --- */
+// この生徒の答え方（生徒ごとの設定が先、なければ先生が受付で選んだもの）
+var ME_CONF = {};
+function myAnswer(g) { var c = ME_CONF && ME_CONF[g]; return (c && c.answer) || (ST.round && ST.round.answer) || 'four'; }
 function guidePages() {
-  var rd = ST.round || {}, all = rd.mode === 'all', input = rd.answer === 'input';
+  var rd = ST.round || {}, all = rd.mode === 'all';
+  var input = (rd.genres || []).some(function (g) { return myAnswer(g) === 'input'; });
   var p = [];
   p.push(input
     ? { title: 'こたえかた', text: 'すうじの ボタンで こたえを {入|い}れて、「こたえる」を おしてね。あまりの ある わり{算|ざん}は、「あまり」の わくにも {入|い}れてね。わくを おすと、{入|い}れる ところが かわるよ。', pic: '<span class="tx">7 ＋ 6 ＝</span><span>13</span><span>こたえる</span>' }
@@ -1580,7 +1597,7 @@ function teacherStep(rd) {
   if (ST.view === 'quiz' && !ST.answered && ST.qi < target) recordAll(null, '', -1, 'こたえる前につぎの問題へ進んだ', true);
   ST.qi = target; me.qi = target; saveMe();
   var it = ST.Q[target];
-  showQuestion(it.q, it.ch);
+  showQuestion(it.q, deriveCh(it.ch, myAnswer(it.q.g), it.q, target));
 }
 function showAllReady() {
   swap('readyMsg', R('「' + esc(me.name) + '」で {参加|さんか}しているよ。<span class="sub">{先生|せんせい}が {問題|もんだい}を {出|だ}すまで、まってね。</span>'));
@@ -1762,7 +1779,7 @@ function askSelf(key, lv, src) {
   var g = initG(key), G = GENRES[key];
   var q = G.make(lv, g.prev);
   g.prev = q;
-  var k = choiceCount(q, ST.round.answer);
+  var k = choiceCount(q, myAnswer(q.g));
   D.src = src;
   showQuestion(q, k ? G.choices(q, k) : null);
 }
@@ -2401,9 +2418,9 @@ function renderTQ() {
   var cnt = {}, rv = T.reveal;
   T.members.filter(function (m) { return String(m.lv) === String(T.viewKey); }).forEach(function (m) { var a = m.ans && m.ans[r.curQ]; if (a) cnt[a[3] || '－'] = (cnt[a[3] || '－'] || 0) + 1; });
   $('revealBtn').textContent = rv ? '正解と答えの分かれ方をかくす' : '正解と答えの分かれ方を表示する';
-  var html;
-  if (it.ch) {
-    html = '<div class="choices">' + it.ch.map(function (c, i) {
+  var html, chs = deriveCh(it.ch, s.answer, q, r.curQ);
+  if (chs) {
+    html = '<div class="choices' + (chs.length === 2 ? ' two' : '') + '">' + chs.map(function (c, i) {
       return '<div class="choice' + (rv && c.correct ? ' is-correct' : '') + (rv && !c.correct ? ' dim' : '') + '"><span class="chip">' + 'ABCD'.charAt(i) + '</span><span class="ctext">' + c.text + '</span><span class="cmark">' + (rv ? (cnt[c.text] || 0) + '人' + (c.correct ? '・正解' : '') : '') + '</span></div>';
     }).join('') + '</div>';
   } else {
@@ -2435,19 +2452,21 @@ function renderCfgTabs() {
 }
 function loadCfg() {
   renderCfgTabs();
-  swap('cfgBody', '<tr><td colspan="9" class="subc">読み込んでいます…</td></tr>');
+  swap('cfgBody', '<tr><td colspan="10" class="subc">読み込んでいます…</td></tr>');
   api('api_tGetConf', T.cfg.genre, T.cfg.group).then(function (rows) { T.cfg.rows = rows || []; drawCfg(); })
-    .catch(function (e) { swap('cfgBody', '<tr><td colspan="9">' + esc(errText(e, '読み込めませんでした。もう一度ページを開きなおしてください。')) + '</td></tr>'); });
+    .catch(function (e) { swap('cfgBody', '<tr><td colspan="10">' + esc(errText(e, '読み込めませんでした。もう一度ページを開きなおしてください。')) + '</td></tr>'); });
 }
 function stepCell(i, k, v) {
   return '<div class="stepper"><button data-i="' + i + '" data-k="' + k + '" data-d="-1">▽</button><input data-i="' + i + '" data-k="' + k + '" inputmode="numeric" value="' + (v === '' || v == null ? '' : v) + '"><button data-i="' + i + '" data-k="' + k + '" data-d="1">△</button></div>';
 }
+var ANS_LABEL = { '': '設定にしたがう', two: '2択', four: '4択', input: '入力' };
 function drawCfg() {
   var rows = T.cfg.rows;
-  if (!rows.length) { swap('cfgBody', '<tr><td colspan="9" class="subc">' + (T.cfg.group === '__guest' ? 'まだゲストで参加した端末はありません。' : 'この名簿には名前がありません。') + '</td></tr>'); return; }
+  if (!rows.length) { swap('cfgBody', '<tr><td colspan="10" class="subc">' + (T.cfg.group === '__guest' ? 'まだゲストで参加した端末はありません。' : 'この名簿には名前がありません。') + '</td></tr>'); return; }
   var b = swap('cfgBody', rows.map(function (r, i) {
     return '<tr><td><b>' + esc(r.name) + '</b></td><td><button class="tog' + (r.show ? ' on' : '') + '" data-i="' + i + '" data-t="show">' + (r.show ? '○ 出す' : '× 出さない') + '</button></td>' +
       '<td>' + stepCell(i, 'level', r.level) + '</td><td>' + stepCell(i, 'lower', r.lower) + '</td><td>' + stepCell(i, 'upper', r.upper) + '</td>' +
+      '<td><button class="tog' + (r.answer ? ' on' : '') + '" data-i="' + i + '" data-t="answer">' + ANS_LABEL[r.answer || ''] + '</button></td>' +
       '<td><button class="tog' + (r.auto ? ' on' : '') + '" data-i="' + i + '" data-t="auto">' + (r.auto ? 'する' : 'しない') + '</button></td>' +
       '<td>' + (r.last || '<span class="subc">—</span>') + '</td>' +
       '<td>' + (r.mastered && !r.unmaster ? '<span class="mst">習得 ' + esc(r.mdate || '') + '</span> <button class="ghost" style="font-size:14px;min-height:40px" data-i="' + i + '" data-t="unmaster">外す</button>' : (r.unmaster ? '<span class="subc">外します（保存で反映）</span>' : '<span class="subc">—</span>')) + '</td>' +
@@ -2472,7 +2491,9 @@ function drawCfg() {
   b.querySelectorAll('[data-t]').forEach(function (x) {
     x.addEventListener('click', function () {
       var r = T.cfg.rows[+x.dataset.i], t = x.dataset.t;
-      if (t === 'unmaster') r.unmaster = true; else r[t] = !r[t];
+      if (t === 'unmaster') r.unmaster = true;
+      else if (t === 'answer') r.answer = { '': 'two', two: 'four', four: 'input', input: '' }[r.answer || ''];
+      else r[t] = !r[t];
       swap('cfgMsg', ''); drawCfg();
     });
   });
@@ -2521,7 +2542,7 @@ function teacherGuide() {
       '<li><b>みんなで</b>：全員がそろったら<b>「1問目を出す」</b>。問題だけの大きな画面になるので、そのまま映せます。答えた人数を見て<b>「つぎの問題へ」</b>、<b>「正解と答えの分かれ方を表示する」</b>でみんなで答え合わせができます（式の解説も出ます）。答えた人は、名前か人数で出せます（<b>「答えた人を人数だけにする」</b>で切りかえ）。生徒のようすを見るときは<b>「生徒のようすの画面にもどる」</b>、もう一度映すときは<b>「いまの問題を大きく映す」</b>を押します。</li>' +
       '<li><b>ひとりずつ</b>：生徒は自分で進みます。レベルは自動で上下し、いちばん上のレベルで続けて正解すると<b>「習得」</b>になり、<b>「つぎのジャンルへ」</b>が「進む」なら次のジャンルに進みます。<b>「前のジャンルもまぜる」</b>を「まぜる」にすると、習得ずみの前のジャンルの問題がまざります。終えるときは<b>「この回を終える」</b>。</li>' +
       '<li>終わった生徒は「おわったよ」の画面で待ちます。<b>「生徒の画面に結果を出す」</b>を押すと、生徒の画面に結果が出ます（<b>「生徒の画面の結果をかくす」</b>でもどせます）。</li>' +
-      '<li><b>「生徒ごとのレベル設定を開く」</b>を押すと、レベルごとの内容と、生徒×ジャンルの設定が出ます。生徒×ジャンルの「出す」・レベル・下限・上限・自動調整を決めて、<b>「生徒ごとの設定を保存する」</b>を押します。習得を外すこともできます。</li>' +
+      '<li><b>「生徒ごとのレベル設定を開く」</b>を押すと、レベルごとの内容と、生徒×ジャンルの設定が出ます。「答え方」を押すと、設定にしたがう→2択→4択→入力と変わり、生徒ごとに答え方を決められます。生徒×ジャンルの「出す」・レベル・下限・上限・自動調整を決めて、<b>「生徒ごとの設定を保存する」</b>を押します。習得を外すこともできます。</li>' +
       '<li>記録はスプレッドシートの「記録」「回ごとの記録」タブに残ります。<b>「スプレッドシートの記録を読み込む」</b>で、ここでも見られます。</li></ol>'
   }], true, null);
 }
