@@ -65,3 +65,4 @@ assets/apps.js      アプリの一覧
 | minna-keisan | みんなで計算 | みんなで計算/ |
 | minna-okane | みんなでお金 | みんなでお金/ |
 | minna-graph | みんなでグラフ | みんなでグラフ/ |
+| minna-graph-drill | みんなでグラフ：ドリル | （プロジェクトには未保存） |
