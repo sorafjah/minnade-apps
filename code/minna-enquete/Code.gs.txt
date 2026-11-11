@@ -453,7 +453,8 @@ function tInit(pass) {
     rosters: listRosters_(),
     state: teacherState_(),
     draft: getDraft_(),
-    rounds: listRounds_()
+    rounds: listRounds_(),
+    tset: getTSet_()
   };
 }
 
@@ -633,7 +634,7 @@ function tResults(pass, roundId) {
   checkPass_(pass);
   const st = getState_();
   const rid = roundId || st.roundId || ((listRounds_()[0] || {}).id || '');  // 受付中の回がなければ、いちばん新しい回
-  if (!rid) return { roundId: '', answers: [], questions: [] };
+  if (!rid) return { roundId: '', answers: [], questions: [], tset: getTSet_(), hid: {} };
   let questions = null, title = '', started = 0;
   const info = readObjs_(sheet_(SH.ROUND)).filter(r => String(r['回ID']) === rid)[0];
   if (info) {
@@ -645,7 +646,8 @@ function tResults(pass, roundId) {
   return {
     roundId: rid, title: title || st.title || '', started: started,
     open: !!st.open && rid === st.roundId,
-    questions: questions || [], answers: answersOf_(rid), rounds: listRounds_()
+    questions: questions || [], answers: answersOf_(rid), rounds: listRounds_(),
+    tset: getTSet_(), hid: getHid_(rid)
   };
 }
 
@@ -674,10 +676,11 @@ function tGoto(pass, idx) {
 function tLive(pass) {
   checkPass_(pass);
   const st = getState_();
-  if (!st.roundId) return { roundId: '' };
+  if (!st.roundId) return { roundId: '', tset: getTSet_(), hid: {} };
   return {
     roundId: st.roundId, title: st.title || '', open: !!st.open, state: teacherState_(),
-    questions: getSurvey_(), answers: answersOf_(st.roundId), people: peopleOf_(st.roundId)
+    questions: getSurvey_(), answers: answersOf_(st.roundId), people: peopleOf_(st.roundId),
+    tset: getTSet_(), hid: getHid_(st.roundId)
   };
 }
 
@@ -685,6 +688,66 @@ function tSaveDraft(pass, draft) {
   checkPass_(pass);
   const d = { title: String((draft && draft.title) || '').slice(0, 100), questions: (draft && draft.questions) || [] };
   setBig_('DRAFT', JSON.stringify(d));
+  return true;
+}
+
+/* ========== 自由に書く質問の見せ方（くわしい設定）と、答えの「かくす」 ========== */
+
+// showFree：書かれた答えを先生の画面に出す（初期：出す）／ freeName：答えに、答えた人の名前をつける（初期：つけない）
+function getTSet_() {
+  let o = {};
+  try { o = JSON.parse(PropertiesService.getScriptProperties().getProperty('TSET') || '{}') || {}; } catch (e) { o = {}; }
+  return { showFree: o.showFree !== false, freeName: o.freeName === true };
+}
+
+function tSaveSet(pass, o) {
+  checkPass_(pass);
+  o = o || {};
+  const cur = getTSet_();
+  if (typeof o.showFree === 'boolean') cur.showFree = o.showFree;
+  if (typeof o.freeName === 'boolean') cur.freeName = o.freeName;
+  PropertiesService.getScriptProperties().setProperty('TSET', JSON.stringify(cur));
+  return cur;
+}
+
+// 先生が「かくす」にした答え（質問ごと。そのあいだだけキャッシュに持つ。生徒の画面には出ない）
+function hidKey_(rid) { return 'hid_' + encodeURIComponent(String(rid)); }
+
+function getHid_(rid) {
+  try {
+    const v = JSON.parse(CacheService.getScriptCache().get(hidKey_(rid)) || '{}');
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch (e) { return {}; }
+}
+
+function tHideAnswer(pass, rid, no, key) {
+  checkPass_(pass);
+  rid = String(rid || ''); no = Math.round(Number(no)) || 0;
+  key = String(key === null || key === undefined ? '' : key).slice(0, 80);
+  if (!/^\d{8}-\d{6}$/.test(rid) || no < 1 || no > 100 || !key) return true;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const h = getHid_(rid);
+    const a = h[no] || [];
+    if (a.indexOf(key) < 0 && a.length < 200) a.push(key);
+    h[no] = a;
+    CacheService.getScriptCache().put(hidKey_(rid), JSON.stringify(h), 21600);
+  } finally { lock.releaseLock(); }
+  return true;
+}
+
+function tUnhideAnswers(pass, rid, no) {
+  checkPass_(pass);
+  rid = String(rid || ''); no = Math.round(Number(no)) || 0;
+  if (!/^\d{8}-\d{6}$/.test(rid) || no < 1 || no > 100) return true;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const h = getHid_(rid);
+    delete h[no];
+    CacheService.getScriptCache().put(hidKey_(rid), JSON.stringify(h), 21600);
+  } finally { lock.releaseLock(); }
   return true;
 }
 
