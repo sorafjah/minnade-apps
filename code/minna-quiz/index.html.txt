@@ -185,6 +185,12 @@ button.opt:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
 .bigqr{position:fixed;inset:0;background:#fff;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:10px}
 .bigqr svg{display:block;width:min(74vh,90vw);height:auto}
 .bigqr .bigcode b{font-size:clamp(40px,9vh,90px)}
+.ansbox{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;background:var(--o-bg);border:3px solid var(--o-line);border-radius:16px;padding:8px 14px;font-size:clamp(20px,2.6vw,30px);font-weight:700}
+.ansbox .atxt{flex:1 1 auto;min-width:0;word-break:break-all}
+.ansbox b{color:var(--main)}
+.ansbox small{flex:1 1 100%;font-size:.55em;font-weight:400;color:var(--sub)}
+.hidebtn{background:#fff;border:2px solid var(--line);color:var(--sub);font-size:15px;padding:0 12px;min-height:40px}
+#tOpts .names .ansbox{width:100%}
 .table{width:100%;border-collapse:collapse;font-size:clamp(15px,1.8vw,19px)}
 .table th{background:var(--mainsoft);color:var(--main);text-align:left;padding:8px 10px;white-space:nowrap}
 .table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
@@ -490,14 +496,14 @@ a.linkbtn{display:inline-flex;align-items:center;text-decoration:none;border-rad
         </div>
       </div>
       <div class="field">
-        <span>記述式の答えを、しめきったあとの先生の画面に</span>
+        <span>記述式の答えを、先生の画面に（答えてすぐ出ます。かくしたい答えは、先生の画面の「かくす」で消せます）</span>
         <div class="seg" id="segTypedShow">
           <button data-v="1" type="button">出す</button>
           <button data-v="0" type="button">出さない</button>
         </div>
       </div>
       <div class="field">
-        <span>記述式の答えに、名前を</span>
+        <span>記述式の答えに、答えた人の名前を（初期設定は「つけない」）</span>
         <div class="seg" id="segTypedName">
           <button data-v="1" type="button">つける</button>
           <button data-v="0" type="button">つけない</button>
@@ -965,11 +971,12 @@ const MOCK = HAS_GAS ? null : (function () {
   const BOTS = ['すずき あおい', '田中《たなか》 はると', 'たかはし けんた', 'いとう さくら'];
   const DEF = { round: 0, phase: 'wait', index: 0, total: 0, hintShown: 0, openedAt: 0, correct: '', setName: '', sid: '', mode: 'all', style: 'choice', source: 'sheet', qn: 0 };
   const set = { source: 'sheet', showQ: true, limit: 0, limitSet: false, timeView: 'bar', nameMode: 'roster', rosterGroup: '1組', codeOn: false, code: '4821',
-    mode: 'all', style: 'choice', kana: 'ruby', sound: true, qrUrl: '', auto: true, upN: 3, downN: 2, guideEvery: false, typedShow: false, typedName: false, optLayout: 'v' };
+    mode: 'all', style: 'choice', kana: 'ruby', sound: true, qrUrl: '', auto: true, upN: 3, downN: 2, guideEvery: false, showTyped: true, typedName: false, optLayout: 'v' };
   const stuCfg = { 'すずき あおい': { lv: 1, lo: 1, hi: 3, auto: '' }, '田中《たなか》 はると': { lv: 2, lo: 1, hi: 2, auto: 'off' } };
   let st = Object.assign({}, DEF), cur = null, ans = [], pq = [], joined = [], members = {}, statuses = {}, joinedMe = false, codeOk = false;
   const ME = 'me';
   let fileNo = 5;
+  let hid = {};
   const shape = (body) => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="' + SVG_NS + '" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" rx="12" fill="#fff"/>' + body + '</svg>');
   const FOLDER = { mock000000000001: { name: 'まる.svg', data: dots, t: 1 },
     mock000000000002: { name: 'さんかく.svg', data: shape('<polygon points="60,18 104,100 16,100" fill="#8cc4ea"/>'), t: 2 },
@@ -1164,6 +1171,7 @@ const MOCK = HAS_GAS ? null : (function () {
         qCount: on ? st.total : QN(), pages: RAWQ.length - QN(), setName: on ? st.setName : (set.source === 'manual' && set.mode === 'all' ? 'その場の問題' : setName()) };
       if (on && st.mode === 'all' && ['open', 'closed', 'reveal'].indexOf(st.phase) >= 0) {
         out.list = roundAns().map(a => ({ name: plain(a.n), choice: a.c }));
+        out.hid = hid[st.round] || [];
         out.hasKey = !!(cur && (cur.answer || cur.input));
         if (cur && cur.input) out.correctText = cur.correctText;
       }
@@ -1213,7 +1221,7 @@ const MOCK = HAS_GAS ? null : (function () {
       ['mode', 'style', 'source', 'timeView', 'kana', 'qrUrl', 'optLayout'].forEach(k => { if (typeof o[k] === 'string' && o[k] !== undefined) set[k] = o[k]; });
       if (set.style !== 'input') set.style = 'choice';
       if (set.optLayout !== 'h') set.optLayout = 'v';
-      ['showQ', 'sound', 'codeOn', 'auto', 'guideEvery', 'typedShow', 'typedName'].forEach(k => { if (typeof o[k] === 'boolean') set[k] = o[k]; });
+      ['showQ', 'sound', 'codeOn', 'auto', 'guideEvery', 'showTyped', 'typedName'].forEach(k => { if (typeof o[k] === 'boolean') set[k] = o[k]; });
       if (o.limit !== undefined) { set.limit = Math.max(0, Math.min(600, parseInt(o.limit, 10) || 0)); set.limitSet = true; }
       if (o.upN !== undefined) set.upN = Math.max(1, Math.min(20, parseInt(o.upN, 10) || 3));
       if (o.downN !== undefined) set.downN = Math.max(1, Math.min(20, parseInt(o.downN, 10) || 2));
@@ -1221,6 +1229,8 @@ const MOCK = HAS_GAS ? null : (function () {
       if (typeof o.rosterGroup === 'string' && o.rosterGroup !== set.rosterGroup) { set.rosterGroup = o.rosterGroup; members = {}; }
       return pub();
     },
+    teacherHideAnswer(k) { (hid[st.round] = hid[st.round] || []).push(k); return true; },
+    teacherUnhideAnswers() { hid[st.round] = []; return true; },
     teacherRoster() { return { exists: true, mode: set.nameMode, current: set.rosterGroup, groups: Object.keys(ROSTER).map(g => ({ name: g, count: ROSTER[g].length })) }; },
     teacherMakeRoster() { return api.teacherRoster(); },
     teacherMembers() { const v = Object.keys(members).map(k => members[k]); return { names: chosen().filter(n => v.indexOf(n) >= 0), mode: set.nameMode }; },
@@ -2030,7 +2040,7 @@ const HELP_T = '' +
   '<li>スプレッドシートの「問題」タブに問題を書きます（選択肢A〜D、正解、ヒント、解説、画像の名前、レベル）。ふりがなは「漢字《かんじ》」と書きます。</li>' +
   '<li>問題には「問題の画像」、選択肢には「Aの画像」〜「Dの画像」の欄で画像を入れられます。ことばがなく、画像だけの選択肢にもできます。</li>' +
   '<li>選択肢（A〜D）と「正解」を空にした行（または「種類」の欄に「解説」と書いた行）は、選択肢のない解説のページになります（「問題文」「問題の画像」「解説」「解説の画像」を出します）。みんなでは、前の問題の答え合わせのあとに「つぎのページへ」を押すと出ます。ひとりずつでは、その上の問題に答えたあとに出ます。</li>' +
-  '<li>正解を空にして選択肢だけ書いた問題は、正誤のないアンケートです（みんなでのとき「結果を見る」）。答え方を「記述式」にすると、選択肢を出さず、文字で自由に書くアンケートにもなります。書かれた答えをしめきったあとの画面に出すか、名前をつけるかは「くわしい設定」で選べます。</li>' +
+  '<li>正解を空にして選択肢だけ書いた問題は、正誤のないアンケートです（みんなでのとき「結果を見る」）。答え方を「記述式」にすると、選択肢を出さず、文字で自由に書くアンケートにもなります。書かれた答えは、先生の画面に、答えてすぐ出ます（同じ答えはまとめて数えます）。出したくない答えは、その答えの「かくす」を押します。出すかどうか、答えた人の名前をつけるかは、「くわしい設定」で選べます（初期設定は、答えは出す・名前はつけない）。</li>' +
   '<li>名簿を使うときは、「名簿」タブに生徒の名前を書きます（名前は実名でなく、ニックネームや番号でも構いません。名前以外の情報は入れないでください）。</li>' +
   '<li>「レベル」列に1〜9の数字を書くと、ひとりずつのときにレベルごとに問題を出し分けます（書かないときは、すべてレベル1です）。</li>' +
   '<li>画像を使うときは「画像を入れる」ボタンから入れて、名前をスプレッドシートの画像の欄に書きます。いらなくなった画像は、同じ画面の「削除」ボタン（2回おす）で消せます。</li></ol></div>' +
@@ -2184,20 +2194,40 @@ function bigQrHtml(r) {
 function renderTLive(r) {
   const st = r.state, list = r.list;
   const page = st.phase === 'page';
-  if (T.cntRound !== st.round) { T.cntRound = st.round; T.showCnt = false; }   // 人数は、問題ごとに かくした状態から始める
+  if (T.cntRound !== st.round) { T.cntRound = st.round; T.showCnt = false; T.nameFlip = {}; }   // 人数は、問題ごとに かくした状態から始める
   renderQ('t', { show: true, text: st.text, img: st.img, hints: st.hints, big: page && pageImgOnly(st) });
   if (page) {
     setHtml($('tOpts'), '');
   } else if (st.input) {
     const se = r.settings || {};
-    const closed = st.phase === 'closed' || st.phase === 'reveal';
-    const showT = closed && se.typedShow === true;
+    const showT = se.showTyped !== false;
     const named = se.typedName === true;
-    let items;
-    if (!showT) items = list.map(a => H('span', 'name', esc(a.name)));
-    else if (named) items = list.map(a => H('span', 'name', esc(a.name) + '：' + esc(a.choice)));
-    else items = list.map(a => a.choice).sort().map(c => H('span', 'name', esc(c)));
-    let h = H('div', 'names', items.join('') || H('span', 'note', 'まだ だれも答えていません'));
+    let h0;
+    if (!showT) {
+      // 答えは出さず、答えた人の名前だけ出す
+      h0 = H('div', 'names', list.map(a => H('span', 'name', esc(a.name))).join('') || H('span', 'note', 'まだ だれも答えていません'));
+    } else {
+      // 同じ答え（そろえて同じもの）は、まとめて数える。先生が「かくす」にした答えは出さない
+      const flip = T.nameFlip || {};
+      const nameOn = k => named !== !!flip[k];   // 設定どおり。この答えだけ、先生が反対にしたときは逆
+      const hid = r.hid || [], groups = [], idx = {};
+      list.forEach(a => {
+        const k = normAnsC(a.choice) || String(a.choice);
+        if (idx[k] === undefined) { idx[k] = groups.length; groups.push({ k: k, text: a.choice, names: [], n: 0 }); }
+        groups[idx[k]].n++; groups[idx[k]].names.push(a.name);
+      });
+      groups.sort((x, y) => y.n - x.n);
+      const vis = groups.filter(g => hid.indexOf(g.k) < 0), nHid = groups.length - vis.length;
+      h0 = H('div', 'names', vis.map(g => H('div', 'ansbox',
+        H('span', 'atxt', esc(g.text)) +
+        (T.showCnt ? H('b', '', g.n + '人') : '') +
+        (nameOn(g.k) ? H('small', '', esc(g.names.join('、'))) : '') +
+        H('button', 'hidebtn', 'かくす', 'type="button" data-hide="' + esc(g.k) + '"') +
+        H('button', 'hidebtn', nameOn(g.k) ? '名前をかくす' : '🙂', 'type="button" data-name="' + esc(g.k) + '"'))).join('') ||
+        H('span', 'note', nHid ? 'すべてかくしています' : 'まだ だれも答えていません'));
+      if (nHid) h0 += H('div', 'note', 'かくしている答え：' + nHid + '件 ' + H('button', 'hidebtn', 'すべてもどす', 'type="button" data-unhide="1"'));
+    }
+    let h = h0;
     if (st.phase === 'reveal' && (st.correctText || r.correctText)) h += H('div', 'typed win', '正解：' + ts(st.correctText || r.correctText || ''));
     setHtml($('tOpts'), h);
   } else {
@@ -2254,7 +2284,7 @@ function boardHtml(r) {
 /* ----- 下のボタン ----- */
 function renderFoot(r) {
   const st = r.state, se = r.settings, phase = st.phase;
-  const key = [phase, st.round, st.correct, st.hints.length, st.source, r.hasKey, st.index, st.total, st.mode, st.input, st.more, st.nextPage, T.busy, T.showCnt].join('|');
+  const key = [phase, st.round, st.correct, st.hints.length, st.source, r.hasKey, st.index, st.total, st.mode, st.input, st.more, st.nextPage, T.busy, T.showCnt, se.showTyped].join('|');
   if (key === T.footKey) return;
   T.footKey = key;
   const btn = (act, label, cls, arg, confirm) => H('button', cls || 'main-btn', esc(label), 'type="button" data-act="' + act + '" data-arg="' + esc(arg || '') + '"' + (confirm ? ' data-confirm="' + esc(confirm) + '"' : ''));
@@ -2282,7 +2312,7 @@ function renderFoot(r) {
   } else if (phase === 'end') {
     h = btn('teacherStart', '同じ設定でもう一度 受付を始める') + btn('teacherRestart', '設定を変える', 'sub-btn');
   }
-  if (!st.input && st.mode === 'all' && ['open', 'closed', 'reveal'].indexOf(phase) >= 0) h = btn('toggleCnt', T.showCnt ? '人数をかくす' : '人数を出す', 'sub-btn') + h;
+  if ((!st.input || se.showTyped !== false) && st.mode === 'all' && ['open', 'closed', 'reveal'].indexOf(phase) >= 0) h = btn('toggleCnt', T.showCnt ? '人数をかくす' : '人数を出す', 'sub-btn') + h;
   $('tFoot').innerHTML = h;
 }
 
@@ -2351,6 +2381,12 @@ document.addEventListener('click', e => {
     teacherAct(b.dataset.act, b.dataset.arg || undefined);
     return;
   }
+  b = e.target.closest('#tOpts [data-hide]');
+  if (b) { teacherAct('teacherHideAnswer', b.dataset.hide); return; }
+  b = e.target.closest('#tOpts [data-name]');
+  if (b) { T.nameFlip = T.nameFlip || {}; T.nameFlip[b.dataset.name] = !T.nameFlip[b.dataset.name]; if (T.last) renderTeacher(T.last); return; }
+  b = e.target.closest('#tOpts [data-unhide]');
+  if (b) { teacherAct('teacherUnhideAnswers'); return; }
   b = e.target.closest('[data-a="bigqr"]');
   if (b) { T.bigQr = true; if (T.last) renderTeacher(T.last); return; }
   b = e.target.closest('[data-a="normalqr"]');
@@ -2377,7 +2413,7 @@ bindSeg('segGuide', 'guideEvery', v => v === '1');
 bindSeg('segSound', 'sound', v => v === '1');
 bindSeg('segShowQ', 'showQ', v => v === '1');
 bindSeg('segOptLayout', 'optLayout');
-bindSeg('segTypedShow', 'typedShow', v => v === '1');
+bindSeg('segTypedShow', 'showTyped', v => v === '1');
 bindSeg('segTypedName', 'typedName', v => v === '1');
 bindSeg('segTimeView', 'timeView');
 
@@ -2416,7 +2452,7 @@ function syncSettings(r) {
   markSeg('segSound', se.sound ? '1' : '0');
   markSeg('segShowQ', se.showQ ? '1' : '0');
   markSeg('segOptLayout', se.optLayout === 'h' ? 'h' : 'v');
-  markSeg('segTypedShow', se.typedShow === true ? '1' : '0');
+  markSeg('segTypedShow', se.showTyped !== false ? '1' : '0');
   markSeg('segTypedName', se.typedName === true ? '1' : '0');
   markSeg('segTimeView', se.timeView);
   setNum('nbLimit', se.limit);

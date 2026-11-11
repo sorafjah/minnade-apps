@@ -56,7 +56,7 @@ const DEF_LIMIT = 60;   // せっていで かえていないときの 制限時
 const PUB_VER = 13;     // 生徒に わたす データの 形の ばんごう（かえたら 古い きおくを すてる）
 const DEF_SET = { source: 'sheet', showQ: true, setId: '', limit: 0, limitSet: false, timeView: 'bar', nameMode: 'roster', rosterGroup: '',
   codeOn: false, code: '', mode: 'all', style: 'choice', kana: 'ruby', sound: true, qrUrl: '', auto: true, upN: 3, downN: 2, guideEvery: false,
-  typedShow: false, typedName: false, optLayout: 'v' };
+  showTyped: true, typedName: false, optLayout: 'v' };
 const MANUAL_NAME = 'その場の問題';
 
 function effLimit_(set) {
@@ -1369,7 +1369,7 @@ function publicSettings_(set) {
   return { mode: set.mode, style: set.style, source: 'sheet', showQ: set.showQ, timeView: set.timeView, kana: set.kana,
     sound: set.sound !== false, limit: effLimit_(set), auto: set.auto !== false, upN: set.upN, downN: set.downN,
     nameMode: set.nameMode, rosterGroup: set.rosterGroup, codeOn: set.codeOn === true, guideEvery: set.guideEvery === true, qrUrl: set.qrUrl || '',
-    typedShow: set.typedShow === true, typedName: set.typedName === true, optLayout: set.optLayout === 'h' ? 'h' : 'v' };
+    showTyped: set.showTyped !== false, typedName: set.typedName === true, optLayout: set.optLayout === 'h' ? 'h' : 'v' };
 }
 
 function teacherStatus() {
@@ -1391,6 +1391,7 @@ function teacherStatus() {
   if (on && st.source === 'manual') out.setName = MANUAL_NAME;
   if (on && st.mode === 'all' && LIVE.indexOf(st.phase) >= 0) {
     out.list = getAnswers_(st.round).map(a => ({ name: plain_(a.n), choice: a.c }));
+    out.hid = cget_('hid_' + st.round) || [];   // 先生が「かくす」にした記述式の答え（この問題のあいだだけ）
     out.hasKey = !!(cur && cur.answer);
     if (cur) {
       Object.keys(cur.types || {}).forEach(L => { out.qTypes[L] = plain_(cur.types[L]); });
@@ -1557,7 +1558,7 @@ function teacherSettings(o) {
   const pick = (v, list) => list.indexOf(v) >= 0;
   if (pick(o.mode, ['all', 'solo'])) set.mode = o.mode;
   if (pick(o.style, ['choice', 'input'])) set.style = o.style;
-  if (typeof o.typedShow === 'boolean') set.typedShow = o.typedShow;
+  if (typeof o.showTyped === 'boolean') set.showTyped = o.showTyped;
   if (typeof o.typedName === 'boolean') set.typedName = o.typedName;
   if (pick(o.optLayout, ['v', 'h'])) set.optLayout = o.optLayout;
   if (typeof o.showQ === 'boolean') set.showQ = o.showQ;
@@ -1598,6 +1599,28 @@ function teacherRoster() {
     exists: r.exists, mode: set.nameMode === 'chara' || set.nameMode === 'guest' ? set.nameMode : 'roster', current: set.rosterGroup,
     groups: r.groups.map(g => ({ name: g.name, count: g.names.length }))
   };
+}
+
+/** 記述式の答えを1つ、先生の画面でかくす（key＝そろえた答え）。生徒の画面には、もともと出ない */
+function teacherHideAnswer(key) {
+  checkTeacher_();
+  key = String(key === null || key === undefined ? '' : key).slice(0, 80);
+  const st = getState_();
+  if (!st.sid || !key) return true;
+  withLock_(() => {
+    const a = cget_('hid_' + st.round) || [];
+    if (a.indexOf(key) < 0 && a.length < 200) a.push(key);
+    cput_('hid_' + st.round, a);
+  });
+  return true;
+}
+
+/** かくした記述式の答えを、すべてもどす */
+function teacherUnhideAnswers() {
+  checkTeacher_();
+  const st = getState_();
+  if (st.sid) cput_('hid_' + st.round, []);
+  return true;
 }
 
 function teacherMakeRoster() {
