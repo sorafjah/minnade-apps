@@ -419,6 +419,12 @@ body.teacher .oc p { margin: 0; }
 body.teacher .oc.hid { opacity: .5; background: #eee; border-style: dashed; }
 body.teacher .oct { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; white-space: normal; }
 body.teacher .oct button { font-size: 13px; min-height: 36px; min-width: 36px; padding: 2px 8px; }
+body.teacher .oc .cnt { display: inline-block; margin-left: 8px; font-weight: bold; color: var(--pri); white-space: nowrap; }
+body.teacher .oc .ans { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0; }
+body.teacher .fhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
+body.teacher .fhead button, body.teacher .fnote button { font-size: 14px; min-height: 38px; min-width: 38px; padding: 2px 12px; }
+body.teacher .fnote { margin-top: 8px; font-size: 14px; color: var(--sub); }
+body.teacher #tSetBtn { font-size: 16px; }
 body.teacher #proj { position: fixed; inset: 0; z-index: 60; background: #fff; overflow: auto; font-size: clamp(16px, 1.9vw, 32px); padding: max(4vh, 76px) 4vw 8vh; }
 body.teacher #proj[hidden] { display: none; }
 body.teacher #proj .pbar { position: fixed; top: 10px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; z-index: 2; background: rgba(255,255,255,.94); padding: 6px; border-radius: 12px; border: 1px solid var(--line); max-width: 92vw; }
@@ -468,6 +474,7 @@ body.teacher .bar { grid-template-columns: 90px 1fr 96px;
       <button data-tab="edit" role="tab">質問をつくる</button>
       <button data-tab="res" role="tab">結果を見る</button>
     </div>
+    <button id="tSetBtn" type="button">くわしい設定</button>
   </header>
   <section id="statusCard" class="card"></section>
   <main id="main"></main>
@@ -600,7 +607,9 @@ const DEMO = (function () {
   const rosters = { '1組': ['あおい', 'たろう', 'はなこ', 'ゆうと'], '2組': ['さくら', 'けんた', 'みさき'] };
   const TYPE_JA = { free: '自由', choice: '選択', gauge: 'ゲージ' };
   const NAMES = ['あおい', 'たろう', 'はなこ', 'ゆうと', 'さくら', 'けんた', 'みさき', 'りく'];
-  const FREE = ['たのしかった', 'イルカが すごかった', 'またいきたい', '', 'バスで よった'];
+  const FREE = ['たのしかった', 'イルカが すごかった', 'またいきたい', '', 'バスで よった', 'タノシカッタ', 'イルカが すごかった'];
+  const tset = { showFree: true, freeName: false };
+  const hidD = {};
 
   function rid(d) {
     const p = n => String(n).padStart(2, '0');
@@ -707,13 +716,14 @@ const DEMO = (function () {
       }
       const r = rounds.find(x => x.id === id);
       return { roundId: id, title: r ? r.title : s.title, open: s.open && id === s.roundId, state: api._tstate(), questions: r ? r.questions : survey,
-        answers: answers.filter(a => roundOf(a) === id), people: Object.keys(people).map(k => ({ name: people[k].name, status: people[k].status, t: people[k].t })) };
+        answers: answers.filter(a => roundOf(a) === id), people: Object.keys(people).map(k => ({ name: people[k].name, status: people[k].status, t: people[k].t })),
+        tset: Object.assign({}, tset), hid: JSON.parse(JSON.stringify(hidD[id] || {})) };
     },
     tInit() {
       return {
         url: 'https://script.google.com/macros/s/（デモ）/exec',
         surveys: Object.keys(sheet).map(n => ({ name: n, count: sheet[n].length })),
-        rosters: Object.keys(rosters), state: api._tstate(), draft, rounds: api._rounds()
+        rosters: Object.keys(rosters), state: api._tstate(), draft, rounds: api._rounds(), tset: Object.assign({}, tset)
       };
     },
     tGetSurvey(pass, name) { return sheet[name] || []; },
@@ -735,8 +745,11 @@ const DEMO = (function () {
     tResults(pass, roundId) {
       const id = roundId || s.roundId || (api._rounds()[0] || {}).id;
       const r = rounds.find(x => x.id === id);
-      return { roundId: id, title: r ? r.title : '', started: r ? r.started : 0, open: s.open && id === s.roundId, questions: r ? r.questions : [], answers: answers.filter(a => roundOf(a) === id), rounds: api._rounds() };
+      return { roundId: id, title: r ? r.title : '', started: r ? r.started : 0, open: s.open && id === s.roundId, questions: r ? r.questions : [], answers: answers.filter(a => roundOf(a) === id), rounds: api._rounds(), tset: Object.assign({}, tset), hid: JSON.parse(JSON.stringify(hidD[id] || {})) };
     },
+    tSaveSet(pass, o) { if (typeof o.showFree === 'boolean') tset.showFree = o.showFree; if (typeof o.freeName === 'boolean') tset.freeName = o.freeName; return Object.assign({}, tset); },
+    tHideAnswer(pass, rid, no, key) { const h = (hidD[rid] = hidD[rid] || {}); const a = (h[no] = h[no] || []); if (a.indexOf(key) < 0) a.push(key); return true; },
+    tUnhideAnswers(pass, rid, no) { if (hidD[rid]) delete hidD[rid][no]; return true; },
     tSaveDraft(pass, d) { draft = d; return true; },
     tSaveSurveyToSheet(pass, name, qs) { if (!name) throw new Error('アンケート名を入れてください。'); sheet[name] = qs; return Object.keys(sheet).map(n => ({ name: n, count: sheet[n].length })); },
     _tstate() { return Object.assign({}, s); },
@@ -1422,7 +1435,8 @@ const T = {
   init: null, st: null, people: [], count: 0, tab: 'run',
   cfg: Object.assign({ source: 'sheet', sheetName: '', audience: 'adult', mode: 'group', nameMode: 'none', roster: '', needCode: true, showNumber: false, shared: false }, store.get('svy_t_cfg', {})),
   ed: store.get('svy_t_ed', null) || { title: '', questions: [] },
-  resRound: '', res: null, timer: null
+  resRound: '', res: null, timer: null,
+  tset: { showFree: true, freeName: false }, showCnt: {}, nameFlip: {}
 };
 let main = document.getElementById('main');
 function setMain(html) { main = replaceView(main, html); return main; }
@@ -1443,6 +1457,7 @@ async function boot() {
     return;
   }
   T.st = T.init.state;
+  if (T.init.tset) T.tset = T.init.tset;
   if (!T.cfg.sheetName && T.init.surveys.length) T.cfg.sheetName = T.init.surveys[0].name;
   if (!T.cfg.roster && T.init.rosters.length) T.cfg.roster = T.init.rosters[0];
   if (!T.ed.questions.length && T.init.draft && T.init.draft.questions) T.ed = T.init.draft;
@@ -1805,7 +1820,7 @@ function renderResShell() {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.proj !== undefined && T.res) {
       if (b.dataset.proj === 'all') openProj('res', 'all', 0); else openProj('res', 'q', +b.dataset.proj.split(':')[1]);
-    } else if (b.dataset.hide !== undefined && T.res) { toggleHide(b.dataset.hide); drawRes(); drawProj(); }
+    } else if (b.dataset.fa !== undefined && T.res) { freeAct(b, T.res); }
   });
 }
 
@@ -1822,7 +1837,7 @@ async function loadResults(roundId, quiet) {
   try { r = await call('tResults', T.pass, roundId); }
   catch (e) { if (!quiet) { const b = main.querySelector('#resBody'); if (b) b.innerHTML = '<span class="msgline err">' + esc(errText(e)) + '</span>'; } return; }
   if (T.tab !== 'res') return;
-  T.res = r; T.resRound = r.roundId; if (r.roundId) loadHide(r.roundId);
+  T.res = r; T.resRound = r.roundId; if (r.tset) T.tset = r.tset;
   const sel = main.querySelector('#roundSel');
   if (sel) sel.innerHTML = (r.rounds || []).map(x => '<option value="' + esc(x.id) + '"' + (x.id === r.roundId ? ' selected' : '') + '>' +
     (x.started ? fmtDate(x.started) + ' ' + fmtTime(x.started) + '　' : '') + esc(plainText(x.title)) + '</option>').join('') || '<option>まだ記録がありません</option>';
@@ -1903,13 +1918,7 @@ function resultsHtml(r) {
       html += '<div class="bars">' + keys.map(k => '<div class="bar"><span>' + esc(k) + '</span><div class="b"><i style="width:' + (cnt[k] / max * 100) + '%"></i></div><span><b>' + cnt[k] + '</b>人' + (answered ? '（' + Math.round(cnt[k] / answered * 100) + '%）' : '') + '</span></div>').join('') + '</div>' +
         (q.multi ? '<p class="help">いくつでも選べる質問です（%は答えた人の数をもとにしています）。</p>' : '');
     } else {
-      const fr = list.filter(x => String(x.a.answer || '').trim());
-      html += fr.length ? '<div class="frees">' + fr.map(x => {
-        const k1 = 'a:' + x.id + '#' + q.no, k2 = 'p:' + x.id, hid = T.hide[k1] || T.hide[k2];
-        return '<div' + (hid ? ' style="opacity:.5"' : '') + '><b>' + esc(x.p.name) + '</b>' + esc(x.a.answer) +
-          '<span class="oct"><button data-hide="' + esc(k1) + '">' + (T.hide[k1] ? 'この意見を表示にもどす' : 'この意見を表示しない') + '</button>' +
-          '<button data-hide="' + esc(k2) + '">' + (T.hide[k2] ? 'この人の意見を表示にもどす' : 'この人の意見をすべて表示しない') + '</button></span></div>';
-      }).join('') + '</div><p class="help">「表示しない」にした意見は、全画面の表示に出ません（ここでは薄く出ます）。</p>' : '<p class="help">書かれた回答はありません。</p>';
+      html += freeHtml(q, list.filter(x => String(x.a.answer || '').trim()), r, { editable: true });
     }
     html += '</div>';
   });
@@ -1932,11 +1941,106 @@ function resultsHtml(r) {
 
 /* ---------- 進行・全画面表示 ---------- */
 const LIVE_MS = IS_GAS ? 5000 : 2500;
-Object.assign(T, { live: null, view: null, showNames: false, hide: {}, hideRound: '', proj: null, liveBusy: false, liveTimer: null, projTimer: null, lvHtml: {} });
+Object.assign(T, { live: null, view: null, showNames: false, proj: null, liveBusy: false, liveTimer: null, projTimer: null, lvHtml: {} });
 
-// 「表示しない」にした意見（回ごとに、この端末に覚えておく）
-function loadHide(rid) { if (T.hideRound === rid) return; T.hideRound = rid; T.hide = store.get('svy_t_hide_' + rid, {}) || {}; }
-function toggleHide(key) { if (T.hide[key]) delete T.hide[key]; else T.hide[key] = 1; store.set('svy_t_hide_' + T.hideRound, T.hide); }
+/* --- 自由に書く質問の答え（同じ答えは、まとめて数える） --- */
+function normAnsC(s) {
+  s = String(s === null || s === undefined ? '' : s);
+  try { s = s.normalize('NFKC'); } catch (e) { /* なにもしない */ }
+  return s.toLowerCase().replace(/[\s　]+/g, '').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/[、。,.!！?？・「」『』（）()]/g, '');
+}
+function freeKey(ans) { return (normAnsC(ans) || String(ans)).slice(0, 80); }
+
+// list：[{id, p:{name}, a:{answer}}]　d：回のデータ（roundId・tset・hid）　o.editable：「かくす」などのボタンを付ける
+function freeHtml(q, list, d, o) {
+  const ts = T.tset || d.tset || { showFree: true, freeName: false };
+  const rid = d.roundId, no = q.no, ck = rid + '|' + no;
+  const real = n => n && n !== '（名前なし）';
+  const btn = (a, label, key, extra) => '<button type="button" data-fa="' + a + '" data-no="' + no + '"' + (key !== undefined ? ' data-key="' + esc(key) + '"' : '') + (extra || '') + '>' + label + '</button>';
+  if (!list.length) return '<div class="rbn">0件の意見</div><p class="rb-none">まだ意見がありません。</p>';
+  // 答えを出さない設定：答えた人の名前だけ出す
+  if (ts.showFree === false) {
+    const names = list.map(x => x.p.name).filter(real);
+    if (!names.length) return '<div class="rbn">' + list.length + '人が答えました</div><p class="rb-none">答えの内容は出さない設定です。名前も集めていないので、人数だけ出ています。</p>';
+    return '<div class="rbn">' + list.length + '人が答えました（答えの内容は出さない設定です）</div><div class="opn">' + names.map(n => '<div class="oc"><p>' + esc(n) + '</p></div>').join('') + '</div>';
+  }
+  const hidList = (d.hid && d.hid[no]) || [];
+  const groups = [], idx = {};
+  list.forEach(x => {
+    const k = freeKey(x.a.answer);
+    if (idx[k] === undefined) { idx[k] = groups.length; groups.push({ k: k, text: String(x.a.answer), names: [], n: 0 }); }
+    groups[idx[k]].n++;
+    if (real(x.p.name)) groups[idx[k]].names.push(x.p.name);
+  });
+  groups.sort((a, b) => b.n - a.n);
+  const vis = groups.filter(g => hidList.indexOf(g.k) < 0), nHid = groups.length - vis.length;
+  const cntOn = !!T.showCnt[ck];
+  const anyName = groups.some(g => g.names.length);
+  const total = vis.reduce((a, g) => a + g.n, 0);
+  let h = '<div class="fhead"><span class="rbn" style="margin:0">' + total + '件の意見</span>' +
+    (o.editable ? btn('cnt', cntOn ? '人数をかくす' : '人数を出す') : '') + '</div>';
+  if (!vis.length) {
+    h += '<p class="rb-none">' + (nHid ? 'すべてかくしています。' : 'まだ意見がありません。') + '</p>';
+  } else {
+    h += '<div class="opn">' + vis.map(g => {
+      const nameOn = (ts.freeName === true) !== !!T.nameFlip[ck + '|' + g.k];
+      const nm = nameOn && g.names.length ? '<b>' + esc(g.names.join('、')) + '</b>' : '';
+      const ctl = o.editable ? '<div class="oct">' + btn('hide', 'かくす', g.k) +
+        (anyName ? btn('name', nameOn ? '名前をかくす' : '名前を出す', g.k) : '') + '</div>' : '';
+      return '<div class="oc">' + nm + '<div class="ans"><p>' + esc(g.text) + '</p>' + (cntOn ? '<span class="cnt">' + g.n + '人</span>' : '') + '</div>' + ctl + '</div>';
+    }).join('') + '</div>';
+  }
+  if (o.editable && nHid) h += '<div class="fnote">かくしている答え：' + nHid + '件　' + btn('unhide', 'すべてもどす') + '</div>';
+  return h;
+}
+
+function redrawFree() {
+  if (T.tab === 'live') drawLive();
+  if (T.tab === 'res') drawRes();
+  drawProj();
+}
+async function freeAct(b, d) {
+  if (!d || !d.roundId) return;
+  const a = b.dataset.fa, no = +b.dataset.no, key = b.dataset.key || '', rid = d.roundId;
+  if (a === 'cnt') { const k = rid + '|' + no; T.showCnt[k] = !T.showCnt[k]; redrawFree(); return; }
+  if (a === 'name') { const k = rid + '|' + no + '|' + key; T.nameFlip[k] = !T.nameFlip[k]; redrawFree(); return; }
+  d.hid = d.hid || {};
+  try {
+    if (a === 'hide') { const l = (d.hid[no] = d.hid[no] || []); if (l.indexOf(key) < 0) l.push(key); }
+    else if (a === 'unhide') { delete d.hid[no]; }
+    else return;
+    if (T.proj && T.proj.d !== d && T.proj.d.roundId === rid) T.proj.d.hid = d.hid;
+    redrawFree();
+    if (a === 'hide') await call('tHideAnswer', T.pass, rid, no, key); else await call('tUnhideAnswers', T.pass, rid, no);
+    if (T.tab === 'live') refreshLive();
+  } catch (err) { alert('うまくいきませんでした：' + errText(err)); }
+}
+
+// 先生用の設定（くわしい設定）
+function openSet() {
+  const ts = T.tset || { showFree: true, freeName: false };
+  const o = document.createElement('div');
+  o.setAttribute('role', 'dialog');
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,45,.45);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.innerHTML = '<div class="card" style="max-width:640px;width:100%;max-height:92vh;overflow:auto"><h2 style="margin-top:0">くわしい設定</h2>' +
+    '<div class="field"><div class="lab">自由に書く質問：書かれた答えを、先生の画面に</div>' +
+    chips('tsShow', [['1', '出す'], ['0', '出さない（答えた人の名前だけ出す）']], ts.showFree !== false ? '1' : '0') +
+    '<p class="help">答えてすぐ出ます。同じ答え（ひらがな・カタカナ・全角半角・空白をそろえて同じもの）は、まとめて数えます。出したくない答えは、その答えの「かくす」で消せます（「すべてもどす」でもどせます）。初期設定は「出す」です。</p></div>' +
+    '<div class="field"><div class="lab">自由に書く質問：答えに、答えた人の名前を</div>' +
+    chips('tsName', [['1', 'つける'], ['0', 'つけない']], ts.freeName === true ? '1' : '0') +
+    '<p class="help">初期設定は「つけない」です。答えごとのボタンで、ここでの設定と反対にできます（つけない設定のときは「名前を出す」、つける設定のときは「名前をかくす」のボタンです）。名前を集めない回では、名前は出ません。</p></div>' +
+    '<p class="help" id="tsMsg"></p>' +
+    '<div class="row" style="justify-content:flex-end"><button class="pri ts-close" type="button">閉じる</button></div></div>';
+  const save = async () => {
+    const v = { showFree: o.querySelector('input[name=tsShow]:checked').value === '1', freeName: o.querySelector('input[name=tsName]:checked').value === '1' };
+    try { T.tset = await call('tSaveSet', T.pass, v); o.querySelector('#tsMsg').textContent = '保存しました'; redrawFree(); }
+    catch (err) { o.querySelector('#tsMsg').textContent = '保存できませんでした：' + errText(err); }
+  };
+  o.addEventListener('change', save);
+  o.querySelector('.ts-close').addEventListener('click', () => o.remove());
+  document.body.appendChild(o);
+}
+document.getElementById('tSetBtn').addEventListener('click', openSet);
 
 // 質問の一覧（メッセージは除く）。no：もとの番号、label：結果で使う番号
 function qsOf(d) {
@@ -1966,21 +2070,11 @@ function answerCount(d, q) { let n = 0; const seen = {}; (d.answers || []).forEa
 function whoStr(arr, o) { return o.names && arr.length ? '<div class="who">' + arr.map(esc).join('、') + '</div>' : ''; }
 
 // 1つの質問の結果（先生の確認用と、全画面の表示で同じものを使う）
-// o.names：名前を出す ／ o.editable：意見に「表示しない」ボタンを付ける
+// o.names：名前を出す（選ぶ・ゲージ・段階） ／ o.editable：意見に「かくす」ボタンを付ける ／ o.d：回のデータ
 function qBlock(q, ord, o) {
   const list = ord.order.map(id => ({ id, p: ord.people[id], a: ord.people[id].by[q.no] })).filter(x => x.a && isAns(q, x.a));
   const nm = x => o.names ? x.p.name : '';
-  if (q.type === 'free') {
-    const cards = list.map(x => { const k1 = 'a:' + x.id + '#' + q.no, k2 = 'p:' + x.id; return { x, k1, k2, h1: !!T.hide[k1], h2: !!T.hide[k2] }; });
-    const hid = cards.filter(c => c.h1 || c.h2).length;
-    const vis = o.editable ? cards : cards.filter(c => !c.h1 && !c.h2);
-    const head = '<div class="rbn">' + (o.editable ? list.length + '件の意見' + (hid ? '（表示しない：' + hid + '件）' : '') : (list.length - hid) + '件の意見') + '</div>';
-    if (!vis.length) return head + '<p class="rb-none">まだ意見がありません。</p>';
-    return head + '<div class="opn">' + vis.map(c =>
-      '<div class="oc' + (c.h1 || c.h2 ? ' hid' : '') + '">' + (o.names ? '<b>' + esc(c.x.p.name) + '</b>' : '') + '<p>' + esc(c.x.a.answer) + '</p>' +
-      (o.editable ? '<div class="oct"><button data-hide="' + esc(c.k1) + '">' + (c.h1 ? 'この意見を表示にもどす' : 'この意見を表示しない') + '</button>' +
-        '<button data-hide="' + esc(c.k2) + '">' + (c.h2 ? 'この人の意見を表示にもどす' : 'この人の意見をすべて表示しない') + '</button></div>' : '') + '</div>').join('') + '</div>';
-  }
+  if (q.type === 'free') return freeHtml(q, list, o.d, o);
   const head = '<div class="rbn">' + list.length + '人が回答</div>';
   if (!list.length) return head + '<p class="rb-none">まだ回答がありません。</p>';
   const row = (label, arr, tot, max) => '<div class="br"><div class="bar"><span>' + esc(label) + '</span><div class="b"><i style="width:' + (arr.length / max * 100) + '%"></i></div>' +
@@ -2026,7 +2120,7 @@ function setIn(sel, html) {
 function renderLive() {
   T.lvHtml = {};
   const v = setMain('<div class="card"><h2>進行と全画面表示</h2><div id="lvCtl"></div>' +
-    '<div class="field"><div class="lab">結果に名前を出すか</div><div id="lvOpt"></div></div>' +
+    '<div class="field"><div class="lab">ゲージ・段階・選ぶ質問の結果に名前を出すか</div><div id="lvOpt"></div></div>' +
     '<div class="lvprev"><div class="lab">ここは先生の画面だけに出ています（届いた内容の確認用）。確認してから「全画面に表示」を押すと、プロジェクターなどに出せます。</div>' +
     '<div id="lvChips"></div><div id="lvPrev"></div></div>' +
     '<div class="row" style="margin-top:12px" id="lvBtns"></div></div>');
@@ -2046,7 +2140,8 @@ async function refreshLive() {
     const d = await call('tLive', T.pass);
     if (T.tab !== 'live') return;
     T.live = d;
-    if (d.roundId) { loadHide(d.roundId); if (d.state) { T.st = d.state; } if (d.people) T.people = d.people; }
+    if (d.tset) T.tset = d.tset;
+    if (d.roundId) { if (d.state) { T.st = d.state; } if (d.people) T.people = d.people; }
     drawLive();
   } catch (e) {
     if (T.tab === 'live' && !T.live) setIn('#lvCtl', '<p class="msgline err">読みこめませんでした：' + esc(errText(e)) + '</p>');
@@ -2105,8 +2200,8 @@ function drawLive() {
   const nm = hasNames(d);
   setIn('#lvOpt', nm
     ? chips('lvnames', [['0', '出さない（だれが答えたか分からない）'], ['1', '出す']], T.showNames ? '1' : '0') +
-      '<p class="help">はじめは「出さない」です。意見（自由に書く質問）は、下の確認で「この意見を表示しない」を押すと、全画面に出ません。</p>'
-    : '<p class="help">名前を集めない回なので、だれが答えたかは出ません（無記名）。意見は、下の確認で「この意見を表示しない」を押すと、全画面に出ません。</p>');
+      '<p class="help">ゲージ・段階・選ぶ質問の結果に、名前を出すかどうかです。はじめは「出さない」です。自由に書く質問の名前と答えの出し方は、右上の「くわしい設定」で決めます。</p>'
+    : '<p class="help">名前を集めない回なので、だれが答えたかは出ません（無記名）。自由に書く質問の答えの出し方は、右上の「くわしい設定」で決めます。</p>');
   // --- 確認 ---
   if (!qs.length) { setIn('#lvChips', ''); setIn('#lvPrev', '<p class="help">質問がありません。</p>'); setIn('#lvBtns', ''); return; }
   setIn('#lvChips', '<div class="lvbar"><span class="help" style="align-self:center;margin:0">確認する質問：</span>' + qs.map((q, k) =>
@@ -2114,7 +2209,7 @@ function drawLive() {
   const q = qs[vi];
   setIn('#lvPrev', '<div class="pq" style="font-weight:bold;font-size:18px;margin-bottom:6px"><span class="tag">' + q.label + '. ' + TYPE_LABEL[q.type] + '</span>' + esc(plainText(q.text)) + '</div>' +
     (d.open && st.mode === 'group' ? '<div class="rbn">参加している人：' + (d.people || []).length + '人</div>' : '') +
-    qBlock(q, ord, { names: T.showNames && nm, editable: true }));
+    qBlock(q, ord, { names: T.showNames && nm, editable: true, d: d }));
   setIn('#lvBtns', '<button class="pri" data-proj="q:' + vi + '">この質問の結果を全画面に表示</button><button data-proj="all">ここまでの結果をまとめて全画面に表示</button>');
 }
 
@@ -2130,7 +2225,7 @@ async function onLiveClick(e) {
   else if (b.hasAttribute('data-prev')) go(Math.max(-1, d.state.cur - 1));
   else if (b.dataset.goto !== undefined) go(+b.dataset.goto);
   else if (b.dataset.view !== undefined) { T.view = +b.dataset.view; drawLive(); }
-  else if (b.dataset.hide !== undefined) { toggleHide(b.dataset.hide); drawLive(); drawProj(); }
+  else if (b.dataset.fa !== undefined) { freeAct(b, d); }
   else if (b.dataset.proj !== undefined) {
     if (b.dataset.proj === 'all') openProj('live', 'all', 0); else openProj('live', 'q', +b.dataset.proj.split(':')[1]);
   }
@@ -2140,7 +2235,6 @@ async function onLiveClick(e) {
 function openProj(source, mode, label) {
   const d = source === 'live' ? T.live : T.res;
   if (!d || !d.roundId) return;
-  loadHide(d.roundId);
   const live = !!(d.open && T.st && T.st.open && d.roundId === T.st.roundId);
   T.proj = { d, mode, label: label || 0, live, html: '' };
   const el = document.getElementById('proj');
@@ -2193,7 +2287,7 @@ function drawProj() {
   const P = T.proj; if (!P) return;
   const el = document.getElementById('proj'); if (!el) return;
   const d = P.d, qs = qsOf(d), ord = peopleOfData(d), nm = hasNames(d);
-  const o = { names: T.showNames && nm, editable: false };
+  const o = { names: T.showNames && nm, editable: false, d: d };
   const title = esc(plainText(d.title || ''));
   let body;
   if (!qs.length) body = '<div class="ptitle">' + title + '</div><p class="rb-none">質問がありません。</p>';
