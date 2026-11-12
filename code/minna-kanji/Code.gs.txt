@@ -1,0 +1,638 @@
+/**
+ * @OnlyCurrentDoc
+ */
+/************************************************************
+ * みんなで漢字の読み（漢字のことばの読みを答える。みんなで／ひとりずつ）
+ *   使い方：はじめに一度だけ setup を実行し、ウェブアプリとしてデプロイ。生徒用はURL、先生用はURLの最後に ?page=teacher（URLを知っている人だけが開ける）
+ *   利用条件：授業や校内での利用・改造は自由です。販売や、そのままの再配布はご遠慮ください。
+ *   ことばと読みのデータ：JMdict / KANJIDIC2（EDRDG, CC BY-SA 4.0）を加工
+ ************************************************************/
+
+const TZ = 'Asia/Tokyo';
+const SHEET_ROSTER = '名簿';
+const SHEET_Q = '問題';
+const SHEET_CONF = '生徒設定';
+const SHEET_LOG = '記録';
+const SHEET_SUM = '回ごとの記録';
+const HEAD_Q = ['学年', '難易度', 'ことば', '読み', 'ほかに正解とする読み', '出さない'];
+const HEAD_CONF = ['名前', 'レベル', '下限', '上限', '自動調整', '答え方', '前回のレベル'];
+const HEAD_LOG = ['日時', '回ID', '名前', '進め方', 'レベル', '内容', '問題', '正しい答え', '答え', '正誤', 'まちがいの型', '答え方', 'かかった秒数'];
+const HEAD_SUM = ['日時', '回ID', '名前', '進め方', 'はじめのレベル', 'おわりのレベル', '解いた数', '正解数', '正答率', '多かったまちがい'];
+const CACHE_SEC = 21600; // 6時間
+
+// レベル：1＝小1・やさしい、2＝小1・むずかしい、3＝小2・やさしい … 13＝中学・やさしい、14＝中学・むずかしい
+const MAX_LV = 14;
+const GRADES = ['小1', '小2', '小3', '小4', '小5', '小6', '中学'];
+function lvName_(lv) { lv = parseInt(lv, 10); return (lv >= 1 && lv <= MAX_LV) ? GRADES[Math.ceil(lv / 2) - 1] + '・' + (lv % 2 ? 'やさしい' : 'むずかしい') : ''; }
+
+const DEFAULT_SETTINGS = {
+  mode: 'all', level: 1, levelMode: 'all', count: 10, minutes: 10, how: 'tile',
+  autoLv: true, up: 30, down: 2, flagN: 3,
+  sound: true, kana: 'ruby', guide: 'first', join: 'roster', roster: '', useCode: false
+};
+
+/* ========== 画面 ========== */
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  const wantTeacher = p.page === 'teacher' || p.p === 'teacher';
+  const t = HtmlService.createTemplateFromFile('index');
+  t.page = wantTeacher ? 'teacher' : 'student';
+  return t.evaluate().setTitle(wantTeacher ? 'みんなで漢字の読み（先生用）' : 'みんなで漢字の読み')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// 先生用の画面は、先生用のURL（?page=teacher）を知っている人が開く。アカウントの確かめはしない
+
+/* ========== はじめに一度だけ実行（何回実行してもよい） ========== */
+function setup() {
+  const ss = ss_();
+  if (!ss.getSheetByName(SHEET_ROSTER)) {
+    const sh = ss.insertSheet(SHEET_ROSTER);
+    sh.getRange(1, 1, 4, 1).setValues([['1組'], ['れい1'], ['れい2'], ['れい3']]);
+    sh.getRange(1, 1).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  const q = sheet_(SHEET_Q, HEAD_Q);
+  if (q.getLastRow() < 2) writeWords_(q);   // 「問題」タブが空のときだけ、ことばを入れる
+  sheet_(SHEET_CONF, HEAD_CONF);
+  sheet_(SHEET_LOG, HEAD_LOG);
+  sheet_(SHEET_SUM, HEAD_SUM);
+  cache_().remove('W_ok');
+}
+
+// 「問題」タブに、もとのことば（約6,800語）を書く
+function writeWords_(sh) {
+  const heads = heads_(sh), rows = [];
+  WORD_DATA.forEach((line, i) => {
+    const lv = i + 1, grade = GRADES[Math.ceil(lv / 2) - 1], diff = lv % 2 ? 'やさしい' : 'むずかしい';
+    line.split(',').forEach(item => {
+      if (!item) return;
+      const p = item.split(':'), rs = (p[1] || '').split('/');
+      const o = { '学年': grade, '難易度': diff, 'ことば': p[0], '読み': rs[0], 'ほかに正解とする読み': rs.slice(1).join('・'), '出さない': '' };
+      rows.push(heads.map(h => (Object.prototype.hasOwnProperty.call(o, h) ? o[h] : '')));
+    });
+  });
+  if (rows.length) sh.getRange(2, 1, rows.length, heads.length).setValues(rows);
+}
+
+/* ========== スプレッドシート ========== */
+function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+
+// タブがなければ作り、足りない見出しは右に足す（前の版のシートでも動くように）
+function sheet_(name, heads) {
+  const ss = ss_();
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  const lastCol = sh.getLastColumn();
+  const cur = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v).trim()) : [];
+  const missing = heads.filter(h => cur.indexOf(h) < 0);
+  if (missing.length) {
+    const start = cur.some(v => v !== '') ? lastCol + 1 : 1;
+    sh.getRange(1, start, 1, missing.length).setValues([missing]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function heads_(sh) { return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(v => String(v).trim()); }
+function appendRows_(sh, objs) {
+  if (!objs.length) return;
+  const heads = heads_(sh);
+  const rows = objs.map(o => heads.map(h => (Object.prototype.hasOwnProperty.call(o, h) ? o[h] : '')));
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, heads.length).setValues(rows);
+}
+
+// 名簿：1行目が名簿の名前、その下に生徒の名前（列ごとに別の名簿）
+function rosters_() {
+  const sh = ss_().getSheetByName(SHEET_ROSTER);
+  if (!sh || sh.getLastRow() < 1 || sh.getLastColumn() < 1) return [];
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  const out = [];
+  for (let c = 0; c < v[0].length; c++) {
+    const title = String(v[0][c]).trim();
+    if (!title) continue;
+    const names = [];
+    for (let r = 1; r < v.length; r++) { const n = String(v[r][c]).trim(); if (n && names.indexOf(n) < 0) names.push(n); }
+    out.push({ title: title, names: names });
+  }
+  return out;
+}
+function rosterNames_(title) {
+  const list = rosters_();
+  const hit = list.filter(r => r.title === title)[0] || list[0];
+  return hit ? hit.names : [];
+}
+
+/* ---------- 問題（ことば） ---------- */
+function hira_(s) {
+  return String(s == null ? '' : s).replace(/[\s　]/g, '').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+// 「問題」タブを読んで、レベルごとに分ける（「出さない」に何か入っている行は出さない）。1語は「ことば\t読み\tほかの読み」
+function readWords_() {
+  const sh = sheet_(SHEET_Q, HEAD_Q), last = sh.getLastRow(), heads = heads_(sh);
+  const out = [];
+  for (let i = 0; i <= MAX_LV; i++) out.push([]);
+  if (last < 2) return out;
+  const col = h => heads.indexOf(h);
+  const gi = col('学年'), di = col('難易度'), wi = col('ことば'), ri = col('読み'), ai = col('ほかに正解とする読み'), ni = col('出さない');
+  const rows = sh.getRange(2, 1, last - 1, heads.length).getDisplayValues();
+  rows.forEach(r => {
+    if (String(r[ni]).trim() !== '') return;
+    const w = String(r[wi]).trim(), rd = hira_(r[ri]);
+    if (!w || !rd) return;
+    let g = GRADES.indexOf(String(r[gi]).trim());
+    if (g < 0) { const n = parseInt(String(r[gi]).replace(/[^0-9]/g, ''), 10); g = /中/.test(r[gi]) ? 6 : (n >= 1 && n <= 6 ? n - 1 : -1); }
+    if (g < 0) return;
+    const hard = /むずか|難/.test(String(r[di]));
+    const alts = String(r[ai] || '').split(/[・、,\/\s]+/).map(hira_).filter(x => x && x !== rd);
+    out[g * 2 + (hard ? 2 : 1)].push(w + '\t' + rd + '\t' + alts.join('/'));
+  });
+  return out;
+}
+function cacheWords_(all) {
+  const c = cache_();
+  for (let lv = 1; lv <= MAX_LV; lv++) { try { c.put('W_' + lv, all[lv].join('\n'), CACHE_SEC); } catch (err) { /* 大きすぎるときは、毎回シートから読む */ } }
+  c.put('W_ok', '1', CACHE_SEC);
+}
+function parseWord_(line, lv) { const p = line.split('\t'); return [p[0], p[1], p[2] ? p[2].split('/') : [], lv]; }
+// あるレベルのことば（そのレベルに1つもないときは、近いレベルから）
+function levelWords_(lv, all) {
+  lv = clampN_(lv, 1, MAX_LV, 1);
+  const c = cache_();
+  const get = k => {
+    if (all) return all[k];
+    const s = c.get('W_' + k);
+    return s == null ? null : (s ? s.split('\n') : []);
+  };
+  if (!all && !c.get('W_ok')) { all = readWords_(); cacheWords_(all); }
+  for (let d = 0; d < MAX_LV; d++) {
+    const ks = d ? [lv - d, lv + d] : [lv];
+    for (let i = 0; i < ks.length; i++) {
+      const k = ks[i];
+      if (k < 1 || k > MAX_LV) continue;
+      let list = get(k);
+      if (list == null) { all = readWords_(); cacheWords_(all); list = all[k]; }
+      if (list.length) return list.map(x => parseWord_(x, k));
+    }
+  }
+  return [];
+}
+function sample_(list, n) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a.slice(0, n);
+}
+
+/* ---------- 生徒設定（生徒ごとに1行） ---------- */
+function num_(v) {
+  const s = String(v == null ? '' : v).trim().replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+  const n = parseInt(s, 10);
+  return isNaN(n) ? '' : n;
+}
+function yes_(v, def) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return def;
+  return !/^(×|x|ｘ|no|しない|なし|false|0|いいえ)$/i.test(s);
+}
+function howOf_(v) { const s = String(v == null ? '' : v); return /えら|tile/.test(s) ? 'tile' : /書|入力|type/.test(s) ? 'type' : ''; }
+function howName_(h) { return h === 'tile' ? '文字をえらぶ' : h === 'type' ? '字を書く' : ''; }
+function lvClamp_(v) { const n = num_(v); return n === '' ? '' : Math.max(1, Math.min(MAX_LV, n)); }
+function readConf_() {
+  const sh = sheet_(SHEET_CONF, HEAD_CONF);
+  const last = sh.getLastRow(), heads = heads_(sh);
+  const col = h => heads.indexOf(h);
+  const rows = last > 1 ? sh.getRange(2, 1, last - 1, heads.length).getValues() : [];
+  return { sh: sh, heads: heads, col: col, rows: rows };
+}
+function confRow_(d, r) {
+  const c = d.col;
+  return { level: lvClamp_(r[c('レベル')]), lower: lvClamp_(r[c('下限')]), upper: lvClamp_(r[c('上限')]), auto: yes_(r[c('自動調整')], true), how: howOf_(r[c('答え方')]), last: lvClamp_(r[c('前回のレベル')]) };
+}
+function blankConf_() { return { level: '', lower: '', upper: '', auto: true, how: '', last: '' }; }
+function confFor_(name) {
+  const d = readConf_();
+  const row = d.rows.filter(r => String(r[d.col('名前')]).trim() === name)[0];
+  return row ? confRow_(d, row) : blankConf_();
+}
+function patchConf_(d, name, patch) {
+  const ni = d.col('名前');
+  let row = d.rows.filter(r => String(r[ni]).trim() === name)[0];
+  if (!row) { row = d.heads.map(() => ''); row[ni] = name; d.rows.push(row); }
+  Object.keys(patch).forEach(h => { const i = d.col(h); if (i >= 0) row[i] = patch[h]; });
+}
+function writeConf_(d) { if (d.rows.length) d.sh.getRange(2, 1, d.rows.length, d.heads.length).setValues(d.rows); }
+
+/* ========== 保存場所（プロパティ・キャッシュ） ========== */
+function props_() { return PropertiesService.getScriptProperties(); }
+function getJSON_(k, d) { try { const v = props_().getProperty(k); return v ? JSON.parse(v) : d; } catch (err) { return d; } }
+function setJSON_(k, v) { props_().setProperty(k, JSON.stringify(v)); }
+// 長い文字列は分けて保存する（プロパティ1つは9KBまで）
+function putBig_(prefix, str) {
+  const size = 2500, n = Math.ceil(str.length / size), obj = {};
+  for (let i = 0; i < n; i++) obj[prefix + '_' + i] = str.substr(i * size, size);
+  obj[prefix + '_n'] = String(n);
+  props_().setProperties(obj);
+}
+function getBig_(prefix) {
+  const p = props_(), n = parseInt(p.getProperty(prefix + '_n') || '0', 10);
+  let s = '';
+  for (let i = 0; i < n; i++) s += p.getProperty(prefix + '_' + i) || '';
+  return s;
+}
+// キャッシュのキー：日本語の名前は encodeURIComponent で（ちがう名前が同じキーにならないように）
+function stKey_(rid, name) { return ('st_' + rid + '_' + encodeURIComponent(name)).slice(0, 240); }
+function seenKey_(rid, name) { return ('sn_' + rid + '_' + encodeURIComponent(name)).slice(0, 240); }
+function cache_() { return CacheService.getScriptCache(); }
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+/* ========== 回 ========== */
+function clampN_(v, lo, hi, d) { const n = parseInt(v, 10); return isNaN(n) ? d : Math.max(lo, Math.min(hi, n)); }
+function sanitize_(s) {
+  const d = Object.assign({}, DEFAULT_SETTINGS, s || {});
+  d.mode = d.mode === 'self' ? 'self' : 'all';
+  d.level = clampN_(d.level, 1, MAX_LV, 1);
+  d.levelMode = d.levelMode === 'each' ? 'each' : 'all';
+  d.count = clampN_(d.count, 1, 30, 10);
+  d.minutes = clampN_(d.minutes, 1, 60, 10);
+  d.how = d.how === 'type' ? 'type' : 'tile';
+  d.autoLv = d.autoLv !== false;
+  d.up = clampN_(d.up, 1, 100, 30); d.down = clampN_(d.down, 1, 10, 2);
+  d.flagN = clampN_(d.flagN, 2, 10, 3);
+  d.sound = d.sound !== false;
+  d.kana = d.kana === 'hira' ? 'hira' : 'ruby';
+  d.guide = d.guide === 'every' ? 'every' : 'first';
+  d.join = ['roster', 'chara', 'guest'].indexOf(d.join) >= 0 ? d.join : 'roster';
+  d.roster = String(d.roster || '');
+  d.useCode = d.useCode === true;
+  return d;
+}
+// 生徒に送る情報（参加コードそのもの・名簿は送らない）
+function pub_(r) {
+  if (!r) return null;
+  const s = r.settings, o = { id: r.id, prevId: r.prevId || '', status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt, showRes: !!r.showRes };
+  ['mode', 'level', 'count', 'minutes', 'how', 'autoLv', 'up', 'down', 'flagN', 'sound', 'kana', 'guide', 'join'].forEach(k => { o[k] = s[k]; });
+  return o;
+}
+function modeName_(m) { return m === 'self' ? 'ひとりずつ' : 'みんなで'; }
+
+// 回を終える：まだまとめを書いていない「みんなで」の生徒の分を、キャッシュから書く
+function endRound_(r) {
+  r.status = 'ended';
+  r.endedAt = Date.now();
+  setJSON_('ROUND', r);
+  if (r.settings.mode !== 'all') return;
+  const mem = getJSON_('MEM', []);
+  if (!mem.length) return;
+  const c = cache_(), keys = mem.map(m => stKey_(r.id, m.name)), got = c.getAll(keys);
+  const rows = [], put = {};
+  mem.forEach((m, i) => {
+    let s = null;
+    try { s = got[keys[i]] ? JSON.parse(got[keys[i]]) : null; } catch (err) { s = null; }
+    if (!s || s.sumd) return;
+    s.sumd = true; put[keys[i]] = JSON.stringify(s);
+    let correct = 0; const mist = {};
+    Object.keys(s.ans || {}).forEach(q => { const a = s.ans[q]; if (a[1]) correct++; else if (a[2]) mist[a[2]] = (mist[a[2]] || 0) + 1; });
+    rows.push(sumRow_(r.id, 'all', m.name, m.lv, m.lv, r.settings.count, correct, mist));
+  });
+  if (rows.length) appendRows_(sheet_(SHEET_SUM, HEAD_SUM), rows);
+  if (Object.keys(put).length) c.putAll(put, CACHE_SEC);
+}
+function topOf_(mist) {
+  let top = '', n = 0;
+  Object.keys(mist || {}).forEach(k => { if (mist[k] > n) { top = k; n = mist[k]; } });
+  return top ? top + '（' + n + '回）' : '';
+}
+function sumRow_(rid, mode, name, lv0, lv1, n, correct, mist) {
+  return {
+    '日時': new Date(), '回ID': rid, '名前': name, '進め方': modeName_(mode),
+    'はじめのレベル': lv0, 'おわりのレベル': lv1, '解いた数': n, '正解数': correct,
+    '正答率': n ? Math.round(correct / n * 100) + '%' : '', '多かったまちがい': typeof mist === 'string' ? mist : topOf_(mist)
+  };
+}
+
+/* ========== 生徒用 API ========== */
+function api_poll(roundId, name) {
+  const r = getJSON_('ROUND', null);
+  if (r && name && roundId === r.id) cache_().put(seenKey_(r.id, name), String(Date.now()), CACHE_SEC);
+  return { round: pub_(r) };
+}
+
+function api_checkCode(code) {
+  const r = getJSON_('ROUND', null);
+  if (!r || r.status !== 'open') return false;
+  return !r.code || String(code) === r.code;
+}
+
+function api_joinInfo(tok) {
+  const r = getJSON_('ROUND', null);
+  const out = { round: pub_(r), names: [], taken: [] };
+  if (r && r.status === 'open') {
+    if (r.settings.join === 'roster') out.names = rosterNames_(r.settings.roster);
+    out.taken = getJSON_('MEM', []).filter(m => m.kind === 'chara' && m.tok !== tok).map(m => m.name);
+  }
+  return out;
+}
+
+// 名前を入れない参加：端末ごとに「ゲスト1」「ゲスト2」…（同じ端末なら同じ番号）
+function guestName_(tok) {
+  const g = getJSON_('GUESTS', {});
+  if (!g[tok]) {
+    let max = 0;
+    Object.keys(g).forEach(k => { max = Math.max(max, g[k]); });
+    g[tok] = max + 1;
+    setJSON_('GUESTS', g);
+  }
+  return 'ゲスト' + g[tok];
+}
+function guestList_() {
+  const g = getJSON_('GUESTS', {});
+  return Object.keys(g).map(k => g[k]).sort((a, b) => a - b).map(n => 'ゲスト' + n);
+}
+
+function api_join(o) {
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (!r || r.status !== 'open') return { ok: false, err: 'closed', round: pub_(r) };
+    const tok = String((o && o.tok) || '').slice(0, 60);
+    const kind = r.settings.join;
+    let name = String((o && o.name) || '').trim().slice(0, 30);
+    if (kind === 'guest') name = guestName_(tok);
+    if (!name) return { ok: false, err: 'name' };
+    const mem = getJSON_('MEM', []);
+    const me = mem.filter(m => m.name === name)[0];
+    const prevOk = !!(o.prevId && o.prevId === r.prevId && getJSON_('PREV_MEM', []).indexOf(name) >= 0);
+    if (r.code && !me && !prevOk && String(o.code) !== r.code) return { ok: false, err: 'code' };
+    if (me && me.kind === 'chara' && me.tok !== tok) return { ok: false, err: 'taken' };
+    let lv = String(r.settings.level);
+    if (r.settings.mode === 'all' && r.settings.levelMode === 'each' && r.levelMap && r.levelMap[name]) lv = String(r.levelMap[name]);
+    if (r.sets && r.sets.length && r.sets.indexOf(lv) < 0) lv = r.sets[0];
+    if (me) me.tok = tok;
+    else mem.push({ name: name, kind: kind, tok: tok, lv: lv });
+    setJSON_('MEM', mem);
+    return { ok: true, name: name, setKey: me ? me.lv : lv, conf: confFor_(name), round: pub_(r) };
+  });
+}
+
+// 「みんなで」の問題（その回・そのレベルの分）
+function api_questions(roundId, key) {
+  const r = getJSON_('ROUND', null);
+  if (!r || r.id !== roundId) return null;
+  const c = cache_(), ck = 'qs_' + roundId + '_' + key;
+  let s = c.get(ck);
+  if (!s) {
+    s = getBig_('QS_' + key);
+    if (s && s.length < 30000) c.put(ck, s, CACHE_SEC);
+  }
+  return s || null;
+}
+
+// 「ひとりずつ」の問題：そのレベルのことばを n こ（ばらばらに選ぶ）
+function api_words(roundId, lv, n) {
+  const r = getJSON_('ROUND', null);
+  if (!r || r.id !== roundId || r.status !== 'open') return [];
+  return sample_(levelWords_(lv), clampN_(n, 1, 60, 40));
+}
+
+// 記録を受け取る（送れなかった分もまとめて届く。同じものの2回目は書かない）
+function api_submit(items) {
+  if (!items || !items.length) return { done: [] };
+  return withLock_(() => {
+    const c = cache_();
+    const idKeys = items.map(it => 'it_' + String(it.id).slice(0, 60));
+    const seen = c.getAll(idKeys);
+    const stKeys = [];
+    items.forEach(it => { const k = stKey_(it.roundId || '', it.name || ''); if (stKeys.indexOf(k) < 0) stKeys.push(k); });
+    const got = c.getAll(stKeys), st = {};
+    stKeys.forEach(k => { try { st[k] = got[k] ? JSON.parse(got[k]) : null; } catch (err) { st[k] = null; } });
+    const logRows = [], sumRows = [];
+    let conf = null;
+    const cf = () => conf || (conf = readConf_());
+    const newIds = {};
+    items.forEach((it, i) => {
+      if (seen[idKeys[i]]) return;
+      newIds[idKeys[i]] = '1';
+      const k = stKey_(it.roundId || '', it.name || '');
+      const s = st[k] || (st[k] = { ans: {}, snap: null, sumd: false, done: false });
+      if (it.kind === 'answer') {
+        if (it.mode === 'all') {
+          if (s.ans[it.qi]) return;
+          s.ans[it.qi] = [-1, it.ok ? 1 : 0, it.ml || '', String(it.pick || '').slice(0, 20)];
+        }
+        logRows.push({
+          '日時': new Date(it.at || Date.now()), '回ID': it.roundId, '名前': it.name, '進め方': modeName_(it.mode),
+          'レベル': it.level, '内容': lvName_(it.level), '問題': it.q || '', '正しい答え': it.correct || '', '答え': it.pick || '',
+          '正誤': it.na ? '－' : (it.ok ? '○' : '×'), 'まちがいの型': it.ml || '', '答え方': howName_(it.how), 'かかった秒数': it.sec
+        });
+      } else if (it.kind === 'snap') {
+        s.snap = it.snap || null;
+      } else if (it.kind === 'finish') {
+        s.done = true;
+        if (s.sumd) return;
+        s.sumd = true;
+        sumRows.push(sumRow_(it.roundId, it.mode, it.name, it.start, it.end, it.n, it.correct, it.top || ''));
+        if (it.mode === 'self' && it.end) patchConf_(cf(), it.name, { '前回のレベル': it.end });
+      }
+    });
+    if (logRows.length) appendRows_(sheet_(SHEET_LOG, HEAD_LOG), logRows);
+    if (sumRows.length) appendRows_(sheet_(SHEET_SUM, HEAD_SUM), sumRows);
+    if (conf) writeConf_(conf);
+    const put = Object.assign({}, newIds);
+    Object.keys(st).forEach(k => { if (st[k]) put[k] = JSON.stringify(st[k]); });
+    if (Object.keys(put).length) c.putAll(put, CACHE_SEC);
+    return { done: items.map(it => it.id) };
+  });
+}
+
+/* ========== 先生用 API（先生用のURLを知っている人が呼ぶ） ========== */
+function api_tInit() {
+  return {
+    settings: sanitize_(getJSON_('LAST_SETTINGS', {})),
+    rosters: rosters_(),
+    guests: guestList_(),
+    url: ScriptApp.getService().getUrl(),
+    round: getJSON_('ROUND', null)
+  };
+}
+
+// レベルごとの内容：ことばの数と例（「問題」タブから）
+function api_tLevels() {
+  const all = readWords_();
+  cacheWords_(all);
+  const out = [];
+  for (let lv = 1; lv <= MAX_LV; lv++) out.push({ lv: lv, name: lvName_(lv), n: all[lv].length, ex: sample_(all[lv], 6).map(x => { const p = x.split('\t'); return p[0] + '（' + p[1] + '）'; }) });
+  return out;
+}
+
+function api_tStart(settings) {
+  return withLock_(() => {
+    const old = getJSON_('ROUND', null);
+    if (old && old.status === 'open') endRound_(old);
+    const s = sanitize_(settings);
+    const all = readWords_();
+    cacheWords_(all);
+    // 「みんなで」で生徒ごとのレベルを使うとき：生徒設定のレベル（なければ前回のレベル）
+    const levelMap = {};
+    if (s.mode === 'all' && s.levelMode === 'each') {
+      const d = readConf_();
+      d.rows.forEach(r => {
+        const n = String(r[d.col('名前')]).trim(), c = confRow_(d, r), lv = c.level || c.last;
+        if (n && lv) levelMap[n] = lv;
+      });
+    }
+    const sets = {};
+    if (s.mode === 'all') {
+      const keys = [String(s.level)];
+      Object.keys(levelMap).forEach(n => { const k = String(levelMap[n]); if (keys.indexOf(k) < 0) keys.push(k); });
+      keys.forEach(k => { sets[k] = sample_(levelWords_(+k, all), s.count); });
+      let min = s.count;
+      keys.forEach(k => { min = Math.min(min, sets[k].length); });
+      if (min < 1) throw new Error('「問題」タブに、出せることばがありません。');
+      s.count = min;
+      keys.forEach(k => { sets[k] = sets[k].slice(0, min); });
+    }
+    const p = props_();
+    p.getKeys().forEach(k => { if (k.indexOf('QS_') === 0) p.deleteProperty(k); });
+    Object.keys(sets).forEach(k => putBig_('QS_' + k, JSON.stringify(sets[k])));
+    const r = {
+      id: Utilities.formatDate(new Date(), TZ, 'MMdd-HHmmss'),
+      prevId: old ? old.id : '',
+      status: 'open',
+      curQ: -1,
+      settings: s,
+      code: s.useCode ? String(1000 + Math.floor(Math.random() * 9000)) : '',
+      sets: Object.keys(sets),
+      levelMap: levelMap,
+      startedAt: Date.now()
+    };
+    setJSON_('PREV_MEM', getJSON_('MEM', []).map(m => m.name));
+    setJSON_('MEM', []);
+    setJSON_('ROUND', r);
+    setJSON_('LAST_SETTINGS', s);
+    return r;
+  });
+}
+
+function api_tPoll() {
+  const r = getJSON_('ROUND', null);
+  if (!r) return { round: null, members: [] };
+  const mem = getJSON_('MEM', []);
+  const sk = mem.map(m => stKey_(r.id, m.name)), nk = mem.map(m => seenKey_(r.id, m.name));
+  const got = mem.length ? cache_().getAll(sk.concat(nk)) : {};
+  const now = Date.now();
+  const members = mem.map((m, i) => {
+    let s = null;
+    try { s = got[sk[i]] ? JSON.parse(got[sk[i]]) : null; } catch (err) { s = null; }
+    const seen = parseInt(got[nk[i]] || '0', 10);
+    return { name: m.name, kind: m.kind, lv: m.lv, ans: s ? s.ans : {}, snap: s ? s.snap : null, done: !!(s && s.done), ago: seen ? Math.round((now - seen) / 1000) : -1 };
+  });
+  return { round: r, members: members };
+}
+
+function api_tSetQ(roundId, idx) {
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (!r || r.id !== roundId || r.status !== 'open') return r;
+    r.curQ = Math.max(-1, Math.min(r.settings.count - 1, parseInt(idx, 10)));
+    setJSON_('ROUND', r);
+    return r;
+  });
+}
+
+// 生徒の画面に結果を出す・かくす（出すまでは、生徒は「おわったよ」の画面で待つ）
+function api_tShowRes(roundId, on) {
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (r && (!roundId || r.id === roundId)) { r.showRes = on === true; setJSON_('ROUND', r); }
+    return r;
+  });
+}
+
+function api_tEnd(roundId) {
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (r && r.status === 'open' && (!roundId || r.id === roundId)) endRound_(r);
+    return getJSON_('ROUND', null);
+  });
+}
+
+// 生徒ごとの設定。group は名簿の名前、または '__guest'
+function api_tGetConf(group) {
+  const names = group === '__guest' ? guestList_() : rosterNames_(group);
+  const d = readConf_(), byName = {};
+  d.rows.forEach(r => { const n = String(r[d.col('名前')]).trim(); if (n) byName[n] = confRow_(d, r); });
+  return names.map(n => Object.assign({ name: n }, byName[n] || blankConf_()));
+}
+
+function api_tSaveConf(rows) {
+  return withLock_(() => {
+    const d = readConf_();
+    (rows || []).forEach(r => {
+      if (!r || !r.name) return;
+      patchConf_(d, String(r.name), { 'レベル': lvClamp_(r.level), '下限': lvClamp_(r.lower), '上限': lvClamp_(r.upper), '自動調整': r.auto ? '○' : '×', '答え方': howName_(r.how) });
+    });
+    writeConf_(d);
+    return true;
+  });
+}
+
+function fmtJ_(v) {
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return String(v);
+  const m = parseInt(Utilities.formatDate(d, TZ, 'm'), 10);
+  return Utilities.formatDate(d, TZ, 'M月d日 H時') + (m ? m + '分' : '');
+}
+
+// 記録を見る：回ごとの記録（新しい順）と、生徒ごとのまちがいの型・まちがえたことば
+function api_tRecords() {
+  const readLast = (sh, max) => {
+    const last = sh.getLastRow(), heads = heads_(sh);
+    if (last < 2) return { heads: heads, rows: [] };
+    const n = Math.min(max, last - 1);
+    return { heads: heads, rows: sh.getRange(last - n + 1, 1, n, heads.length).getValues() };
+  };
+  const s = readLast(sheet_(SHEET_SUM, HEAD_SUM), 200), h = s.heads, col = x => h.indexOf(x);
+  const sums = s.rows.reverse().map(r => ({
+    at: fmtJ_(r[col('日時')]), name: String(r[col('名前')]), mode: String(r[col('進め方')]),
+    lv0: String(r[col('はじめのレベル')]), lv1: String(r[col('おわりのレベル')]), n: r[col('解いた数')], correct: r[col('正解数')],
+    rate: String(r[col('正答率')]), mist: String(r[col('多かったまちがい')])
+  }));
+  const l = readLast(sheet_(SHEET_LOG, HEAD_LOG), 3000), lh = l.heads;
+  const ni = lh.indexOf('名前'), mi = lh.indexOf('まちがいの型'), qi = lh.indexOf('問題'), oi = lh.indexOf('正誤');
+  const by = {}, words = {};
+  l.rows.forEach(r => {
+    const n = String(r[ni]).trim(), m = String(r[mi]).trim();
+    if (!n || String(r[oi]) !== '×') return;
+    by[n] = by[n] || {};
+    by[n][m || 'そのほか'] = (by[n][m || 'そのほか'] || 0) + 1;
+    words[n] = words[n] || [];
+    const w = String(r[qi]);
+    if (w && words[n].indexOf(w) < 0) words[n].push(w);
+  });
+  const mist = Object.keys(by).map(n => {
+    const items = Object.keys(by[n]).map(t => [t, by[n][t]]).sort((a, b) => b[1] - a[1]);
+    return { name: n, total: items.reduce((a, b) => a + b[1], 0), items: items, words: words[n].slice(-20).reverse() };
+  }).sort((a, b) => b.total - a.total);
+  return { sums: sums, mist: mist };
+}
+
+/* ========== ことばのデータ（setup で「問題」タブに入る。レベル1〜14の順。「ことば:読み/ほかの読み」） ========== */
+const WORD_DATA = [
+'青い:あおい,青白い:あおじろい,青空:あおぞら,赤い:あかい,赤ちゃん:あかちゃん,上がる:あがる,空き:あき,空ける:あける,上げる:あげる,足音:あしおと,天の川:あまのがわ,生かす:いかす,生き生き:いきいき,生きる:いきる,一円:いちえん,一気に:いっきに,一生:いっしょう,五日:いつか,入口:いりぐち/いりくち/はいりくち/はいりぐち,入れる:いれる,生まれ:うまれ,生まれつき:うまれつき,生まれる:うまれる,生み出す:うみだす,生む:うむ,王子:おうじ,王女:おうじょ,大雨:おおあめ,大きい:おおきい,大きさ:おおきさ,大げさ:おおげさ,大ざっぱ:おおざっぱ,大まか:おおまか,お金:おかね,小川:おがわ,お気に入り:おきにいり,男の子:おとこのこ,男らしい:おとこらしい,お年玉:おとしだま,大人:おとな/だいにん,お休み:おやすみ,下ろす:おろす,女の子:おんなのこ,女らしい:おんならしい,火山:かざん,金もうけ:かねもうけ,空っぽ:からっぽ,空手:からて,学生:がくせい,学年:がくねん,学校:がっこう,気に入る:きにいる,気まぐれ:きまぐれ,気まま:きまま,休校:きゅうこう,休日:きゅうじつ,空気:くうき,空中:くうちゅう,草花:くさばな/そうか,下る:くだる,口げんか:くちげんか,見学:けんがく,下水:げすい,九日:ここのか,小雨:こさめ/こあめ/しょうう,五十音:ごじゅうおん,下がる:さがる,先に:さきに,下げる:さげる,左右:さゆう,小学生:しょうがくせい,小学校:しょうがっこう,正月:しょうがつ,白い:しろい,森林:しんりん,女王:じょおう/じょうおう/にょおう,女子:じょし/おなご,人口:じんこう,人生:じんせい,水中:すいちゅう,生年月日:せいねんがっぴ,先月:せんげつ,先日:せんじつ,先生:せんせい,大金:たいきん/おおがね,足す:たす,正しい:ただしい,立ち上がる:たちあがる,立つ:たつ,立てる:たてる,七夕:たなばた/しちせき,足りる:たりる,大学:だいがく,大学生:だいがくせい,大小:だいしょう,出す:だす,男子:だんし,男女:だんじょ/なんにょ,小さい:ちいさい,中学:ちゅうがく,中学生:ちゅうがくせい,中学校:ちゅうがっこう,月見:つきみ,手足:てあし/しゅそく,手入れ:ていれ,手本:てほん,天気:てんき,天ぷら:てんぷら,出入り:でいり/ではいり,出口:でぐち,出る:でる,年上:としうえ,年下:としした,土手:どて,生ぬるい:なまぬるい,日中:にっちゅう/ひなか,入学:にゅうがく,入力:にゅうりょく,年月日:ねんがっぴ,上る:のぼる,生える:はえる,花火:はなび,花見:はなみ,はみ出す:はみだす,早い:はやい,早く:はやく,早口:はやくち/はやぐち,日ごろ:ひごろ,左手:ひだりて,一口:ひとくち,人目:ひとめ/じんもく,一休み:ひとやすみ,一人:ひとり/いちにん,一人で:ひとりで,一人一人:ひとりひとり/ひとりびとり,日の出:ひので,火花:ひばな,二人:ふたり/ににん,ぶら下がる:ぶらさがる,ぶら下げる:ぶらさげる,ほうれん草:ほうれんそう,本気:ほんき,本日:ほんじつ,本人:ほんにん,本名:ほんみょう/ほんめい,学ぶ:まなぶ,見上げる:みあげる,見える:みえる,見下ろす:みおろす,右手:みぎて,見せる:みせる,見た目:みため,三日:みっか,見つかる:みつかる,見つける:みつける,見本:みほん,見る:みる,六日:むいか,名人:めいじん,目立つ:めだつ,目玉:めだま,休み:やすみ,休む:やすむ,休める:やすめる,夕立:ゆうだち,夕日:ゆうひ/せきじつ,八日:ようか,よそ見:よそみ',
+'青ざめる:あおざめる,赤字:あかじ,上がり:あがり,生け花:いけばな,雨天:うてん,生い立ち:おいたち,大いに:おおいに,大手:おおて,大水:おおみず,火力:かりょく,学力:がくりょく,休学:きゅうがく,気力:きりょく,空車:くうしゃ/からぐるま,空白:くうはく,下す:くだす,下り:くだり,口ごもる:くちごもる,口先:くちさき,口出し:くちだし,下車:げしゃ,下がり:さがり,山林:さんりん,下町:したまち,下見:したみ,出力:しゅつりょく,生じる:しょうじる,生ずる:しょうずる,上空:じょうくう,人名:じんめい,水田:すいでん,水力:すいりょく,青年:せいねん,先だって:せんだって,大気:たいき,大した:たいした,大正:たいしょう,正す:ただす,足る:たる,中年:ちゅうねん,中立:ちゅうりつ,天下:てんか/てんが/てんげ,土足:どそく,入金:にゅうきん,入手:にゅうしゅ,上り:のぼり,生やす:はやす,早まる:はやまる,早める:はやめる,人だかり:ひとだかり,人出:ひとで,日に日に:ひにひに,日の入り:ひのいり,文学:ぶんがく,本音:ほんね,本年:ほんねん,見出し:みだし,空しい:むなしい,名月:めいげつ,名目:めいもく/みょうもく,目上:めうえ,力む:りきむ',
+'合図:あいず,会う:あう,合う:あう,明かり:あかり,明るい:あかるい,空き地:あきち,明らか:あきらか,明け方:あけがた,朝顔:あさがお,朝日:あさひ,足首:あしくび,足元:あしもと,新しい:あたらしい,当たり:あたり,当たり前:あたりまえ,当たる:あたる,当て:あて,当てはまる:あてはまる,当てはめる:あてはめる,当てる:あてる,後回し:あとまわし,雨戸:あまど,歩く:あるく,合わせる:あわせる,言い方:いいかた,言い出す:いいだす,生き方:いきかた,行き来:いきき/ゆきき,行き止まり:いきどまり/ゆきどまり,一番:いちばん,一家:いっか/いっけ,一体:いったい,一方:いっぽう,今ごろ:いまごろ,今に:いまに,今にも:いまにも,今まで:いままで,後ろ:うしろ,歌う:うたう,歌声:うたごえ/かせい,売り上げ:うりあげ,売り切れ:うりきれ,売り切れる:うりきれる,売り出す:うりだす,売り場:うりば,売る:うる,売れる:うれる,絵本:えほん,遠足:えんそく,多い:おおい,大声:おおごえ/たいせい,大通り:おおどおり,大雪:おおゆき/たいせつ,お母さん:おかあさん,お帰り:おかえり,行う:おこなう,教え:おしえ,教える:おしえる,教わる:おそわる,お茶:おちゃ,お父さん:おとうさん,同じ:おなじ/おんなじ,お兄さん:おにいさん,お姉さん:おねえさん,お前:おまえ/おまい,思い:おもい,思い切って:おもいきって,思い切り:おもいきり,思い切る:おもいきる,思い出す:おもいだす,思い出:おもいで,思い直す:おもいなおす,思いやり:おもいやり,思う:おもう,思わず:おもわず,親子:おやこ/しんし,音楽:おんがく,音読み:おんよみ,母さん:かあさん,海外:かいがい,会計:かいけい,会社:かいしゃ,会場:かいじょう,海水:かいすい,回数:かいすう,会長:かいちょう,会話:かいわ,買う:かう,帰り:かえり,帰る:かえる,科学:かがく,書き方:かきかた,書き直す:かきなおす,書く:かく,画数:かくすう,歌手:かしゅ,火星:かせい,数える:かぞえる,科目:かもく,火曜:かよう,通う:かよう,火曜日:かようび,川原:かわら,考え:かんがえ,考える:かんがえる,外国:がいこく,外国語:がいこくご,外国人:がいこくじん,外出:がいしゅつ,外食:がいしょく,外来語:がいらいご,画家:がか,画用紙:がようし,元日:がんじつ/がんにち,黄色:きいろ/おうしょく/こうしょく,黄色い:きいろい,聞く:きく,聞こえる:きこえる,帰国:きこく,汽車:きしゃ,北風:きたかぜ/ほくふう,切手:きって,記入:きにゅう,気分:きぶん,教会:きょうかい,教科書:きょうかしょ,教室:きょうしつ,兄弟:きょうだい/けいてい,強風:きょうふう,気楽:きらく,切り:きり,切る:きる,切れる:きれる,金魚:きんぎょ,金曜:きんよう,金曜日:きんようび,牛肉:ぎゅうにく,食う:くう,空間:くうかん,口答え:くちごたえ,組み合わせ:くみあわせ,組み立てる:くみたてる,組む:くむ,黒い:くろい,計画:けいかく,計算:けいさん,毛糸:けいと,今朝:けさ/こんちょう,月曜:げつよう,月曜日:げつようび,元気:げんき,言語:げんご/ごんご,公園:こうえん,高校:こうこう,高校生:こうこうせい,工作:こうさく,校長:こうちょう,交通:こうつう,後半:こうはん,交番:こうばん,小切手:こぎって,国語:こくご,国内:こくない/こくだい,国名:こくめい,心当たり:こころあたり,心強い:こころづよい,心細い:こころぼそい,答え:こたえ/いらえ,国会:こっかい,今年:ことし/こんねん,小鳥:ことり,細かい:こまかい,小麦:こむぎ,今回:こんかい,今月:こんげつ,今後:こんご,今週:こんしゅう,今夜:こんや,合計:ごうけい,午後:ごご,午前:ごぜん,作文:さくぶん,作家:さっか,三角:さんかく,算数:さんすう,四角:しかく,四角い:しかくい,下書き:したがき,親しい:したしい,親しみ:したしみ,親しむ:したしむ,市長:しちょう,室内:しつない,市内:しない,姉妹:しまい,社会:しゃかい,社会人:しゃかいじん,社長:しゃちょう,車道:しゃどう,車内:しゃない,週間:しゅうかん,出場:しゅつじょう,正午:しょうご,正直:しょうじき,少女:しょうじょ/おとめ,小数:しょうすう,少数:しょうすう,小数点:しょうすうてん,少年:しょうねん,書店:しょてん,書道:しょどう,知らせ:しらせ,知らせる:しらせる,知り合い:しりあい,知り合う:しりあう,知る:しる,知れる:しれる,新人:しんじん,親切:しんせつ,新年:しんねん,新聞:しんぶん,新聞社:しんぶんしゃ,新米:しんまい,親友:しんゆう,時間:じかん,自分:じぶん,地元:じもと,弱点:じゃくてん,人体:じんたい,水道:すいどう,水分:すいぶん,水曜:すいよう,水曜日:すいようび,数学:すうがく,数字:すうじ,少ない:すくない,少なくとも:すくなくとも,少し:すこし,少しも:すこしも,図形:ずけい,生活:せいかつ,正方形:せいほうけい,赤道:せきどう,切ない:せつない,先週:せんしゅう,船長:せんちょう/ふなおさ,先頭:せんとう,前回:ぜんかい,前後:ぜんご,前半:ぜんはん/ぜんぱん,早朝:そうちょう,そよ風:そよかぜ,大会:たいかい,大切:たいせつ,台風:たいふう,体力:たいりょく,高い:たかい,高さ:たかさ,足し算:たしざん,多少:たしょう,立ち止まる:たちどまる,立ち直る:たちなおる,立場:たちば,立ち話:たちばなし,立ち読み:たちよみ,立て直す:たてなおす,楽しい:たのしい,楽しみ:たのしみ,楽しむ:たのしむ,多分:たぶん,食べる:たべる,大工:だいく,地下:ちか,近い:ちかい,近く:ちかく,近道:ちかみち,力強い:ちからづよい,地上:ちじょう,地図:ちず,父親:ちちおや,地方:ちほう,地名:ちめい,茶色:ちゃいろ,茶わん:ちゃわん,中間:ちゅうかん,中古:ちゅうこ/ちゅうぶる,中止:ちゅうし,昼食:ちゅうしょく/ちゅうじき/ひるげ,中心:ちゅうしん,朝食:ちょうしょく/あさげ,長女:ちょうじょ,長男:ちょうなん,長方形:ちょうほうけい,直後:ちょくご,直線:ちょくせん,直前:ちょくぜん,直角:ちょっかく,通学:つうがく,通行止め:つうこうどめ,通知:つうち,月夜:つきよ,作り上げる:つくりあげる,作り話:つくりばなし,作る:つくる,強い:つよい,強気:つよき,強さ:つよさ,手紙:てがみ,手首:てくび,手間:てま,手前:てまえ,手元:てもと,手分け:てわけ,天国:てんごく,天才:てんさい,点数:てんすう,出会う:であう,出来上がり:できあがり,出来上がる:できあがる,弟子:でし/ていし,出前:でまえ,電気:でんき,電車:でんしゃ,電池:でんち,電話:でんわ,父さん:とうさん,当日:とうじつ,当番:とうばん,遠い:とおい,遠く:とおく,遠ざかる:とおざかる,通す:とおす,通る:とおる,時には:ときには,時計:とけい,図書:としょ/ずしょ,図書室:としょしつ,土地:とち,同時:どうじ,読書:どくしょ,土曜:どよう,土曜日:どようび,内科:ないか,直る:なおる,長い:ながい,長生き:ながいき,長さ:ながさ,長年:ながねん,長話:ながばなし,長引く:ながびく,鳴く:なく,夏ばて:なつばて,夏休み:なつやすみ,何しろ:なにしろ,名前:なまえ,鳴らす:ならす,鳴る:なる,何十:なんじゅう,何千:なんぜん,何と:なんと,何とも:なんとも,何百:なんびゃく,南北:なんぼく,兄さん:にいさん/あにさん,日時:にちじ,日曜:にちよう,日曜日:にちようび,日記:にっき,日光:にっこう,日数:にっすう/ひかず,入場:にゅうじょう,人形:にんぎょう,人間:にんげん,人数:にんずう/ひとかず,姉さん:ねえさん/あねさん,野原:のはら,計る:はかる,白線:はくせん,白鳥:はくちょう/しらとり/しろとり,走る:はしる,外す:はずす,外れ:はずれ,外れる:はずれる,話し合い:はなしあい,話し合う:はなしあう,話し声:はなしごえ,話す:はなす,母親:ははおや,原っぱ:はらっぱ,晴れ:はれ,晴れる:はれる,半分:はんぶん,場合:ばあい,売店:ばいてん,番組:ばんぐみ,番地:ばんち,日当たり:ひあたり,光る:ひかる,日帰り:ひがえり,引き上げる:ひきあげる,引き下げる:ひきさげる,引き算:ひきざん,引きずる:ひきずる,引き出し:ひきだし,引き出す:ひきだす,引き止める:ひきとめる,引き分け:ひきわけ,引く:ひく,一言:ひとこと/いちげん/いちごん,一通り:ひととおり,人通り:ひとどおり,人見知り:ひとみしり,日の丸:ひのまる,昼間:ひるま/ちゅうかん,昼前:ひるまえ,昼休み:ひるやすみ,広い:ひろい,広がる:ひろがる,広げる:ひろげる,広さ:ひろさ,広場:ひろば,風船:ふうせん,太い:ふとい,太る:ふとる,冬休み:ふゆやすみ,古い:ふるい,古本:ふるほん/こほん/ふるぼん,分数:ぶんすう,分母:ぶんぼ,細い:ほそい,細長い:ほそながい,歩道:ほどう,本社:ほんしゃ,本店:ほんてん,本当:ほんとう,本当に:ほんとうに,本番:ほんばん,毎朝:まいあさ/まいちょう,毎週:まいしゅう,毎月:まいつき/まいげつ,毎日:まいにち,前もって:まえもって,交じる:まじる,間に合う:まにあう,間に合わせ:まにあわせ,丸い:まるい,丸まる:まるまる,丸める:まるめる,回す:まわす,回り:まわり,回り道:まわりみち,回る:まわる,見方:みかた,水色:みずいろ,道草:みちくさ,見直す:みなおす,耳元:みみもと,見分け:みわけ,目当て:めあて,木曜:もくよう,木曜日:もくようび,やり方:やりかた,やり直し:やりなおし,やり直す:やりなおす,夕方:ゆうがた,夕食:ゆうしょく,友人:ゆうじん,夜明け:よあけ,用語:ようご,用紙:ようし,用心:ようじん,曜日:ようび,夜空:よぞら,四つ角:よつかど,夜中:よなか,読み:よみ,読み書き:よみかき,読み方:よみかた,読む:よむ,弱い:よわい,弱気:よわき,弱虫:よわむし,弱る:よわる,来月:らいげつ,来週:らいしゅう,来年:らいねん,理科:りか,分かれる:わかれる,分ける:わける',
+'合間:あいま,明かす:あかす,秋風:あきかぜ/しゅうふう,明くる日:あくるひ,後書き:あとがき,歩む:あゆむ,新た:あらた,合わす:あわす,言いなり:いいなり,言い回し:いいまわし,石頭:いしあたま,一同:いちどう,一人前:いちにんまえ/ひとりまえ,一切:いっさい,一心に:いっしんに,一風:いっぷう,引用:いんよう,引力:いんりょく,内気:うちき,売り手:うりて,円形:えんけい/まるがた,円高:えんだか,遠方:えんぽう/おちかた,王国:おうこく,大方:おおかた,大麦:おおむぎ,お中元:おちゅうげん,男前:おとこまえ,思い上がる:おもいあがる,思い当たる:おもいあたる,思わく:おもわく,音声:おんせい/おんじょう,音読:おんどく,絵画:かいが,回帰:かいき,会見:かいけん,会合:かいごう,会食:かいしょく,会心:かいしん,海上:かいじょう,買い手:かいて,回答:かいとう,顔色:かおいろ/がんしょく,顔立ち:かおだち,顔なじみ:かおなじみ,画する:かくする,家計:かけい,風上:かざかみ,風下:かざしも,形見:かたみ,語る:かたる,活気:かっき,活字:かつじ,活用:かつよう,活力:かつりょく,家内:かない,か弱い:かよわい,交わす:かわす,間食:かんしょく,外気:がいき,外見:がいけん/そとみ,外交:がいこう,外車:がいしゃ,学園:がくえん,学長:がくちょう,学科:がっか,学会:がっかい,元来:がんらい,聞かす:きかす,聞き手:ききて,帰京:ききょう,気心:きごころ,汽船:きせん,気体:きたい,気前:きまえ,強行:きょうこう,強力:きょうりょく,近日:きんじつ,食い下がる:くいさがる,食い止める:くいとめる,口数:くちかず,口止め:くちどめ,組合:くみあい,黒字:くろじ,見地:けんち,見当:けんとう,見聞:けんぶん/けんもん,外科:げか,月光:げっこう,月食:げっしょく,原作:げんさく,原子:げんし,元首:げんしゅ,原書:げんしょ,原子力:げんしりょく,原点:げんてん,原理:げんり,高音:こうおん/たかね,工学:こうがく,公言:こうげん,口語:こうご,公正:こうせい,光線:こうせん,広大:こうだい,高地:こうち,後方:こうほう,公明:こうめい,行楽:こうらく,小売:こうり,公立:こうりつ,小売り店:こうりてん,国外:こくがい,国土:こくど,国道:こくどう,国立:こくりつ,国力:こくりょく,国家:こっか,国交:こっこう,強引:ごういん,合同:ごうどう,合理:ごうり,語学:ごがく,細工:さいく,茶道:さどう,作用:さよう,強いて:しいて,強いる:しいる,市外:しがい,思考:しこう,四方:しほう/よほう/よも,社会科学:しゃかいかがく,社交:しゃこう,週休:しゅうきゅう,秋分:しゅうぶん,出国:しゅっこく,春分:しゅんぶん,正体:しょうたい,書記:しょき,市立:しりつ/いちりつ,記す:しるす/きす,心理:しんり,字画:じかく,自活:じかつ,自国:じこく,字引:じびき,自明:じめい,上京:じょうきょう,人工:じんこう,人文科学:じんぶんかがく,少なからず:すくなからず,生計:せいけい,青春:せいしゅん,生前:せいぜん,生長:せいちょう,晴天:せいてん,正当:せいとう,正門:せいもん,前年:ぜんねん,前方:ぜんぽう,前夜:ぜんや,草原:そうげん/くさはら/くさわら,早春:そうしゅん,草食:そうしょく,大国:たいこく,体長:たいちょう,大半:たいはん,多角:たかく,高まる:たかまる,高める:たかめる,多数:たすう,多大:ただい,直ちに:ただちに,大多数:だいたすう,大地:だいち,地下道:ちかどう,地形:ちけい/じぎょう,知人:ちじん,地点:ちてん,茶の間:ちゃのま,昼夜:ちゅうや,長大:ちょうだい,直通:ちょくつう,地理:ちり,通行:つうこう,通じる:つうじる,通用:つうよう,通話:つうわ,強まる:つよまる,強める:つよめる,手当:てあて,手形:てがた,手数:てすう/てかず,手引き:てびき,点火:てんか,天体:てんたい,弟子入り:でしいり,田園:でんえん,電子:でんし,電線:でんせん,電力:でんりょく,東西:とうざい,当時:とうじ,当人:とうにん,当分:とうぶん,同一:どういつ,同音:どうおん,同上:どうじょう,道場:どうじょう,道理:どうり,土台:どだい,土間:どま,内心:ないしん,半ば:なかば,長らく:ながらく,名高い:なだかい,南西:なんせい/みなみにし,南東:なんとう/みなみひがし,何ら:なんら,肉食:にくしょく/にくじき,肉親:にくしん,肉体:にくたい,日米:にちべい,日食:にっしょく,入国:にゅうこく,入室:にゅうしつ/にっしつ,入社:にゅうしゃ,入門:にゅうもん,音色:ねいろ/おんしょく,年間:ねんかん,年長:ねんちょう,年頭:ねんとう/としがしら,図る:はかる,白紙:はくし/しらかみ,白書:はくしょ,早引き:はやびき,早引け:はやびけ,半数:はんすう,売買:ばいばい,引き金:ひきがね,引きつる:ひきつる,引け目:ひけめ,昼下がり:ひるさがり,広まる:ひろまる,広める:ひろめる,風力:ふうりょく,二人前:ふたりまえ/ににんまえ,父母:ふぼ/ちちはは,歩合:ぶあい,文語:ぶんご,分子:ぶんし,文書:ぶんしょ/もんじょ,文体:ぶんたい,文通:ぶんつう,文明:ぶんめい,分野:ぶんや,分立:ぶんりつ,方角:ほうがく,方言:ほうげん,北西:ほくせい,北東:ほくとう/きたひがし,本国:ほんごく/ほんこく,本心:ほんしん,本線:ほんせん,本体:ほんたい,本場:ほんば,本来:ほんらい,母国語:ぼこくご,前売り:まえうり,前書き:まえがき,交わる:まじわる,町外れ:まちはずれ,丸み:まるみ,見合い:みあい,見合わせる:みあわせる,自ら:みずから,見ず知らず:みずしらず,見通し:みとおし,見晴らし:みはらし,見晴らす:みはらす,明年:みょうねん,明記:めいき,明細:めいさい,名作:めいさく,名声:めいせい,明白:めいはく,名門:めいもん,目方:めかた,目前:もくぜん,用いる:もちいる,夜間:やかん,野外:やがい,夜学:やがく,野心:やしん,八つ当たり:やつあたり,止む:やむ,弱まる:よわまる,弱み:よわみ,弱める:よわめる,来日:らいにち,理学:りがく,立体:りったい',
+'相手:あいて,悪人:あくにん,味わう:あじわう,遊び:あそび,遊ぶ:あそぶ,温まる:あたたまる/あったまる/ぬくまる,温める:あたためる/あっためる,暑い:あつい,暑さ:あつさ,集まり:あつまり,集まる:あつまる,集める:あつめる,雨宿り:あまやどり,表す:あらわす,暗記:あんき,安心:あんしん,安全:あんぜん,安定:あんてい,言い表す:いいあらわす,言い返す:いいかえす,委員:いいん,委員会:いいんかい,意外:いがい,生き返る:いきかえる,息切れ:いきぎれ,生き物:いきもの,意見:いけん,医者:いしゃ,意地悪:いじわる,急ぐ:いそぐ,一度に:いちどに,一部:いちぶ,一部分:いちぶぶん,意味:いみ,入れ歯:いれば,入れ物:いれもの,飲食店:いんしょくてん,植える:うえる,受かる:うかる,受け入れる:うけいれる,受け止める:うけとめる,受け取る:うけとる,受ける:うける,動かす:うごかす,動き:うごき,動く:うごく,後ろ向き:うしろむき,打ち明ける:うちあける,打ち上げる:うちあげる,打ち合わせ:うちあわせ,打つ:うつ,美しい:うつくしい,写す:うつす,写る:うつる,売り物:うりもの,上着:うわぎ,運転:うんてん,運転手:うんてんしゅ,運動:うんどう,運動会:うんどうかい,運命:うんめい,駅員:えきいん,駅長:えきちょう,駅前:えきまえ,絵の具:えのぐ,絵葉書:えはがき,お医者さん:おいしゃさん,追い出す:おいだす,追う:おう,王様:おうさま,大急ぎ:おおいそぎ,お代わり:おかわり,起き上がる:おきあがる,起きる:おきる,屋外:おくがい,屋上:おくじょう,送る:おくる,起こす:おこす,起こる:おこる,落ちこぼれ:おちこぼれ,落ち着き:おちつき,落ち着く:おちつく,落ち葉:おちば,落ちる:おちる,落とし物:おとしもの,落とす:おとす,お守り:おまもり,重い:おもい,重さ:おもさ,面白い:おもしろい,重たい:おもたい,表通り:おもてどおり,重み:おもみ,親指:おやゆび,泳ぐ:およぐ,お礼:おれい,終わり:おわり,終わる:おわる,温室:おんしつ,温度:おんど,会員:かいいん,海岸:かいがん,開始:かいし,回転:かいてん,開店:かいてん,買い物:かいもの/かいもん,返す:かえす,返る:かえる,化学:かがく/ばけがく,科学者:かがくしゃ,書き言葉:かきことば,書き取り:かきとり,書き取る:かきとる,角度:かくど,家具:かぐ,重なる:かさなる,重ねる:かさねる,風向き:かざむき/かぜむき,家事:かじ,火事:かじ,家族:かぞく,勝ち:かち,勝手:かって,活発:かっぱつ,勝つ:かつ,活動:かつどう,家庭:かてい,悲しい:かなしい,悲しみ:かなしみ,悲しむ:かなしむ,金持ち:かねもち,神様:かみさま,軽い:かるい/かろい,軽はずみ:かるはずみ/かろはずみ,代わり:かわり,感心:かんしん,感じ:かんじ,漢字:かんじ,感じる:かんじる,感想:かんそう,感動:かんどう,学者:がくしゃ,学習:がくしゅう,学期:がっき,画面:がめん,消える:きえる,気温:きおん,期間:きかん,気軽:きがる,聞き取り:ききとり,気配り:きくばり,記号:きごう,記者:きしゃ,記事:きじ,着せる:きせる,期待:きたい,決まり:きまり,決まる:きまる,決める:きめる,気持ち:きもち,着物:きもの,急行:きゅうこう,教育:きょういく,去年:きょねん,起立:きりつ,着る:きる,近所:きんじょ,行事:ぎょうじ,行列:ぎょうれつ,銀行:ぎんこう,空港:くうこう,空想:くうそう,区切る:くぎる,薬指:くすりゆび,口笛:くちぶえ,配る:くばる,区役所:くやくしょ,暗い:くらい,苦しい:くるしい,苦しみ:くるしみ,苦しむ:くるしむ,苦しめる:くるしめる,具合:ぐあい,消す:けす,決して:けっして,決勝:けっしょう,決心:けっしん,決定:けってい,決意:けつい,研究:けんきゅう,幸運:こううん,高級:こうきゅう,工業:こうぎょう,工事:こうじ,高速道路:こうそくどうろ,交代:こうたい,校庭:こうてい,行動:こうどう,幸福:こうふく,公平:こうへい,黒板:こくばん,言葉:ことば,小屋:こや/しょうおく,小指:こゆび,転がす:ころがす,転がる:ころがる,転ぶ:ころぶ/まろぶ,今度:こんど,ご主人:ごしゅじん,幸い:さいわい,酒屋:さかや,作業:さぎょう,作者:さくしゃ,作品:さくひん,指す:さす,作曲:さっきょく,早速:さっそく,寒い:さむい/さぶい,寒さ:さむさ,仕上げ:しあげ,仕上げる:しあげる,幸せ:しあわせ,仕方:しかた,仕方がない:しかたがない,仕事:しごと,下着:したぎ,指定:してい,品切れ:しなぎれ,品物:しなもの,死ぬ:しぬ,始発:しはつ,社員:しゃいん,写真:しゃしん,市役所:しやくしょ,集合:しゅうごう,集中:しゅうちゅう,終点:しゅうてん,終電:しゅうでん,宿題:しゅくだい,主人:しゅじん,出血:しゅっけつ,出身:しゅっしん,出発:しゅっぱつ,主役:しゅやく,消化:しょうか,商店:しょうてん,商売:しょうばい,商品:しょうひん,勝負:しょうぶ,正面:しょうめん,昭和:しょうわ,食事:しょくじ,食品:しょくひん,植物:しょくぶつ,植物園:しょくぶつえん,使用:しよう,調べ:しらべ,調べる:しらべる,進学:しんがく,新学期:しんがっき,真実:しんじつ,身長:しんちょう,心配:しんぱい,進路:しんろ,次回:じかい,自習:じしゅう,自身:じしん,事実:じじつ,時代:じだい,実家:じっか,実感:じっかん,実行:じっこう,実習:じっしゅう,実は:じつは,実力:じつりょく,自転車:じてんしゃ,自動:じどう,自動車:じどうしゃ,耳鼻科:じびか,地味:じみ,地面:じめん,住所:じゅうしょ,重大:じゅうだい,自由:じゆう,乗客:じょうきゃく/じょうかく,乗車:じょうしゃ,乗用車:じょうようしゃ,助手:じょしゅ,神社:じんじゃ,人物:じんぶつ,水泳:すいえい,水族館:すいぞくかん,進む:すすむ,進める:すすめる,住まい:すまい,住む:すむ,生命:せいめい,整理:せいり,整列:せいれつ,世界:せかい,石油:せきゆ,世話:せわ,線路:せんろ,全員:ぜんいん,全国:ぜんこく,全身:ぜんしん,全体:ぜんたい,全部:ぜんぶ,全力:ぜんりょく,相談:そうだん,速度:そくど,育ち:そだち,育つ:そだつ,育てる:そだてる,体育:たいいく,体温:たいおん,体温計:たいおんけい,体重:たいじゅう,体調:たいちょう,太陽:たいよう,平ら:たいら,田植え:たうえ,助かる:たすかる,助ける:たすける,立ち去る:たちさる,他人:たにん,食べ物:たべもの,短気:たんき,短所:たんしょ,第一:だいいち,代金:だいきん,大根:だいこん/だいこ,大豆:だいず,台所:だいどころ/だいどこ,代表:だいひょう,大部分:だいぶぶん,題名:だいめい,地下鉄:ちかてつ,力持ち:ちからもち,地球:ちきゅう,注意:ちゅうい,注意深い:ちゅういぶかい,中央:ちゅうおう,注目:ちゅうもく,注文:ちゅうもん,調子:ちょうし,長所:ちょうしょ,丁目:ちょうめ,調理:ちょうり,朝礼:ちょうれい,ちり取り:ちりとり,通帳:つうちょう,通路:つうろ,使い:つかい,使い道:つかいみち,使う:つかう,着く:つく,都合:つごう,定期:ていき,定休日:ていきゅうび,定食:ていしょく,手軽:てがる,手品:てじな,手帳:てちょう,鉄道:てつどう,店員:てんいん,出来事:できごと,電球:でんきゅう,電柱:でんちゅう,電話帳:でんわちょう,登校:とうこう,登場:とうじょう,等分:とうぶん,都会:とかい,登山:とざん,都市:とし,図書館:としょかん,取っ手:とって,整う:ととのう,整える:ととのえる,取り上げる:とりあげる,取り入れる:とりいれる,取り返す:とりかえす,取り組む:とりくむ,取り消し:とりけし,取り消す:とりけす,取り出す:とりだす,取る:とる,取れる:とれる,同級生:どうきゅうせい,道具:どうぐ,動物:どうぶつ,動物園:どうぶつえん,道路:どうろ,童話:どうわ,読者:どくしゃ,内部:ないぶ,中庭:なかにわ,中身:なかみ,中指:なかゆび/ちゅうし,流し:ながし,流す:ながす,長持ち:ながもち,流れ:ながれ,流れる:ながれる,投げる:なげる,和やか:なごやか,生意気:なまいき,習う:ならう,何度:なんど,二階:にかい,苦い:にがい,苦手:にがて,日用品:にちようひん,日本酒:にほんしゅ,荷物:にもつ,入院:にゅういん,根っ子:ねっこ,農家:のうか,農業:のうぎょう,乗せる:のせる,飲み水:のみみず,飲み物:のみもの,飲む:のむ,乗り場:のりば,乗り物:のりもの,乗る:のる,歯医者:はいしゃ,運ぶ:はこぶ,始まり:はじまり,始まる:はじまる,始め:はじめ,始めに:はじめに,始める:はじめる,発見:はっけん,発行:はっこう,発車:はっしゃ,発生:はっせい,葉っぱ:はっぱ,発表:はっぴょう,発音:はつおん,発言:はつげん,発売:はつばい,発明:はつめい,話し言葉:はなしことば,放す:はなす,放れる:はなれる,羽根:はね,早起き:はやおき,速さ:はやさ,反対:はんたい,化け物:ばけもの/ばけもん,場所:ばしょ,場面:ばめん,番号:ばんごう,引き受ける:ひきうける,引き返す:ひきかえす,筆記用具:ひっきようぐ,等しい:ひとしい,悲鳴:ひめい,表紙:ひょうし,表面:ひょうめん,拾う:ひろう,美人:びじん,病院:びょういん,病気:びょうき,病室:びょうしつ,平等:びょうどう,病人:びょうにん,深さ:ふかさ,部長:ぶちょう,部品:ぶひん,部分:ぶぶん,文化:ぶんか,文章:ぶんしょう,平気:へいき,平日:へいじつ/ひらび,平和:へいわ,部屋:へや,返事:へんじ,勉強:べんきょう,方向:ほうこう,放送:ほうそう,歩行者:ほこうしゃ,本箱:ほんばこ,本部:ほんぶ,本物:ほんもの,本屋:ほんや,前向き:まえむき,曲がりかど:まがりかど,曲がる:まがる,負け:まけ,負ける:まける,曲げる:まげる,真心:まごころ,真四角:ましかく,待合室:まちあいしつ,待ち合わせ:まちあわせ,待ち遠しい:まちどおしい,真っ赤:まっか,真っ暗:まっくら,真っ黒:まっくろ,真っ青:まっさお,真っ先:まっさき,真っ白:まっしろ,全く:まったく,待つ:まつ,祭り:まつり,真夏:まなつ,守る:まもる,真夜中:まよなか,真ん中:まんなか,真ん丸:まんまる,見送り:みおくり,見送る:みおくる,見落とす:みおとす,味方:みかた,見事:みごと,短い:みじかい,水着:みずぎ,緑色:みどりいろ/りょくしょく,身の回り:みのまわり,見守る:みまもる,向かい:むかい,向かう:むかう,昔話:むかしばなし,向き:むき,向く:むく,向け:むけ,向ける:むける,向こう:むこう,虫歯:むしば,息子:むすこ,目薬:めぐすり,目指す:めざす,面会:めんかい,面する:めんする,面談:めんだん,申し上げる:もうしあげる,申す:もうす,目次:もくじ,持ち:もち,持ち直す:もちなおす,持ち主:もちぬし,持ち物:もちもの,持って行く:もっていく/もってゆく,持つ:もつ,持てる:もてる,物音:ものおと,物語:ものがたり,問題:もんだい,八百屋:やおや,野球:やきゅう,役所:やくしょ,役立つ:やくだつ,役に立つ:やくにたつ,安い:やすい,安売り:やすうり,安っぽい:やすっぽい,薬局:やっきょく,屋根:やね,山登り:やまのぼり,遊園地:ゆうえんち,有名:ゆうめい,湯気:ゆげ,湯飲み:ゆのみ,指切り:ゆびきり,用意:ようい,洋画:ようが,用具:ようぐ,洋式:ようしき,洋室:ようしつ,洋酒:ようしゅ,洋書:ようしょ,洋食:ようしょく,用事:ようじ,様子:ようす,洋風:ようふう,洋服:ようふく,洋間:ようま,横顔:よこがお,横書き:よこがき,横切る:よこぎる,横取り:よこどり,予習:よしゅう,予想:よそう,予定:よてい,世の中:よのなか,流行:りゅうこう,理由:りゆう,両親:りょうしん,両手:りょうて,両方:りょうほう,旅館:りょかん,旅行:りょこう,列車:れっしゃ,練習:れんしゅう,和式:わしき,和室:わしつ,和食:わしょく,話題:わだい,和風:わふう,和服:わふく,悪い:わるい,悪気:わるぎ,悪者:わるもの',
+'悪意:あくい,悪事:あくじ,悪用:あくよう,悪化:あっか,あの世:あのよ,油絵:あぶらえ,雨具:あまぐ,有様:ありさま/ありよう,医学:いがく,意向:いこう,意地:いじ,一員:いちいん,一面:いちめん,一様:いちよう,一流:いちりゅう,一向に:いっこうに,一定:いってい/いちじょう,意図:いと,医薬品:いやくひん,植木:うえき,受取り:うけとり,受身:うけみ,受け持ち:うけもち,受け持つ:うけもつ,打ち消し:うちけし,打ち消す:うちけす,運休:うんきゅう,運行:うんこう,運送:うんそう,運用:うんよう,円安:えんやす,負う:おう,王者:おうじゃ/おうしゃ,横着:おうちゃく,終える:おえる,大屋:おおや,悪寒:おかん,屋内:おくない,落ち合う:おちあう,主に:おもに,重んじる:おもんじる,重んずる:おもんずる,温和:おんわ,開会:かいかい,階級:かいきゅう,回想:かいそう,会談:かいだん,開発:かいはつ,開放:かいほう,海面:かいめん,海洋:かいよう,海流:かいりゅう,回路:かいろ,家屋:かおく,夏期:かき,化合:かごう,化石:かせき,下半身:かはんしん/しもはんしん,神業:かみわざ,火薬:かやく,下流:かりゅう,感化:かんか,漢語:かんご,感ずる:かんずる,神主:かんぬし/かむぬし,寒波:かんぱ,漢文:かんぶん,漢方薬:かんぽうやく,漢和:かんわ,外相:がいしょう,外部:がいぶ,学部:がくぶ,学問:がくもん,学界:がっかい,合宿:がっしゅく,帰化:きか,期日:きじつ/きにち,汽笛:きてき,気味:きみ/きび,客室:きゃくしつ,客車:きゃくしゃ/かくしゃ,客間:きゃくま,休業:きゅうぎょう,急所:きゅうしょ,休息:きゅうそく,急速:きゅうそく,急病:きゅうびょう,究明:きゅうめい,急用:きゅうよう,教員:きょういん,強化:きょうか,強調:きょうちょう,曲線:きょくせん,金庫:きんこ,近世:きんせい,近代:きんだい,業界:ぎょうかい,業者:ぎょうしゃ,銀紙:ぎんがみ,区画:くかく,区間:くかん,苦心:くしん,区分:くぶん,形式:けいしき,毛皮:けがわ/もうひ,決算:けっさん,気配:けはい/きはい,見物人:けんぶつにん,県立:けんりつ,下宿:げしゅく,元号:げんごう,原始:げんし,言動:げんどう,原油:げんゆ,高温:こうおん,公開:こうかい,工学部:こうがくぶ,後期:こうき,公使:こうし,行使:こうし,公式:こうしき,後者:こうしゃ,行進:こうしん,口実:こうじつ,向上:こうじょう,高速:こうそく,公定:こうてい,高等:こうとう,高等学校:こうとうがっこう,高度:こうど,公表:こうひょう,交流:こうりゅう,国鉄:こくてつ,国有:こくゆう,古代:こだい,小羊:こひつじ,根気:こんき,合意:ごうい,合理化:ごうりか,祭日:さいじつ,作物:さくもつ,指図:さしず,注す:さす,定まる:さだまる,定める:さだめる,作動:さどう,去る:さる,三流:さんりゅう,仕入れ:しいれ,仕入れる:しいれる,仕送り:しおくり,歯科:しか,死去:しきょ,仕組み:しくみ,死者:ししゃ,始終:しじゅう,詩人:しじん,思想:しそう,死体:したい,下調べ:したしらべ,仕立てる:したてる,次第:しだい,次第に:しだいに,死人:しにん/しびと,使命:しめい,紙面:しめん,車庫:しゃこ,写生:しゃせい,車両:しゃりょう,集会:しゅうかい,終始:しゅうし,終着駅:しゅうちゃくえき,集落:しゅうらく,宿命:しゅくめい,首相:しゅしょう,主食:しゅしょく,主体:しゅたい,主題:しゅだい,出荷:しゅっか,出世:しゅっせ,出品:しゅっぴん,出題:しゅつだい,首都:しゅと,消火:しょうか,商業:しょうぎょう,商社:しょうしゃ,消息:しょうそく,商談:しょうだん,商人:しょうにん/あきんど,食物:しょくもつ,書物:しょもつ,所有:しょゆう,使用人:しようにん,真意:しんい,進化:しんか,進行:しんこう,進出:しんしゅつ,心身:しんしん,真相:しんそう,親族:しんぞく,神道:しんとう/しんどう,進入:しんにゅう,神父:しんぷ,進歩:しんぽ,真理:しんり,神話:しんわ,寺院:じいん,時期:じき,事業:じぎょう/ことわざ,次元:じげん,自主:じしゅ,次女:じじょ,時速:じそく,実に:じつに/げに/まことに,実物:じつぶつ,実名:じつめい,実用:じつよう,実話:じつわ,次男:じなん,地主:じぬし,自問:じもん,重工業:じゅうこうぎょう,重心:じゅうしん,十字路:じゅうじろ,重体:じゅうたい,重点:じゅうてん,重役:じゅうやく,重力:じゅうりょく,上級:じょうきゅう,乗じる:じょうじる,乗ずる:じょうずる,上等:じょうとう,上半身:じょうはんしん/かみはんしん,上流:じょうりゅう,助言:じょげん,水平:すいへい,水平線:すいへいせん,水面:すいめん/みなも,速やか:すみやか,図表:ずひょう,生死:せいし/しょうし/しょうじ,正式:せいしき,整数:せいすう,西部:せいぶ,西洋:せいよう,急かす:せかす,石炭:せきたん,赤面:せきめん,世間:せけん,世相:せそう,世代:せだい,切実:せつじつ,先決:せんけつ,先進国:せんしんこく,先着:せんちゃく,前期:ぜんき,前者:ぜんしゃ,全集:ぜんしゅう,前進:ぜんしん,全速力:ぜんそくりょく,早期:そうき,送金:そうきん,想定:そうてい,相当:そうとう,相場:そうば,対決:たいけつ,大使:たいし,大使館:たいしかん,対する:たいする,対談:たいだん,対等:たいとう,対立:たいりつ,対話:たいわ,他者:たしゃ,田畑:たはた/たはたけ/でんばた/でんぱた,旅立つ:たびだつ,他方:たほう,他面:ためん,多様:たよう,短歌:たんか/みじかうた,短期:たんき,短期大学:たんきだいがく,短大:たんだい,大学院:だいがくいん,代行:だいこう,代代:だいだい/よよ,代用:だいよう,代理:だいり,談話:だんわ,知事:ちじ,地平線:ちへいせん,着手:ちゃくしゅ,着色:ちゃくしょく,着実:ちゃくじつ,中級:ちゅうきゅう,中世:ちゅうせい,中流:ちゅうりゅう,長期:ちょうき,調整:ちょうせい,調和:ちょうわ,直進:ちょくしん,直列:ちょくれつ,直感:ちょっかん,追究:ついきゅう,次いで:ついで,追放:ついほう,次ぐ:つぐ,定員:ていいん,庭園:ていえん,定形:ていけい,定着:ていちゃく,定年:ていねん,手落ち:ておち,鉄橋:てっきょう,手配:てはい,電波:でんぱ,電流:でんりゅう,問い:とい,問う:とう,冬期:とうき,登記:とうき,当局:とうきょく,投書:とうしょ,答申:とうしん,当事者:とうじしゃ,投じる:とうじる,東部:とうぶ,東洋:とうよう,登用:とうよう,研ぐ:とぐ,年取った:としとった,都心:としん,都内:とない,取り決め:とりきめ,取り調べ:とりしらべ,都立:とりつ,取り次ぐ:とりつぐ,取り外す:とりはずす,取引:とりひき,問屋:とんや/といや,度合:どあい,同意:どうい,動員:どういん,同化:どうか,同感:どうかん,同期:どうき,動向:どうこう,動作:どうさ,動じる:どうじる,同等:どうとう,同様:どうよう,動力:どうりょく,同列:どうれつ,内向:ないこう,和む:なごむ,何事:なにごと,南部:なんぶ,苦味:にがみ/くみ,入荷:にゅうか,二流:にりゅう,人相:にんそう,根回し:ねまわし,練る:ねる,年号:ねんごう,年始:ねんし,年代:ねんだい,年度:ねんど,年配:ねんぱい,年表:ねんぴょう,農場:のうじょう,農村:のうそん,農地:のうち,農林:のうりん,乗っ取る:のっとる,乗り気:のりき,乗組員:のりくみいん,乗り出す:のりだす/のりいだす,乗り回す:のりまわす,配当:はいとう,配分:はいぶん,配列:はいれつ,育む:はぐくむ,歯車:はぐるま,波長:はちょう,発火:はっか,発する:はっする,発声:はっせい,発想:はっそう,発送:はっそう,発着:はっちゃく,発育:はついく,発電:はつでん,発電所:はつでんしょ,発病:はつびょう,歯止め:はどめ,鼻紙:はながみ,放つ:はなつ,歯向かう:はむかう,反感:はんかん,反作用:はんさよう,反する:はんする,半島:はんとう,反動:はんどう,反発:はんぱつ,半面:はんめん,反面:はんめん,化ける:ばける,万事:ばんじ,引き起こす:ひきおこす,引き取る:ひきとる,筆記:ひっき,筆者:ひっしゃ,一重:ひとえ,一昔:ひとむかし,皮肉:ひにく,表記:ひょうき,氷山:ひょうざん,平たい:ひらたい,品名:ひんめい,美化:びか,美女:びじょ,病死:びょうし,病弱:びょうじゃく,秒読み:びょうよみ,風速:ふうそく,風流:ふうりゅう/ふりゅう,深まる:ふかまる,深み:ふかみ,深める:ふかめる,服用:ふくよう,部下:ぶか,物体:ぶったい,物理:ぶつり,部門:ぶもん,文学者:ぶんがくしゃ,分業:ぶんぎょう,文庫:ぶんこ,分配:ぶんぱい,平行:へいこう,平年:へいねん,平方:へいほう,平面:へいめん,返上:へんじょう,返答:へんとう,勉学:べんがく,放火:ほうか,放題:ほうだい,方面:ほうめん,放る:ほうる/ほる,北部:ほくぶ,歩行者天国:ほこうしゃてんごく,歩調:ほちょう,発起人:ほっきにん,発作:ほっさ,発足:ほっそく/はっそく,毎度:まいど,負かす:まかす,勝る:まさる,待ち受ける:まちうける,祭る:まつる,万年筆:まんねんひつ/まんねんぴつ/まんねんふで,身内:みうち,身軽:みがる,見苦しい:みぐるしい,店開き:みせびらき,見習い:みならい,見習う:みならう,身なり:みなり,身の上:みのうえ,実る:みのる,見放す:みはなす,身分:みぶん,身元:みもと,明暗:めいあん,名所:めいしょ/などころ,命じる:めいじる,命ずる:めいずる,命中:めいちゅう,命日:めいにち,名物:めいぶつ,目玉商品:めだましょうひん,目安:めやす,申し出る:もうしでる,物語る:ものがたる,物事:ものごと,物足りない:ものたりない,問答:もんどう,役者:やくしゃ,役人:やくにん,役場:やくば,薬品:やくひん,役目:やくめ,夜具:やぐ,宿屋:やどや,家主:やぬし/いえぬし,病む:やむ,和らぐ:やわらぐ,和らげる:やわらげる,有する:ゆうする,有力:ゆうりょく,委ねる:ゆだねる,油田:ゆでん,由来:ゆらい,陽気:ようき,様式:ようしき,様相:ようそう,羊毛:ようもう,予感:よかん,予期:よき,予言:よげん,横たわる:よこたわる,予算:よさん,予知:よち,来客:らいきゃく/らいかく,落語:らくご,落第:らくだい,落下:らっか,理学部:りがくぶ,理事:りじ,理想:りそう,流通:りゅうつう,両者:りょうしゃ,両面:りょうめん,両立:りょうりつ,旅客:りょかく/りょきゃく,林業:りんぎょう,礼金:れいきん,礼服:れいふく,列島:れっとう,路地:ろじ,路上:ろじょう,和歌:わか,分からず屋:わからずや,和語:わご,和平:わへい',
+'相変わらず:あいかわらず,愛する:あいする,愛用:あいよう,浅い:あさい,辺り:あたり,熱い:あつい,浴びせる:あびせる,浴びる:あびる,争い:あらそい,争う:あらそう,改めて:あらためて,改める:あらためる,案外:あんがい,案内:あんない,以下:いか/いげ,以外:いがい,育児:いくじ,以後:いご,勇ましい:いさましい,以上:いじょう,以前:いぜん,位置:いち,井戸:いど,以内:いない,衣服:いふく,以来:いらい,衣類:いるい,祝い:いわい,祝う:いわう,印刷:いんさつ,飲料水:いんりょうすい,受付:うけつけ,受け付ける:うけつける,失う:うしなう,内側:うちがわ/ないそく,海辺:うみべ/かいへん,運良く:うんよく,英語:えいご,栄養:えいよう,笑顔:えがお,選ぶ:えらぶ,追い付く:おいつく,お祝い:おいわい,置物:おきもの,置く:おく,お手伝い:おてつだい,覚える:おぼえる,お参り:おまいり,お土産:おみやげ,思い付き:おもいつき,思い付く:おもいつく,折り返し:おりかえし,折紙:おりがみ,折る:おる,折れる:おれる,会議:かいぎ,改札:かいさつ,改札口:かいさつぐち,海水浴:かいすいよく,海底:かいてい/うなぞこ,改良:かいりょう,顔付き:かおつき,香り:かおり,関わる:かかわる,書き初め:かきぞめ,各自:かくじ,各地:かくち,欠ける:かける,加工:かこう,固まる:かたまる,固める:かためる,課題:かだい,課長:かちょう,各国:かっこく/かくこく,必ず:かならず,借りる:かりる,感覚:かんかく,観客:かんきゃく,関係:かんけい,観光:かんこう,観察:かんさつ,関心:かんしん,関する:かんする,完成:かんせい,関節:かんせつ,完全:かんぜん,管理:かんり,関連:かんれん,害虫:がいちゅう,楽器:がっき,合唱:がっしょう,願書:がんしょ,機会:きかい,機械:きかい,機関:きかん,機関車:きかんしゃ,器具:きぐ,気候:きこう,季節:きせつ,競う:きそう,気付く:きづく,記念:きねん,記念日:きねんび,希望:きぼう,給食:きゅうしょく,求人:きゅうじん,給料:きゅうりょう,競争:きょうそう,共通:きょうつう,共同:きょうどう,協力:きょうりょく,器用:きよう,記録:きろく,気を付ける:きをつける,議員:ぎいん,議会:ぎかい,議長:ぎちょう,漁業:ぎょぎょう,漁船:ぎょせん,果物:くだもの/かぶつ,工夫:くふう,区別:くべつ,苦労:くろう,加える:くわえる,加わる:くわわる,訓読み:くんよみ,訓練:くんれん,軍隊:ぐんたい,景気:けいき,競馬:けいば,景色:けしき/けいしょく,結果:けっか,結局:けっきょく,欠席:けっせき,欠点:けってん,結末:けつまつ,健康:けんこう,月給:げっきゅう,月末:げつまつ/つきずえ,原料:げんりょう,交差点:こうさてん,香水:こうすい,好調:こうちょう,高熱:こうねつ,好物:こうぶつ,国産:こくさん,国民:こくみん,試み:こころみ,試みる:こころみる,固体:こたい,国旗:こっき,小包:こづつみ,固定:こてい,好み:このみ,好む:このむ,ご飯:ごはん,最悪:さいあく,最強:さいきょう,最近:さいきん,最高:さいこう,最後:さいご,最終:さいしゅう,最初:さいしょ,最小:さいしょう,最大:さいだい,最低:さいてい,作戦:さくせん,昨年:さくねん,昨夜:さくや/ゆうべ/ゆんべ,差し上げる:さしあげる,差し出す:さしだす,差す:さす,差別:さべつ,冷ます:さます,覚ます:さます,冷める:さめる,覚める:さめる,参加:さんか,産業:さんぎょう,参考:さんこう,参考書:さんこうしょ,産地:さんち,散歩:さんぽ,材木:ざいもく,材料:ざいりょう,残業:ざんぎょう,残念:ざんねん,司会:しかい,四季:しき,試験:しけん,静か:しずか,静まる:しずまる,自然:しぜん,失敗:しっぱい,失礼:しつれい,市民:しみん,氏名:しめい/うじな,借金:しゃっきん,車輪:しゃりん,周辺:しゅうへん,週末:しゅうまつ,祝日:しゅくじつ,取材:しゅざい,出産:しゅっさん,出席:しゅっせき,種目:しゅもく,種類:しゅるい,消火器:しょうかき,小説:しょうせつ,照明:しょうめい,勝利:しょうり,少量:しょうりょう,初夏:しょか/はつなつ,初級:しょきゅう,食料:しょくりょう,食器:しょっき,書類:しょるい,信号:しんごう,信じる:しんじる,信用:しんよう,親類:しんるい,時給:じきゅう,時差:じさ,辞書:じしょ,自信:じしん,実験:じっけん,辞典:じてん/ことばてん,児童:じどう,住民:じゅうみん,重要:じゅうよう,受験:じゅけん,受信:じゅしん,順位:じゅんい,順調:じゅんちょう,順番:じゅんばん,人類:じんるい,末っ子:すえっこ,好き:すき,すき焼き:すきやき,刷る:する,成果:せいか,成功:せいこう,生産:せいさん,静止:せいし,清書:せいしょ,成人:せいじん,成長:せいちょう,生徒:せいと,成分:せいぶん,赤飯:せきはん,積極的:せっきょくてき,説明:せつめい,節約:せつやく,選挙:せんきょ,戦車:せんしゃ,選手:せんしゅ,戦争:せんそう,全然:ぜんぜん,倉庫:そうこ,送信:そうしん,送別会:そうべつかい,速達:そくたつ,卒業:そつぎょう,外側:そとがわ/がいそく,体験:たいけん,大変:たいへん,大陸:たいりく,大量:たいりょう,戦い:たたかい,戦う:たたかう,達成:たっせい,建つ:たつ,立て札:たてふだ,建物:たてもの,建てる:たてる,例えば:たとえば,例える:たとえる,束ねる:たばねる/つかねる,試す:ためす,便り:たより/だより,単位:たんい,単語:たんご,大臣:だいじん,大好き:だいすき,台無し:だいなし,近付く:ちかづく,近付ける:ちかづける,着席:ちゃくせき,着陸:ちゃくりく,調節:ちょうせつ,調味料:ちょうみりょう,直径:ちょっけい,散らかす:ちらかす,散らかる:ちらかる,散らす:ちらす,散らばる:ちらばる,散る:ちる,追加:ついか,通信:つうしん,付き合い:つきあい,付き合う:つきあう,付け加える:つけくわえる,付け足す:つけたす,伝える:つたえる,伝わる:つたわる,包み:つつみ,包み紙:つつみがみ,続き:つづき,続く:つづく,続ける:つづける,積む:つむ,冷たい:つめたい/つべたい,積もる:つもる,連れ:つれ,連れて行く:つれていく/つれてゆく,連れて来る:つれてくる,連れる:つれる,手順:てじゅん,手伝い:てつだい,手伝う:てつだう,手続き:てつづき,照らす:てらす,照る:てる,照れる:てれる,天候:てんこう,天井:てんじょう,天然:てんねん,伝言:でんごん,伝説:でんせつ,電灯:でんとう,答案:とうあん,当選:とうせん,当然:とうぜん,灯台:とうだい,投票:とうひょう,灯油:とうゆ,登録:とうろく,特集:とくしゅう,特色:とくしょく,特に:とくに,特売:とくばい,特別:とくべつ,特急:とっきゅう,特訓:とっくん,飛ばす:とばす,飛び下りる:とびおりる,飛び出す:とびだす,飛ぶ:とぶ,徒歩:とほ,友達:ともだち,道徳:どうとく,努力:どりょく,治す:なおす,治る:なおる,仲直り:なかなおり,仲間:なかま,仲良く:なかよく,仲良し:なかよし,長続き:ながつづき,泣き顔:なきがお,泣き声:なきごえ,泣く:なく,名札:なふだ,南極:なんきょく,苦笑い:にがわらい,日課:にっか,日給:にっきゅう,入試:にゅうし,入浴:にゅうよく,願い:ねがい,願う:ねがう,熱気:ねっき,熱心:ねっしん,熱帯:ねったい,熱中:ねっちゅう,熱湯:ねっとう,念入り:ねんいり,年賀:ねんが,年末:ねんまつ,農民:のうみん,残す:のこす,残らず:のこらず,残り:のこり,残る:のこる,望み:のぞみ,望む:のぞむ,配達:はいたつ,配置:はいち,白衣:はくい/しろきぬ/しろぎぬ/はくえ/びゃくい/びゃくえ,白菜:はくさい,博物館:はくぶつかん,初めて:はじめて,果たす:はたす,働き:はたらき,働く:はたらく,発達:はったつ,発芽:はつが,発熱:はつねつ,初雪:はつゆき,花束:はなたば,省く:はぶく,半径:はんけい,反省:はんせい,冷える:ひえる,引き続き:ひきつづき,低い:ひくい,飛行:ひこう,飛行機:ひこうき,飛行場:ひこうじょう,日差し:ひざし,左側:ひだりがわ/さそく,左利き:ひだりきき,必死:ひっし,引っ付く:ひっつく,筆順:ひつじゅん,必要:ひつよう,日付:ひづけ,人差し指:ひとさしゆび,百科事典:ひゃっかじてん,百貨店:ひゃっかてん,日焼け:ひやけ,冷やす:ひやす,不安:ふあん,風景:ふうけい,不運:ふうん,付近:ふきん,不幸:ふこう,不公平:ふこうへい,不思議:ふしぎ,不親切:ふしんせつ,不十分:ふじゅうぶん,不自由:ふじゆう,不足:ふそく,不注意:ふちゅうい,船便:ふなびん/せんびん,不便:ふべん,不満:ふまん,不要:ふよう,不良:ふりょう,付録:ふろく,不器用:ぶきよう,無事:ぶじ,文法:ぶんぽう,分量:ぶんりょう,分類:ぶんるい,平成:へいせい,兵隊:へいたい,返信:へんしん,別に:べつに,便所:べんじょ,便利:べんり,包帯:ほうたい,包丁:ほうちょう,方法:ほうほう,北極:ほっきょく,望遠鏡:ぼうえんきょう,周り:まわり,満員:まんいん,満月:まんげつ,満足:まんぞく,満点:まんてん,見失う:みうしなう,見覚え:みおぼえ,右側:みぎがわ/うそく,未成年:みせいねん,道順:みちじゅん,未定:みてい,未来:みらい,民族:みんぞく,無関係:むかんけい,無関心:むかんしん,無休:むきゅう,無口:むくち,向こう側:むこうがわ,無言:むごん,無人:むじん/ぶにん/むにん,結ぶ:むすぶ,無理:むり,無理やり:むりやり,無料:むりょう,群れ:むれ,名案:めいあん,明治:めいじ,命令:めいれい,目覚まし:めざまし,目覚める:めざめる,目印:めじるし,面積:めんせき,目的:もくてき,目的地:もくてきち,目標:もくひょう,最も:もっとも,求める:もとめる,物置:ものおき,物差し:ものさし,焼きそば:やきそば,焼き鳥:やきとり,焼肉:やきにく,焼く:やく,約束:やくそく,夜景:やけい,焼ける:やける,野菜:やさい,養う:やしなう,矢印:やじるし,敗れる:やぶれる,辞める:やめる,有害:ゆうがい,勇気:ゆうき,夕焼け:ゆうやけ,有利:ゆうり,有料:ゆうりょう,指差す:ゆびさす,指輪:ゆびわ,良い:よい,要求:ようきゅう,要点:ようてん,要約:ようやく,浴室:よくしつ,予選:よせん,予約:よやく,陸上:りくじょう,両側:りょうがわ/りょうそく,料金:りょうきん,良心:りょうしん,料理:りょうり,利用:りよう,例外:れいがい,冷水:れいすい,冷静:れいせい,例題:れいだい,例文:れいぶん,連休:れんきゅう,連続:れんぞく,老後:ろうご,老人:ろうじん,労働:ろうどう,録音:ろくおん,録画:ろくが,別れ:わかれ,別れる:わかれる,笑い:わらい,笑い声:わらいごえ,笑う:わらう',
+'愛着:あいちゃく/あいじゃく,愛読:あいどく,浅はか:あさはか,朝飯:あさめし/あさはん,後始末:あとしまつ,改まる:あらたまる,安静:あんせい,案の定:あんのじょう,衣食住:いしょくじゅう,一挙に:いっきょに,一種:いっしゅ/ひとくさ,一帯:いったい,衣料:いりょう,印紙:いんし,雨季:うき,有無:うむ,英気:えいき,栄光:えいこう,英文:えいぶん,英和:えいわ,園芸:えんげい,円周:えんしゅう,塩分:えんぶん,円満:えんまん,老いる:おいる,沖合い:おきあい,治まる:おさまる,治める:おさめる,お世辞:おせじ/おせいじ,お節料理:おせちりょうり,覚え:おぼえ,折り返す:おりかえす,温帯:おんたい,海軍:かいぐん,海産物:かいさんぶつ,改正:かいせい,街道:かいどう,省みる:かえりみる,香る:かおる,加害者:かがいしゃ,夏季:かき/なつき,欠く:かく,各位:かくい,各種:かくしゅ,貨車:かしゃ,果実:かじつ,加速:かそく,画期的:かっきてき,必ずしも:かならずしも,加入:かにゅう,貨物:かもつ/かぶつ,体付き:からだつき,借り:かり,変わる:かわる,観念:かんねん,関門:かんもん,寒冷:かんれい,外貨:がいか,外観:がいかん,害する:がいする,街頭:がいとう,学位:がくい,学説:がくせつ,願望:がんぼう/がんもう,器官:きかん,季語:きご,兆し:きざし,岸辺:きしべ,帰省:きせい,機体:きたい,機長:きちょう,機動隊:きどうたい,期末:きまつ,決め付ける:きめつける,客席:きゃくせき,客観:きゃっかん/かくかん/かっかん,客観的:きゃっかんてき/かっかんてき,究極:きゅうきょく,急変:きゅうへん,休養:きゅうよう,共感:きょうかん,協議:きょうぎ,教訓:きょうくん,共通語:きょうつうご,共有:きょうゆう,共用:きょうよう,強要:きょうよう,教養:きょうよう,共和国:きょうわこく,清い:きよい,清らか:きよらか,極まる:きわまる,極めて:きわめて,極める:きわめる,金利:きんり,議決:ぎけつ,議題:ぎだい,漁村:ぎょそん,空軍:くうぐん,具体的:ぐたいてき,群集:ぐんしゅう,軍事:ぐんじ,軍人:ぐんじん,形式的:けいしきてき,形成:けいせい,消印:けしいん,血管:けっかん,結成:けっせい,決議:けつぎ,結合:けつごう,健全:けんぜん,好意:こうい,好感:こうかん,公害:こうがい,公共:こうきょう,光景:こうけい,工芸:こうげい,交差:こうさ,公然:こうぜん,好都合:こうつごう,高低:こうてい/たかひく,好転:こうてん,後天的:こうてんてき,香ばしい:こうばしい,交付:こうふ,公民館:こうみんかん,公約:こうやく,国連:こくれん,固形:こけい,古典:こてん,好ましい:このましい,固有:こゆう,合成:ごうせい,合法:ごうほう,合理的:ごうりてき,極楽:ごくらく,ご苦労さま:ごくろうさま,最期:さいご,菜食:さいしょく,最上:さいじょう/もがみ,差し引き:さしひき,察する:さっする,参議院:さんぎいん,参照:さんしょう,山積:さんせき,産物:さんぶつ,残暑:ざんしょ,残高:ざんだか,市街:しがい,使節:しせつ,自然科学:しぜんかがく,子孫:しそん,失業:しつぎょう,失望:しつぼう,司法:しほう,始末:しまつ,社交的:しゃこうてき,社説:しゃせつ,周期:しゅうき,終戦:しゅうせん,主観:しゅかん,主観的:しゅかんてき,祝電:しゅくでん,祝福:しゅくふく,首唱:しゅしょう,出欠:しゅっけつ,出願:しゅつがん,主要:しゅよう,照会:しょうかい,消極的:しょうきょくてき,消灯:しょうとう,小児科:しょうにか,勝敗:しょうはい,小便:しょうべん/しょんべん,初期:しょき,植民地:しょくみんち,初心:しょしん,初歩:しょほ,親愛:しんあい,信者:しんじゃ,信ずる:しんずる,信念:しんねん,自覚:じかく,時機:じき,持参:じさん,自主的:じしゅてき,持続:じぞく,自治:じち,実用的:じつようてき,実例:じつれい,自発的:じはつてき,重量:じゅうりょう,受動的:じゅどうてき,受話器:じゅわき,順路:じゅんろ,上司:じょうし,上達:じょうたつ,上陸:じょうりく,人材:じんざい,人種:じんしゅ,人道的:じんどうてき,人民:じんみん,水害:すいがい,水産:すいさん,数量:すうりょう,好き好き:すきずき,健やか:すこやか,成算:せいさん,清算:せいさん,成年:せいねん,成立:せいりつ,席上:せきじょう,積雪:せきせつ,世帯:せたい/しょたい,説教:せっきょう,戦後:せんご,戦死:せんし,選出:せんしゅつ,戦場:せんじょう/いくさば,戦前:せんぜん,選定:せんてい,先天的:せんてんてき,先入観:せんにゅうかん,先例:せんれい,全面的:ぜんめんてき,前例:ぜんれい,相関:そうかん,争議:そうぎ,相続:そうぞく,相対的:そうたいてき,送付:そうふ,送別:そうべつ,速達便:そくたつびん,側面:そくめん,続出:ぞくしゅつ,待機:たいき,対照:たいしょう,体積:たいせき,大戦:たいせん,大別:たいべつ,待望:たいぼう,達する:たっする,達筆:たっぴつ,立て続け:たてつづけ,建前:たてまえ,例え:たとえ,試し:ためし,多量:たりょう,単一:たんいつ,単行本:たんこうぼん,単数:たんすう,単調:たんちょう,単なる:たんなる,単に:たんに,大便:だいべん,打算的:ださんてき,治安:ちあん,地位:ちい,知覚:ちかく,力試し:ちからだめし,地帯:ちたい,知的:ちてき,中産階級:ちゅうさんかいきゅう,調印:ちょういん,散らし:ちらし,追求:ついきゅう,通貨:つうか,通産省:つうさんしょう,通達:つうたつ/つうだつ,束の間:つかのま,月初め:つきはじめ,作り笑い:つくりわらい,伝う:つたう,努めて:つとめて,努める:つとめる,積み立て:つみたて,連なる:つらなる,連ねる:つらねる,低温:ていおん,低音:ていおん,低下:ていか,的中:てきちゅう,伝達:でんたつ,冬季:とうき,当初:とうしょ,時折:ときおり,説く:とく,特産:とくさん,特定:とくてい,特有:とくゆう,富む:とむ,灯す:ともす/とぼす,共働き:ともばたらき,動機:どうき,動静:どうせい,同類:どうるい,どの辺:どのへん,内向的:ないこうてき,内陸:ないりく,仲買:なかがい,名付ける:なづける,何気無く:なにげなく,成り立つ:なりたつ,成り行き:なりゆき,日光浴:にっこうよく,荷札:にふだ,入札:にゅうさつ,入選:にゅうせん,入念:にゅうねん,願わくは:ねがわくは,熱する:ねっする,熱意:ねつい,念願:ねんがん,念頭:ねんとう,念力:ねんりき,年輪:ねんりん,農協:のうきょう,望ましい:のぞましい,敗戦:はいせん,敗北:はいぼく,博愛:はくあい,博学:はくがく,白熱:はくねつ,果たして:はたして,発覚:はっかく,発散:はっさん,発信:はっしん,果てしない:はてしない,反戦:はんせん,馬鹿らしい:ばからしい,悲観:ひかん,悲観的:ひかんてき,引き付ける:ひきつける,筆記試験:ひっきしけん,必着:ひっちゃく,必然:ひつぜん,必然的:ひつぜんてき,必読:ひつどく,冷やかす:ひやかす,冷ややか:ひややか,標語:ひょうご,表札:ひょうさつ,標本:ひょうほん,品種:ひんしゅ,便乗:びんじょう,不安定:ふあんてい,不意:ふい,不意に:ふいに,付加:ふか,不完全:ふかんぜん,副作用:ふくさよう,不景気:ふけいき,老ける:ふける,不合理:ふごうり,不作:ふさく,不幸せ:ふしあわせ,不自然:ふしぜん,不始末:ふしまつ,富者:ふしゃ/ふうしゃ,不信:ふしん,不時着:ふじちゃく,不順:ふじゅん,夫人:ふじん,不正:ふせい,付着:ふちゃく,不通:ふつう,不都合:ふつごう,不当:ふとう,不動産:ふどうさん,不動産屋:ふどうさんや,不必要:ふひつよう,不平等:ふびょうどう,不服:ふふく,不平:ふへい,不変:ふへん,不法:ふほう,不本意:ふほんい,不明:ふめい,不毛:ふもう,不利:ふり,府立:ふりつ,不気味:ぶきみ,無礼:ぶれい,文化的:ぶんかてき,分岐:ぶんき,文芸:ぶんげい,分散:ぶんさん,兵役:へいえき,兵器:へいき,変化:へんか,変形:へんけい,変身:へんしん,変動:へんどう,別名:べつめい/べつみょう,別問題:べつもんだい,方位:ほうい,法外:ほうがい,法学:ほうがく,法学部:ほうがくぶ,法人:ほうじん,放置:ほうち,法的:ほうてき,法令:ほうれい,前置き:まえおき,前借り:まえがり,間借り:まがり,街角:まちかど,待ち望む:まちのぞむ,末期的:まっきてき,真っ最中:まっさいちゅう/まっさなか,末日:まつじつ,満場:まんじょう,満面:まんめん,未開:みかい,味覚:みかく,見極める:みきわめる,未然:みぜん,満たす:みたす,未知:みち,満ちる:みちる,見積もり:みつもり,見栄え:みばえ,未明:みめい,未練:みれん,民間:みんかん,民主:みんしゅ,民法:みんぽう,民話:みんわ,無意味:むいみ,無害:むがい,無機物:むきぶつ,無形:むけい,無残:むざん,無色:むしょく,無心:むしん,無地:むじ,無実:むじつ,無数:むすう,結び:むすび,無生物:むせいぶつ,無線:むせん,無知:むち,無風:むふう,無法:むほう,無名:むめい,無用:むよう,群がる:むらがる,無力:むりょく,群れる:むれる,目覚ましい:めざましい,目付き:めつき,申し分無い:もうしぶんない,木材:もくざい,目録:もくろく,物覚え:ものおぼえ,物好き:ものずき,文部省:もんぶしょう,結う:ゆう/いう,有機物:ゆうきぶつ,友好:ゆうこう,有望:ゆうぼう,養子:ようし,要所:ようしょ,要する:ようする,要するに:ようするに,養成:ようせい,要注意:ようちゅうい,要望:ようぼう,用例:ようれい,養老院:ようろういん,選り分ける:よりわける/えりわける,楽天的:らくてんてき,楽観的:らっかんてき,利害:りがい,陸軍:りくぐん,利口:りこう,利子:りし,利息:りそく,陸橋:りっきょう/りくきょう,立法:りっぽう,理念:りねん,良好:りょうこう,旅客機:りょかくき/りょかっき,冷戦:れいせん,例年:れいねん,連合:れんごう,連日:れんじつ,連想:れんそう,連帯:れんたい,連中:れんちゅう/れんじゅう/れんぢゅう,老化:ろうか,労働者:ろうどうしゃ,労力:ろうりょく,和英:わえい',
+'愛情:あいじょう,悪夢:あくむ,厚い:あつい,厚かましい:あつかましい,厚着:あつぎ,厚さ:あつさ,圧力:あつりょく,暴れる:あばれる,余る:あまる,編み物:あみもの,編む:あむ,過ち:あやまち,謝る:あやまる,現れる:あらわれる,勢い:いきおい,行き過ぎ:いきすぎ/ゆきすぎ,居酒屋:いざかや,医師:いし,意志:いし,意識:いしき,移植:いしょく,一応:いちおう,移転:いてん,移動:いどう,居間:いま,印象:いんしょう,移す:うつす,移る:うつる,運営:うんえい,運転士:うんてんし,永遠:えいえん,永久:えいきゅう/とこしえ/とわ,営業:えいぎょう,衛星:えいせい,衛生:えいせい,液体:えきたい,駅弁:えきべん,演技:えんぎ,演出:えんしゅつ,演じる:えんじる,演説:えんぜつ,応じる:おうじる,横断:おうだん,横断歩道:おうだんほどう,往復:おうふく,応用:おうよう,大型:おおがた,大喜び:おおよろこび,送り仮名:おくりがな,織物:おりもの,解決:かいけつ,解散:かいさん,解消:かいしょう,快晴:かいせい,解説:かいせつ,快速:かいそく,改造:かいぞう,解答:かいとう,会費:かいひ,回復:かいふく,解放:かいほう,解約:かいやく,飼う:かう,価格:かかく,書留:かきとめ,限り:かぎり,限る:かぎる,確実:かくじつ,確率:かくりつ,加減:かげん,過去:かこ,囲う:かこう,囲む:かこむ,火災:かさい,貸し切り:かしきり,貸し出し:かしだし,貸し出す:かしだす,貸す:かす,格好:かっこう/かっこ,可能:かのう,過半数:かはんすう,構う:かまう,構える:かまえる,仮面:かめん,仮に:かりに,過労:かろう,感謝:かんしゃ,感情:かんじょう,間接:かんせつ,観測:かんそく,慣用句:かんようく,学費:がくひ,学歴:がくれき,画像:がぞう,眼科:がんか,気圧:きあつ,効き目:ききめ,効く:きく,期限:きげん,気象:きしょう,基準:きじゅん,築く:きずく,気絶:きぜつ,規則:きそく,基地:きち,規定:きてい,機能:きのう,気の毒:きのどく,寄付:きふ,基本:きほん,救急車:きゅうきゅうしゃ,旧式:きゅうしき,救助:きゅうじょ,急増:きゅうぞう,競技:きょうぎ,教師:きょうし,教授:きょうじゅ,強制:きょうせい,興味:きょうみ,許可:きょか,金額:きんがく,近眼:きんがん/ちかめ,禁止:きんし,金属:きんぞく,禁物:きんもつ,技術:ぎじゅつ,技能:ぎのう,義務:ぎむ,逆効果:ぎゃくこうか/ぎゃっこうか,義理:ぎり,銀河:ぎんが,苦情:くじょう,句読点:くとうてん,比べる:くらべる,経営:けいえい,経過:けいか,経験:けいけん,経費:けいひ,経由:けいゆ/けいゆう,経歴:けいれき,結構:けっこう,血圧:けつあつ,血液:けつえき,決断:けつだん,険しい:けわしい,検査:けんさ,建設:けんせつ,建築:けんちく,検定:けんてい,芸術:げいじゅつ,芸能人:げいのうじん,原因:げんいん,限界:げんかい,現金:げんきん,現在:げんざい,減少:げんしょう,現象:げんしょう,現実:げんじつ,現住所:げんじゅうしょ,原則:げんそく,現代:げんだい,現地:げんち,限定:げんてい,減点:げんてん,限度:げんど,現場:げんば/げんじょう,講演:こうえん,効果:こうか,高価:こうか,航海:こうかい,高気圧:こうきあつ,航空:こうくう,航空機:こうくうき,広告:こうこく,交際:こうさい,鉱山:こうざん,講師:こうし,校舎:こうしゃ,構成:こうせい,校則:こうそく,構造:こうぞう,交通事故:こうつうじこ,交通費:こうつうひ,講堂:こうどう,鉱物:こうぶつ,公務員:こうむいん,小型:こがた,国際:こくさい,国際的:こくさいてき,告白:こくはく,個人:こじん,個性:こせい,国境:こっきょう/くにざかい,断る:ことわる,混む:こむ,小麦粉:こむぎこ,殺す:ころす,混雑:こんざつ,根性:こんじょう,合格:ごうかく,再会:さいかい,再開:さいかい,災害:さいがい,採集:さいしゅう,再生:さいせい,最適:さいてき,採点:さいてん,才能:さいのう,財布:さいふ,採用:さいよう,逆さ:さかさ,逆立ち:さかだち,逆らう:さからう,先程:さきほど,殺人:さつじん,再来月:さらいげつ,再来週:さらいしゅう,再来年:さらいねん,賛成:さんせい,酸性:さんせい,酸素:さんそ,産婦人科:さんふじんか,山脈:さんみゃく,財産:ざいさん,雑草:ざっそう,雑音:ざつおん,雑談:ざつだん,飼育:しいく,資格:しかく,資金:しきん,支出:ししゅつ,指示:しじ/しし,支持:しじ,支度:したく,失格:しっかく,質問:しつもん,支店:してん,指導:しどう,支配:しはい,示す:しめす,謝罪:しゃざい,周囲:しゅうい,習慣:しゅうかん,修学旅行:しゅうがくりょこう,修正:しゅうせい,集団:しゅうだん,修理:しゅうり,手術:しゅじゅつ,主張:しゅちょう,出張:しゅっちょう,出版:しゅっぱん,出版社:しゅっぱんしゃ,出演:しゅつえん,出現:しゅつげん,取得:しゅとく,主任:しゅにん,主婦:しゅふ,賞金:しょうきん,招待:しょうたい,消毒:しょうどく,消費:しょうひ,消費者:しょうひしゃ,賞品:しょうひん,消防:しょうぼう,消防車:しょうぼうしゃ,証明:しょうめい,省略:しょうりゃく,職員:しょくいん,職業:しょくぎょう,食中毒:しょくちゅうどく,食堂:しょくどう,職人:しょくにん,職場:しょくば,食費:しょくひ,所属:しょぞく,資料:しりょう,新幹線:しんかんせん,神経:しんけい,新築:しんちく,自営業:じえいぎょう,自衛隊:じえいたい,事件:じけん,事故:じこ,事情:じじょう,実際:じっさい,実現:じつげん,事務:じむ,事務員:じむいん,事務室:じむしつ,事務所:じむしょ,住居:じゅうきょ,授業:じゅぎょう,順序:じゅんじょ,準備:じゅんび,定規:じょうぎ,条件:じょうけん,常識:じょうしき,状態:じょうたい,情熱:じょうねつ,情報:じょうほう,条約:じょうやく,女性:じょせい/にょしょう,水素:すいそ,素顔:すがお,過ぎ:すぎ,過ぎる:すぎる,救う:すくう,過ごす:すごす,酸っぱい:すっぱい,素直:すなお,素早い:すばやい,素晴らしい:すばらしい/すんばらしい,正解:せいかい,性格:せいかく,正確:せいかく,世紀:せいき,清潔:せいけつ,制限:せいげん,制作:せいさく,製作:せいさく,性質:せいしつ,精神:せいしん,政治:せいじ,政治家:せいじか,正常:せいじょう,成績:せいせき,製造:せいぞう,制度:せいど,性能:せいのう,製品:せいひん,整備:せいび,政府:せいふ,制服:せいふく,性別:せいべつ,責任:せきにん,接近:せっきん,設計:せっけい,設置:せっち,設定:せってい,説得:せっとく,接続:せつぞく,切断:せつだん,設備:せつび,責める:せめる,先祖:せんぞ,税金:ぜいきん,絶対:ぜったい,絶対に:ぜったいに,絶望:ぜつぼう,総合:そうごう,想像:そうぞう,総理大臣:そうりだいじん,測定:そくてい,素材:そざい,組織:そしき,祖先:そせん,備える:そなえる,祖父:そふ/おおじ/おじ/じい/じじ,祖母:そぼ/うば/おおば/おば/ばば,損害:そんがい,損する:そんする,損得:そんとく,増加:ぞうか,増税:ぞうぜい,属する:ぞくする,対応:たいおう,体格:たいかく,体型:たいけい,体質:たいしつ,対象:たいしょう,態度:たいど,絶えず:たえず,絶える:たえる,耕す:たがやす,確か:たしか,確かめる:たしかめる,立入禁止:たちいりきんし,立ち寄る:たちよる,経つ:たつ,保つ:たもつ,炭酸:たんさん,大統領:だいとうりょう,大仏:だいぶつ,団結:だんけつ,断水:だんすい,男性:だんせい,団体:だんたい,団地:だんち,近寄る:ちかよる,知識:ちしき,知能:ちのう,中断:ちゅうだん,中毒:ちゅうどく,朝刊:ちょうかん,調査:ちょうさ,貯金:ちょきん,直接:ちょくせつ,通過:つうか,通常:つうじょう,告げる:つげる,常に:つねに,提案:ていあん,定価:ていか,低気圧:ていきあつ,停止:ていし/ちょうじ,停車:ていしゃ,提出:ていしゅつ,停電:ていでん,程度:ていど,停留所:ていりゅうじょ,適応:てきおう,適切:てきせつ,適当:てきとう,適度:てきど,適用:てきよう,適量:てきりょう,手応え:てごたえ,天気予報:てんきよほう,点検:てんけん,電圧:でんあつ,伝統:でんとう,電報:でんぽう,統一:とういつ,統計:とうけい,通り過ぎる:とおりすぎる,得意:とくい,特技:とくぎ,得する:とくする,年寄り:としより,特許:とっきょ,鳥居:とりい,取り寄せる:とりよせる,同居:どうきょ,同士:どうし,同情:どうじょう,銅像:どうぞう,独身:どくしん,独自:どくじ,独特:どくとく,独立:どくりつ,内容:ないよう,情けない:なさけない,慣れ:なれ,慣れる:なれる,似合う:にあう,似顔絵:にがおえ,日常:にちじょう,日程:にってい,荷造り:にづくり,入賞:にゅうしょう,似る:にる,年賀状:ねんがじょう,燃費:ねんぴ,燃料:ねんりょう,能力:のうりょく,述べる:のべる,配布:はいふ,墓参り:はかまいり,破産:はさん,破損:はそん,張り切る:はりきる,張る:はる,版画:はんが,判決:はんけつ,犯罪:はんざい,反則:はんそく,判断:はんだん,判定:はんてい,犯人:はんにん,反応:はんのう/はんおう,久しぶり:ひさしぶり,非常:ひじょう,非常口:ひじょうぐち,非常識:ひじょうしき,非常に:ひじょうに,引っ張る:ひっぱる,人質:ひとじち,独り言:ひとりごと,肥満:ひまん,評価:ひょうか,表現:ひょうげん,標識:ひょうしき,標準:ひょうじゅん,表情:ひょうじょう,評判:ひょうばん,費用:ひよう,肥料:ひりょう,昼過ぎ:ひるすぎ,比例:ひれい,貧血:ひんけつ,品質:ひんしつ,美術:びじゅつ,美術館:びじゅつかん,美容院:びよういん,夫婦:ふうふ/みょうと/めおと,増える:ふえる,不快:ふかい,不可能:ふかのう,不規則:ふきそく,複雑:ふくざつ,復習:ふくしゅう,複数:ふくすう,不潔:ふけつ,不合格:ふごうかく,夫妻:ふさい,婦人:ふじん,防ぐ:ふせぐ,付属:ふぞく,不確か:ふたしか,再び:ふたたび,復活:ふっかつ,不得意:ふとくい,不慣れ:ふなれ,増やす:ふやす,武器:ぶき,武士:ぶし/もののふ,物価:ぶっか,仏教:ぶっきょう,物質:ぶっしつ,仏像:ぶつぞう,分解:ぶんかい,文化財:ぶんかざい,平均:へいきん,兵士:へいし,減らす:へらす,減る:へる,編集:へんしゅう,別居:べっきょ,弁護士:べんごし,弁当:べんとう,保育園:ほいくえん,保育所:ほいくしょ/ほいくじょ,報告:ほうこく,法則:ほうそく,方程式:ほうていしき,報道:ほうどう,豊富:ほうふ,保温:ほおん,保管:ほかん,保健:ほけん,保険:ほけん,保護:ほご,保護者:ほごしゃ,保証:ほしょう,保証人:ほしょうにん,本格的:ほんかくてき,本能:ほんのう,貿易:ぼうえき,防音:ぼうおん,防火:ぼうか,防災:ぼうさい,防止:ぼうし,防水:ぼうすい,暴風雨:ぼうふうう,暴力:ぼうりょく,墓地:ぼち/はかち,迷子:まいご,任せる:まかせる,混ざる:まざる,増す:ます,貧しい:まずしい,混ぜる:まぜる,招く:まねく,迷う:まよう,見比べる:みくらべる,見過ごす:みすごす,導く:みちびく,見張る:みはる,無意識:むいしき,無限:むげん,無効:むこう,無罪:むざい,無職:むしょく,無責任:むせきにん,無断:むだん,夢中:むちゅう,明確:めいかく,迷信:めいしん,迷路:めいろ,面接:めんせつ,毛布:もうふ,燃える:もえる,木造:もくぞう,基づく:もとづく,木綿:もめん/きわた,燃やす:もやす,文句:もんく,破る:やぶる,破れる:やぶれる,夕刊:ゆうかん,有効:ゆうこう,有罪:ゆうざい,友情:ゆうじょう,有毒:ゆうどく,雪解け:ゆきどけ,輸出:ゆしゅつ/しゅしゅつ,輸送:ゆそう,豊か:ゆたか,油断:ゆだん,輸入:ゆにゅう/しゅにゅう,許す:ゆるす,容易:ようい,容器:ようき,用件:ようけん,余計:よけい,予告:よこく,寄せる:よせる,予備:よび,予備校:よびこう,余分:よぶん,予報:よほう,予防:よぼう,寄り道:よりみち,寄る:よる,喜ばす:よろこばす,喜び:よろこび,喜ぶ:よろこぶ,利益:りえき/りやく,理解:りかい,略語:りゃくご,略す:りゃくす,留学:りゅうがく,留学生:りゅうがくせい,留年:りゅうねん,漁師:りょうし,領土:りょうど,旅費:りょひ,留守:るす,留守番:るすばん,歴史:れきし,歴史的:れきしてき',
+'悪質:あくしつ,挙句:あげく,余す:あます,歩み寄る:あゆみよる,現れ:あらわれ,安易:あんい,暗示:あんじ,いい加減:いいかげん,意義:いぎ,潔い:いさぎよい,移住:いじゅう,営む:いとなむ,委任:いにん,移民:いみん,運河:うんが,運輸:うんゆ,衛生的:えいせいてき,営利:えいり,演習:えんしゅう,演ずる:えんずる,往生:おうじょう,応ずる:おうずる,応接:おうせつ,応対:おうたい,応答:おうとう,犯す:おかす,興す:おこす,修める:おさめる,織る:おる,開設:かいせつ,解体:かいたい,改築:かいちく,快楽:かいらく/けらく,格差:かくさ,確信:かくしん,確定:かくてい,格別:かくべつ,確保:かくほ,確立:かくりつ,可決:かけつ,囲い:かこい,貸し:かし,過失:かしつ,貸間:かしま,仮説:かせつ,河川:かせん,課税:かぜい,仮定:かてい,課程:かてい,過程:かてい,可燃物:かねんぶつ,刊行:かんこう,慣習:かんしゅう,観賞:かんしょう,幹事:かんじ,感受性:かんじゅせい,関税:かんぜい,幹部:かんぶ,外務:がいむ,外務省:がいむしょう,紀元:きげん,機構:きこう,気性:きしょう,記述:きじゅつ,寄生:きせい,規制:きせい,休講:きゅうこう,急性:きゅうせい,境界:きょうかい,共産主義:きょうさんしゅぎ,極限:きょくげん,居住:きょじゅう,許容:きょよう,際立つ:きわだつ,均一:きんいつ/きんいち,禁句:きんく,禁酒:きんしゅ,禁じる:きんじる,禁ずる:きんずる,均整:きんせい,均等:きんとう,技師:ぎし,義父:ぎふ,義母:ぎぼ,逆境:ぎゃっきょう,行政:ぎょうせい,業績:ぎょうせき,軍国主義:ぐんこくしゅぎ,軍備:ぐんび,軽快:けいかい,軽率:けいそつ,境内:けいだい,経度:けいど,経理:けいり,潔白:けっぱく,険悪:けんあく,見解:けんかい,検察:けんさつ,検証:けんしょう,検事:けんじ,芸能:げいのう,月刊:げっかん,月謝:げっしゃ,解熱:げねつ,現役:げんえき,原告:げんこく,現状:げんじょう,元素:げんそ,減速:げんそく,現像:げんぞう,現に:げんに,故意:こい,厚意:こうい,公営:こうえい,公演:こうえん,講義:こうぎ,鉱業:こうぎょう,航空便:こうくうびん,格子:こうし,厚生:こうせい,構想:こうそう,公団:こうだん,工程:こうてい,行程:こうてい,光熱費:こうねつひ,公布:こうふ,公務:こうむ,効率:こうりつ,効力:こうりょく,航路:こうろ,講和:こうわ,肥える:こえる,国営:こくえい,国際化:こくさいか,国税:こくぜい,国費:こくひ,国防:こくぼう,心得:こころえ,心得る:こころえる,志す:こころざす,快い:こころよい,故事:こじ,混同:こんどう,混迷:こんめい,強情:ごうじょう,再起:さいき,採決:さいけつ,再建:さいけん,際限:さいげん,再三:さいさん,採算:さいさん,妻子:さいし/つまこ,採取:さいしゅ,最小限:さいしょうげん,最大限:さいだいげん,再度:さいど,作製:さくせい,差し支え:さしつかえ,差し支える:さしつかえる,授ける:さずける,殺気:さっき,酸化:さんか,賛美:さんび,財界:ざいかい,在学:ざいがく,財政:ざいせい,在留:ざいりゅう,識別:しきべつ,支局:しきょく,資産:しさん,支社:ししゃ,史上:しじょう,質屋:しちや,質素:しっそ,質量:しつりょう,資本:しほん,資本家:しほんか,資本主義:しほんしゅぎ,週刊:しゅうかん,修士:しゅうし,拾得:しゅうとく,習得:しゅうとく,守衛:しゅえい,主演:しゅえん,主義:しゅぎ,修行:しゅぎょう,守備:しゅび,証書:しょうしょ,職務:しょくむ,職歴:しょくれき,所得:しょとく,初任給:しょにんきゅう,真価:しんか,新刊:しんかん,新規:しんき,心境:しんきょう,新興:しんこう,申告:しんこく,自営:じえい,自衛:じえい,時限:じげん,時効:じこう,辞職:じしょく,事態:じたい,実績:じっせき,実態:じったい,実費:じっぴ,実在:じつざい,実情:じつじょう,辞任:じにん,時報:じほう,術語:じゅつご,準急:じゅんきゅう,上演:じょうえん,情勢:じょうせい,常用:じょうよう,常用漢字:じょうようかんじ,条例:じょうれい,助教授:じょきょうじゅ,女性的:じょせいてき,人格:じんかく,人造:じんぞう,人道主義:じんどうしゅぎ,水準:すいじゅん,救い:すくい,図示:ずし,政界:せいかい,正規:せいき,性急:せいきゅう,政局:せいきょく,精算:せいさん,制止:せいし,製図:せいず,生態:せいたい,精通:せいつう,制定:せいてい,製鉄:せいてつ,制約:せいやく,製薬:せいやく,勢力:せいりょく,節句:せっく,接する:せっする,接待:せったい,設立:せつりつ,戦災:せんさい,税関:ぜいかん,絶交:ぜっこう,絶好:ぜっこう,全快:ぜんかい,前提:ぜんてい,前略:ぜんりゃく,相応:そうおう,総会:そうかい,相殺:そうさい/そうさつ,総数:そうすう,総理:そうり,測量:そくりょう,損なう:そこなう,損ねる:そこねる,素質:そしつ,率先:そっせん,率直:そっちょく,備え付ける:そなえつける,備わる:そなわる,損益:そんえき,損失:そんしつ,増減:ぞうげん,造船:ぞうせん,増大:ぞうだい,大河:たいが,貸借:たいしゃく,体制:たいせい,態勢:たいせい,体得:たいとく,対比:たいひ,絶え間なく:たえまなく,断つ:たつ,代議士:だいぎし,大前提:だいぜんてい,代弁:だいべん,打破:だは,断じて:だんじて,男性的:だんせいてき,断絶:だんぜつ,断然:だんぜん,断定:だんてい,断念:だんねん,地価:ちか,近寄せる:ちかよせる,地質:ちしつ,知性:ちせい,中性:ちゅうせい,調停:ちょうてい,張本人:ちょうほんにん,費やす:ついやす,停学:ていがく,提起:ていき,定義:ていぎ,適する:てきする,適性:てきせい,手際:てぎわ,手際良く:てぎわよく,手造り:てづくり,転居:てんきょ,典型:てんけい,典型的:てんけいてき,天災:てんさい,等価:とうか,統合:とうごう,投資:とうし,統制:とうせい,統治:とうち/とうじ,答弁:とうべん,特質:とくしつ,採る:とる,銅貨:どうか,同志:どうし,同性:どうせい,導入:どうにゅう,動脈:どうみゃく,独学:どくがく,独断:どくだん,毒薬:どくやく,内職:ないしょく,情け:なさけ,情け深い:なさけぶかい,慣らす:ならす,縄張り:なわばり,似合い:にあい,似通う:にかよう,肉眼:にくがん/にくげん,似せる:にせる,日刊:にっかん,任意:にんい,任期:にんき,人間性:にんげんせい,人情:にんじょう,任務:にんむ,任命:にんめい,燃焼:ねんしょう,農耕:のうこう,能動的:のうどうてき,能率:のうりつ,配属:はいぞく,羽織:はおり,破局:はきょく,白状:はくじょう,初夢:はつゆめ,張り出す:はりだす,反逆:はんぎゃく,半減:はんげん,犯行:はんこう,判事:はんじ,半導体:はんどうたい,判明:はんめい,判例:はんれい,倍増:ばいぞう,倍率:ばいりつ,万能:ばんのう,率いる:ひきいる,非行:ひこう,久しい:ひさしい,必修:ひっしゅう,日増しに:ひましに,比率:ひりつ,貧弱:ひんじゃく,貧富:ひんぷ,備考:びこう,病状:びょうじょう,美容:びよう,不可:ふか,不可解:ふかかい,不可欠:ふかけつ,複合:ふくごう,複写:ふくしゃ,不在:ふざい,婦女:ふじょ,不条理:ふじょうり,不相応:ふそうおう,不断:ふだん,復帰:ふっき,不燃物:ふねんぶつ,不能:ふのう,不備:ふび,不利益:ふりえき,粉末:ふんまつ,物資:ぶっし,武力:ぶりょく,分布:ぶんぷ,文脈:ぶんみゃく,平常:へいじょう,経る:へる,変移:へんい,編成:へんせい,編入:へんにゅう,変容:へんよう,米価:べいか,別個:べっこ,弁解:べんかい,弁護:べんご,弁明:べんめい,保安:ほあん,包囲:ほうい,法規:ほうき,豊作:ほうさく,報じる:ほうじる,放任:ほうにん,法務:ほうむ,保守:ほしゅ,保養所:ほようじょ/ほようしょ,保留:ほりゅう,本質:ほんしつ,防衛:ぼうえい,防戦:ぼうせん,暴動:ぼうどう,暴落:ぼうらく,間際:まぎわ,待ち構える:まちかまえる,見限る:みかぎる,水増し:みずまし,見損なう:みそこなう,耳寄り:みみより,身寄り:みより,無益:むえき,無期限:むきげん,報いる:むくいる,無性に:むしょうに,無神経:むしんけい,無情:むじょう,無条件:むじょうけん,無制限:むせいげん,夢想:むそう,無造作:むぞうさ,無能:むのう,名義:めいぎ,設ける:もうける,易い:やすい,野性:やせい,やり過ごす:やりすごす,有意義:ゆういぎ,有益:ゆうえき,有限:ゆうげん,有能:ゆうのう,要因:よういん,養護:ようご,容積:ようせき,要素:ようそ,要領:ようりょう,寄せ集め:よせあつめ,予断:よだん,余談:よだん,余地:よち,寄り集まる:よりあつまる,理性:りせい,領海:りょうかい,領空:りょうくう,領事館:りょうじかん,利率:りりつ,類似:るいじ,礼状:れいじょう,老眼:ろうがん,和解:わかい/わげ,災い:わざわい',
+'預かる:あずかる,預ける:あずける,暖かい:あたたかい/あったかい,後片付け:あとかたづけ,危ない:あぶない,雨降り:あめふり,危うく:あやうく,誤り:あやまり,誤る:あやまる,洗い物:あらいもの,洗う:あらう,言い訳:いいわけ,以降:いこう,遺産:いさん,衣装:いしょう,異常:いじょう,異性:いせい,痛い:いたい,痛み:いたみ,痛む:いたむ,一段:いちだん,遺伝:いでん,意欲:いよく,引退:いんたい,疑い:うたがい,疑う:うたがう,宇宙:うちゅう,映す:うつす,映る:うつる,梅干し:うめぼし,敬う:うやまう,裏表:うらおもて,裏返し:うらがえし,裏返す:うらがえす,裏切る:うらぎる,裏口:うらぐち,裏通り:うらどおり,裏門:うらもん,運賃:うんちん,映画:えいが,映画館:えいがかん,映像:えいぞう,延期:えんき,演劇:えんげき,演奏:えんそう,延長:えんちょう,大盛り:おおもり,拝む:おがむ,補う:おぎなう,幼い:おさない/いとけない,幼なじみ:おさななじみ,収まる:おさまる,収める:おさめる,お宅:おたく,お手洗い:おてあらい,訪れる:おとずれる/おとづれる,親孝行:おやこうこう,親不孝:おやふこう,降りる:おりる,恩返し:おんがえし,恩人:おんじん,温泉:おんせん,温暖:おんだん,改革:かいかく,回収:かいしゅう,解除:かいじょ,回数券:かいすうけん,改善:かいぜん,階段:かいだん,開幕:かいまく,拡大:かくだい,確認:かくにん,革命:かくめい,片思い:かたおもい,片側:かたがわ,片付く:かたづく,片付ける:かたづける,片手:かたて,片方:かたほう,片道:かたみち,価値:かち,担ぐ:かつぐ,感激:かんげき,看護:かんご,感染:かんせん,簡単:かんたん,看板:かんばん,看病:かんびょう,危機:きき,危険:きけん,起源:きげん,刻む:きざむ,傷付ける:きずつける,貴族:きぞく,帰宅:きたく,貴重:きちょう,貴重品:きちょうひん,厳しい:きびしい,規模:きぼ,吸収:きゅうしゅう,切り捨てる:きりすてる,規律:きりつ,近視:きんし,筋肉:きんにく,勤務:きんむ,疑問:ぎもん,牛乳:ぎゅうにゅう,議論:ぎろん,区域:くいき,空腹:くうふく,口紅:くちべに,苦痛:くつう,暮らし:くらし,暮らす:くらす,暮れ:くれ,暮れる:くれる,敬意:けいい,警官:けいかん,警告:けいこく,敬語:けいご,警察:けいさつ,経済:けいざい,経済的:けいざいてき,軽傷:けいしょう,警報:けいほう,形容詞:けいようし,結論:けつろん,県庁:けんちょう,検討:けんとう,憲法:けんぽう,権利:けんり,権力:けんりょく,劇場:げきじょう,厳重:げんじゅう,航空券:こうくうけん,降参:こうさん,高層:こうそう,紅茶:こうちゃ,紅白:こうはく,興奮:こうふん,候補:こうほ,呼吸:こきゅう,国宝:こくほう,穀物:こくもつ,故障:こしょう,骨折:こっせつ,異なる:ことなる,子供:こども,困る:こまる,困難:こんなん,今晩:こんばん,混乱:こんらん,誤解:ごかい,誤字:ごじ,災難:さいなん,裁判:さいばん,裁判所:さいばんしょ,盛ん:さかん,探す:さがす,昨晩:さくばん,探る:さぐる,砂糖:さとう,裁く:さばく,座席:ざせき,雑誌:ざっし,座布団:ざぶとん,指揮:しき,至急:しきゅう,資源:しげん,四捨五入:ししゃごにゅう,姿勢:しせい,従う:したがう,私鉄:してつ,視点:してん,死亡:しぼう,閉まる:しまる,閉める:しめる,視野:しや,週刊誌:しゅうかんし,宗教:しゅうきょう,収集:しゅうしゅう,就職:しゅうしょく,収入:しゅうにゅう,縮小:しゅくしょう,手段:しゅだん,出勤:しゅっきん,障害:しょうがい,将軍:しょうぐん,障子:しょうじ,承知:しょうち,消防署:しょうぼうしょ,将来:しょうらい,食欲:しょくよく,処分:しょぶん,署名:しょめい,処理:しょり,私立:しりつ/わたくしりつ,視力:しりょく,深刻:しんこく,心臓:しんぞう,時間割:じかんわり,自己:じこ,時刻:じこく,磁石:じしゃく/じせき,辞退:じたい,自宅:じたく,従業員:じゅうぎょういん,重視:じゅうし,重傷:じゅうしょう/おもで,住宅:じゅうたく,住宅地:じゅうたくち,熟語:じゅくご,樹木:じゅもく,乗車券:じょうしゃけん,蒸発:じょうはつ,水蒸気:すいじょうき,推測:すいそく,垂直:すいちょく,推理:すいり,吸う:すう,優れる:すぐれる,捨てる:すてる,済ます:すます,済ませる:すませる,済む:すむ,座る:すわる,寸法:すんぽう,頭痛:ずつう,頭脳:ずのう,星座:せいざ,正座:せいざ,誠実:せいじつ,背負う:せおう/しょう,背中:せなか,背骨:せぼね,宣言:せんげん,宣伝:せんでん,銭湯:せんとう,洗面器:せんめんき,洗面所:せんめんじょ,専門:せんもん,専門家:せんもんか,専用:せんよう,税務署:ぜいむしょ,沿う:そう,操作:そうさ,創作:そうさく,操縦:そうじゅう,早退:そうたい,装置:そうち,創立:そうりつ,供える:そなえる,染まる:そまる,染める:そめる,尊敬:そんけい,存在:そんざい,尊重:そんちょう,退院:たいいん,退学:たいがく,対策:たいさく,退職:たいしょく,退治:たいじ,体操:たいそう,宝くじ:たからくじ,訪ねる:たずねる,縦書き:たてがき,探検:たんけん,短縮:たんしゅく,単純:たんじゅん,誕生:たんじょう,誕生日:たんじょうび,担当:たんとう,担任:たんにん,段階:だんかい,段落:だんらく,地域:ちいき,縮まる:ちぢまる,縮む:ちぢむ/ちじむ,縮める:ちぢめる,忠告:ちゅうこく,注射:ちゅうしゃ,頂上:ちょうじょう,頂点:ちょうてん,著者:ちょしゃ,賃金:ちんぎん/ちんきん,通勤:つうきん,通訳:つうやく,使い捨て:つかいすて/つかいずて,勤め:つとめ,勤め先:つとめさき,勤める:つとめる,手洗い:てあらい,定期券:ていきけん,提供:ていきょう,鉄筋:てっきん,鉄棒:てつぼう,転勤:てんきん,展示:てんじ,天皇:てんのう,展覧会:てんらんかい,電源:でんげん,討論:とうろん,閉じこもる:とじこもる,閉じる:とじる,届く:とどく,届け:とどけ,届ける:とどける,取り除く:とりのぞく,動詞:どうし,同窓会:どうそうかい,内閣:ないかく,内臓:ないぞう,亡くす:なくす,亡くなる:なくなる,納豆:なっとう,納得:なっとく,並木:なみき,並ぶ:ならぶ,並べる:ならべる,難民:なんみん,難問:なんもん,日誌:にっし,入場券:にゅうじょうけん,値上がり:ねあがり,値上げ:ねあげ,値打ち:ねうち,値下がり:ねさがり,値下げ:ねさげ,値段:ねだん,値引き:ねびき,年収:ねんしゅう,納税:のうぜい,除く:のぞく,乗り降り:のりおり,灰色:はいいろ,俳句:はいく,背景:はいけい,灰皿:はいざら,俳優:はいゆう,激しい:はげしい,発揮:はっき,発展:はってん,派手:はで,破片:はへん,針金:はりがね,反射:はんしゃ,日暮れ:ひぐれ,悲劇:ひげき,秘書:ひしょ,否定:ひてい,非難:ひなん,秘密:ひみつ,服装:ふくそう,負傷:ふしょう,負担:ふたん,降る:ふる,分担:ぶんたん,閉会:へいかい,閉店:へいてん,返済:へんさい,方針:ほうしん,宝石:ほうせき,包装:ほうそう,訪問:ほうもん,法律:ほうりつ,補給:ほきゅう,補欠:ほけつ,欲しい:ほしい,欲しがる:ほしがる,補助:ほじょ,干す:ほす,補足:ほそく,保存:ほぞん,忘年会:ぼうねんかい,枚数:まいすう,毎晩:まいばん,巻く:まく,町並み:まちなみ,窓際:まどぎわ,窓口:まどぐち,未熟:みじゅく,見捨てる:みすてる,乱れる:みだれる,見届ける:みとどける,認め印:みとめいん,認める:みとめる,無視:むし,蒸し暑い:むしあつい,難しい:むずかしい/むつかしい,名詞:めいし,目盛り:めもり,申し訳:もうしわけ,申し訳ない:もうしわけない,模型:もけい,物干し:ものほし,模様:もよう,盛り上がる:もりあがる,盛り上げる:もりあげる,訳す:やくす,役割:やくわり,優しい:やさしい,家賃:やちん,遺言:ゆいごん/いげん/いごん,夕暮れ:ゆうぐれ,優勝:ゆうしょう,優先:ゆうせん,郵送:ゆうそう,優等生:ゆうとうせい,郵便:ゆうびん,郵便局:ゆうびんきょく,幼児:ようじ,預金:よきん,翌日:よくじつ,翌年:よくねん/よくとし,欲張り:よくばり,欲望:よくぼう,装う:よそおう,呼びかけ:よびかけ,呼び捨て:よびすて,呼び出す:よびだす,呼び名:よびな,呼ぶ:よぶ,乱暴:らんぼう,立候補:りっこうほ,立派:りっぱ,領収書:りょうしゅうしょ,理論:りろん,臨時:りんじ,冷蔵:れいぞう,冷蔵庫:れいぞうこ,朗読:ろうどく,論文:ろんぶん,若い:わかい,若者:わかもの,我が家:わがや/わがいえ,忘れ物:わすれもの,忘れる:わすれる,私たち:わたしたち/わたくしたち,割り:わり,割合:わりあい,割り算:わりざん,割引:わりびき,割る:わる,割れ目:われめ,割れる:われる',
+'値する:あたいする,圧縮:あっしゅく,雨垂れ:あまだれ,危うい:あやうい,操る:あやつる,著す:あらわす,安否:あんぴ/あんぷ,行き届く:いきとどく/ゆきとどく,遺失物:いしつぶつ,遺体:いたい,痛ましい:いたましい,傷める:いためる,至る:いたる,著しい:いちじるしい,一段落:いちだんらく/ひとだんらく,胃腸:いちょう,一層:いっそう,異動:いどう,承る:うけたまわる,疑わしい:うたがわしい,有頂天:うちょうてん,沿岸:えんがん,沿線:えんせん,大蔵:おおくら,大蔵省:おおくらしょう,厳か:おごそか,思う存分:おもうぞんぶん,恩知らず:おんしらず,革新:かくしん,拡声機:かくせいき,拡張:かくちょう,家系:かけい,下降:かこう,株式:かぶしき,株主:かぶぬし,加盟:かめい,簡易:かんい,観衆:かんしゅう,寒暖計:かんだんけい,官庁:かんちょう,学割:がくわり,喜劇:きげき,気難しい:きむずかしい/きむづかしい,急激:きゅうげき,救済:きゅうさい,供給:きょうきゅう,共存:きょうぞん/きょうそん,郷里:きょうり,金銭:きんせん,勤勉:きんべん,禁欲的:きんよくてき,勤労:きんろう,軍拡:ぐんかく,群衆:ぐんしゅう/ぐんしゅ/ぐんじゅ,軍縮:ぐんしゅく,敬遠:けいえん,敬具:けいぐ,軽視:けいし,警視庁:けいしちょう,系統:けいとう,系列:けいれつ,敬老:けいろう,権限:けんげん,劇的:げきてき,激動:げきどう,夏至:げし,厳格:げんかく,厳守:げんしゅ,厳密:げんみつ,言論:げんろん,孝行:こうこう,皇后:こうごう,公衆:こうしゅう,降水:こうすい,公認:こうにん,口論:こうろん,刻一刻:こくいっこく,刻一刻と:こくいっこくと,極秘:ごくひ,語源:ごげん,誤差:ごさ,ご存じ:ごぞんじ,裁決:さいけつ,探し回る:さがしまわる,策略:さくりゃく,射す:さす,障る:さわる,参政権:さんせいけん,賛否:さんぴ,座談会:ざだんかい,視察:しさつ,従える:したがえる,失敬:しっけい,私費:しひ,衆議院:しゅうぎいん,収支:しゅうし,収拾:しゅうしゅう,就任:しゅうにん,収容:しゅうよう,主権:しゅけん,首脳:しゅのう,傷害:しょうがい,証券:しょうけん,承認:しょうにん,諸君:しょくん,諸国:しょこく,処置:しょち,私用:しよう,神聖:しんせい,親善:しんぜん,神秘:しんぴ,親密:しんみつ,自我:じが,若干:じゃっかん/そくばく/そこばく,従事:じゅうじ,従属:じゅうぞく,従来:じゅうらい,純情:じゅんじょう,上映:じょうえい,除外:じょがい,助詞:じょし,女優:じょゆう,人権:じんけん,推進:すいしん,水洗:すいせん,推定:すいてい,出納:すいとう,推量:すいりょう,数値:すうち,筋道:すじみち,誠意:せいい,政権:せいけん,制裁:せいさい,政策:せいさく,聖書:せいしょ,成熟:せいじゅく,正装:せいそう,生存:せいぞん,生誕:せいたん,盛大:せいだい,政党:せいとう,精密:せいみつ,宣告:せんこく,染色:せんしょく,専念:せんねん,専務:せんむ,洗面:せんめん,洗練:せんれん,善悪:ぜんあく,善意:ぜんい,創刊:そうかん,総裁:そうさい,早熟:そうじゅく,創造:そうぞう,総論:そうろん,組閣:そかく,背く:そむく,存じる:ぞんじる,体系:たいけい,大衆:たいしゅう,対処:たいしょ,宅地:たくち,立ち退く:たちのく,裁つ:たつ,垂らす:たらす,垂れる:たれる,探究:たんきゅう,担保:たんぽ,大脳:だいのう,代名詞:だいめいし,段取り:だんどり,断片:だんぺん,縮み:ちぢみ,縮れる:ちぢれる,仲裁:ちゅうさい,中傷:ちゅうしょう,忠実:ちゅうじつ,中退:ちゅうたい,重宝:ちょうほう/じゅうほう,直視:ちょくし,著書:ちょしょ,著名:ちょめい,賃貸:ちんたい,月並み:つきなみ,体裁:ていさい/たいさい,敵対:てきたい,手探り:てさぐり,鉄骨:てっこつ,展開:てんかい,展望:てんぼう,伝染:でんせん,討議:とうぎ,投射:とうしゃ,冬至:とうじ,特異:とくい,都庁:とちょう,特権:とっけん,取り巻く:とりまく,同盟:どうめい,動乱:どうらん,独裁:どくさい,並み:なみ,並び:ならび,並びに:ならびに,難易:なんい,難解:なんかい,難関:なんかん,難航:なんこう,難点:なんてん,難なく:なんなく,担う:になう,乳児:にゅうじ,認可:にんか,認識:にんしき,値切る:ねぎる,納入:のうにゅう,臨む:のぞむ,延べ:のべ,拝見:はいけん,映える:はえる/ばえる,博覧会:はくらんかい,派生:はせい,波乱:はらん,反映:はんえい,反射的:はんしゃてき,反乱:はんらん,反論:はんろん,買収:ばいしゅう,晩年:ばんねん,引き延ばす:ひきのばす,否決:ひけつ,密か:ひそか,必至:ひっし,人並み:ひとなみ,否認:ひにん,批判:ひはん,批評:ひひょう,秘める:ひめる,表裏:ひょうり/おもてうら,評論:ひょうろん,貧困:ひんこん,品詞:ひんし,副詞:ふくし,服従:ふくじゅう,不孝:ふこう/ふきょう,不純:ふじゅん,府庁:ふちょう,奮う:ふるう,奮発:ふんぱつ,武装:ぶそう,無難:ぶなん,分割:ぶんかつ,文系:ぶんけい,並行:へいこう,閉口:へいこう,並列:へいれつ,弁済:べんさい,弁論:べんろん,放射能:ほうしゃのう,朗らか:ほがらか,補強:ほきょう,補佐:ほさ,補正:ほせい,欲する:ほっする,亡命:ぼうめい,前売り券:まえうりけん,巻尺:まきじゃく,誠に:まことに,乱す:みだす,密集:みっしゅう,密接:みっせつ,密度:みつど,密輸:みつゆ,認め:みとめ,未納:みのう,耳障り:みみざわり,明晩:みょうばん,看る:みる,民衆:みんしゅう,無欲:むよく,無論:むろん,名著:めいちょ,明朗:めいろう,野党:やとう,有権者:ゆうけんしゃ,優勢:ゆうせい,容疑者:ようぎしゃ,洋裁:ようさい,善し悪し:よしあし/よしわるし,欲求:よっきゅう,乱雑:らんざつ,乱用:らんよう,理系:りけい,利己主義:りこしゅぎ,領域:りょういき,領収:りょうしゅう,旅券:りょけん,臨終:りんじゅう,類推:るいすい,老若:ろうにゃく/ろうじゃく,論じる:ろんじる,論ずる:ろんずる,論争:ろんそう,論理:ろんり,論理的:ろんりてき,我が:わが,我が国:わがくに,割合に:わりあいに,割り当て:わりあて,割り当てる:わりあてる,割り切る:わりきる,割り出す:わりだす,割に:わりに,割り引く:わりびく',
+'挨拶:あいさつ,曖昧:あいまい,赤ん坊:あかんぼう/あかんぼ,諦める:あきらめる,飽きる:あきる,握手:あくしゅ,悪循環:あくじゅんかん,悪魔:あくま,握力:あくりょく,憧れ:あこがれ,憧れる:あこがれる,朝御飯:あさごはん,鮮やか:あざやか,足跡:あしあと/そくせき,焦る:あせる,与える:あたえる,圧倒:あっとう,扱う:あつかう,宛先:あてさき,宛名:あてな,後戻り:あともどり,甘い:あまい,甘える:あまえる,雨漏り:あまもり,甘やかす:あまやかす,怪しい:あやしい,粗い:あらい,荒い:あらい,荒らす:あらす,荒っぽい:あらっぽい,荒れる:あれる,慌ただしい:あわただしい,慌てる:あわてる,哀れ:あわれ,言い換える:いいかえる,怒り:いかり,行き違い:いきちがい/ゆきちがい,維持:いじ,偉人:いじん,椅子:いす,遺跡:いせき,忙しい:いそがしい,偉大:いだい,一瞬:いっしゅん,一緒:いっしょ,一生懸命:いっしょうけんめい,一緒に:いっしょに,一斉に:いっせいに,一致:いっち,一般:いっぱん,緯度:いど,稲妻:いなずま/いなづま,居眠り:いねむり,祈り:いのり,祈る:いのる,違反:いはん,威張る:いばる/えばる,違法:いほう,嫌がる:いやがる,依頼:いらい,医療:いりょう,印鑑:いんかん,陰気:いんき,飢える:うえる/かつえる,伺う:うかがう,浮かぶ:うかぶ,浮かべる:うかべる,浮く:うく,受け継ぐ:うけつぐ,薄い:うすい,薄着:うすぎ,薄暗い:うすぐらい,薄める:うすめる,渦巻き:うずまき,訴える:うったえる,撃つ:うつ,腕時計:うでどけい,腕前:うでまえ,奪う:うばう,埋め立て:うめたて,占い:うらない,占う:うらなう,恨み:うらみ,恨む:うらむ,潤い:うるおい,運搬:うんぱん,影響:えいきょう,英雄:えいゆう,偉い:えらい,宴会:えんかい,縁側:えんがわ,縁起:えんぎ,援助:えんじょ,煙突:えんとつ,鉛筆:えんぴつ,遠慮:えんりょ,追い掛ける:おいかける,追い越す:おいこす,追い込む:おいこむ,追い抜く:おいぬく,応援:おうえん,欧米:おうべい,応募:おうぼ,覆う:おおう,大騒ぎ:おおさわぎ,大幅:おおはば,お菓子:おかし,奥様:おくさま,奥さん:おくさん,臆病:おくびょう,奥行き:おくゆき,贈り物:おくりもの,贈る:おくる,遅れ:おくれ,遅れる:おくれる,怠る:おこたる,怒る:おこる/いかる,抑える:おさえる,押さえる:おさえる,惜しい:おしい,押し入れ:おしいれ,押し売り:おしうり,押し付ける:おしつける,惜しむ:おしむ,伯父:おじ/はくふ,お辞儀:おじぎ,お嬢さん:おじょうさん,押す:おす,お歳暮:おせいぼ,汚染:おせん,遅い:おそい,襲う:おそう,恐れ:おそれ,恐れる:おそれる,恐ろしい:おそろしい,穏やか:おだやか,陥る:おちいる,落ち込む:おちこむ,お釣り:おつり,劣る:おとる,衰える:おとろえる,脅す:おどす,踊り:おどり,踊る:おどる,驚かす:おどろかす,驚き:おどろき,驚く:おどろく,叔母:おば/しゅくぼ,お坊さん:おぼうさん,溺れる:おぼれる,思い込む:おもいこむ,及ぶ:およぶ,折り畳み:おりたたみ,愚か:おろか,貝殻:かいがら,海峡:かいきょう,解雇:かいこ,開催:かいさい,解釈:かいしゃく,海藻:かいそう,開拓:かいたく,換える:かえる,顔触れ:かおぶれ,抱える:かかえる,掲げる:かかげる,輝かしい:かがやかしい,輝く:かがやく,垣根:かきね,架空:かくう/がくう,覚悟:かくご,隠す:かくす,獲得:かくとく,核兵器:かくへいき,隠れる:かくれる,嗅ぐ:かぐ,駆け足:かけあし,掛け算:かけざん,掛軸:かけじく,賭ける:かける,駆ける:かける,飾り:かざり,飾る:かざる,賢い:かしこい,箇所:かしょ,稼ぐ:かせぐ,風邪:かぜ/ふうじゃ,風邪薬:かぜぐすり/かざぐすり,硬い:かたい,肩書き:かたがき,傾く:かたむく,傾ける:かたむける,偏る:かたよる,花壇:かだん,家畜:かちく,滑走路:かっそうろ,活躍:かつやく,彼女:かのじょ,花瓶:かびん/かへい/はながめ,歌舞伎:かぶき,髪の毛:かみのけ,歌謡曲:かようきょく,辛口:からくち,絡む:からむ,刈る:かる,枯れ木:かれき,枯葉:かれは,彼ら:かれら,枯れる:かれる,乾かす:かわかす,乾く:かわく,渇く:かわく,替わる:かわる,間一髪:かんいっぱつ,間隔:かんかく,換気:かんき,換気扇:かんきせん,環境:かんきょう,歓迎:かんげい,監視:かんし,鑑賞:かんしょう,感触:かんしょく,患者:かんじゃ,勘定:かんじょう,肝心:かんじん,乾燥:かんそう,肝臓:かんぞう,勘違い:かんちがい,缶詰:かんづめ,乾電池:かんでんち,監督:かんとく,乾杯:かんぱい,完璧:かんぺき,完了:かんりょう,楽譜:がくふ,合併:がっぺい,我慢:がまん,頑固:がんこ,頑丈:がんじょう,元旦:がんたん,記憶:きおく,着飾る:きかざる,着替え:きがえ,機嫌:きげん,起床:きしょう,奇数:きすう,奇跡:きせき,基礎:きそ,鍛える:きたえる,汚い:きたない,喫茶店:きっさてん/きっちゃてん,切符:きっぷ,喫煙:きつえん,軌道:きどう,奇妙:きみょう,脚本:きゃくほん,救援:きゅうえん,休暇:きゅうか,窮屈:きゅうくつ,休憩:きゅうけい,給与:きゅうよ,恐縮:きょうしゅく,恐怖:きょうふ,教諭:きょうゆ,強烈:きょうれつ,極端:きょくたん,巨大:きょだい,拒否:きょひ,距離:きょり,嫌い:きらい,嫌う:きらう,霧雨:きりさめ,禁煙:きんえん,緊急:きんきゅう,緊張:きんちょう,儀式:ぎしき,犠牲:ぎせい,行儀:ぎょうぎ,食い違い:くいちがい,食い違う:くいちがう,腐る:くさる,崩す:くずす,崩れる:くずれる,砕く:くだく,砕ける:くだける,口癖:くちぐせ,靴下:くつした,曇り:くもり,曇る:くもる,悔しい:くやしい,暗闇:くらやみ,繰り返す:くりかえす,狂う:くるう,車椅子:くるまいす,詳しい:くわしい,偶数:ぐうすう,偶然:ぐうぜん,愚痴:ぐち,警戒:けいかい,稽古:けいこ,傾向:けいこう,蛍光灯:けいこうとう,掲載:けいさい,刑事:けいじ,掲示:けいじ,掲示板:けいじばん,継続:けいぞく,携帯:けいたい,軽蔑:けいべつ,刑務所:けいむしょ,契約:けいやく,化粧:けしょう/けわい,削る:けずる,欠陥:けっかん,結婚:けっこん,傑作:けっさく,結晶:けっしょう,煙い:けむい/けぶい,蹴る:ける,権威:けんい,謙虚:けんきょ,献血:けんけつ,懸賞:けんしょう,剣道:けんどう,顕微鏡:けんびきょう,下旬:げじゅん,下駄:げた,下痢:げり,玄関:げんかん,原稿:げんこう,原稿用紙:げんこうようし,幻想:げんそう,原爆:げんばく,濃い:こい,恋しい:こいしい,恋する:こいする,恋人:こいびと,行為:こうい,更衣室:こういしつ,硬貨:こうか,後悔:こうかい,交換:こうかん,郊外:こうがい,好奇心:こうきしん,抗議:こうぎ,攻撃:こうげき,交互:こうご,交渉:こうしょう,洪水:こうずい,肯定:こうてい,購入:こうにゅう,後輩:こうはい,降伏:こうふく,項目:こうもく,考慮:こうりょ,恒例:こうれい,高齢:こうれい,越える:こえる,凍る:こおる,木枯らし:こがらし,国籍:こくせき,克服:こくふく,焦げる:こげる,心掛け:こころがけ,心掛ける:こころがける,凍える:こごえる,腰掛ける:こしかける,越す:こす,戸籍:こせき,小遣い:こづかい,言葉遣い:ことばづかい,孤独:こどく,込める:こめる,雇用:こよう,孤立:こりつ,懲りる:こりる,怖い:こわい,怖がる:こわがる,壊す:こわす,壊れる:こわれる,根拠:こんきょ,献立:こんだて,昆虫:こんちゅう,昆布:こんぶ/こぶ,婚約:こんやく,豪華:ごうか,強盗:ごうとう,娯楽:ごらく,細菌:さいきん,最先端:さいせんたん,催促:さいそく,栽培:さいばい,裁縫:さいほう,細胞:さいぼう/さいほう,歳末:さいまつ,遮る:さえぎる,詐欺:さぎ,咲く:さく,裂く:さく,索引:さくいん,削除:さくじょ,叫び:さけび,叫ぶ:さけぶ,裂ける:さける,刺さる:ささる,刺身:さしみ,刺す:さす,誘う:さそう/いざなう,錯覚:さっかく,撮影:さつえい,悟る:さとる,砂漠:さばく,寂しい:さびしい/さみしい,妨げる:さまたげる,騒がしい:さわがしい,騒ぎ:さわぎ,騒ぐ:さわぐ,触る:さわる,散髪:さんぱつ,座敷:ざしき,残酷:ざんこく,支援:しえん,塩辛い:しおからい,敷金:しききん,色彩:しきさい,敷地:しきち,敷き布団:しきぶとん,敷く:しく,死刑:しけい,刺激:しげき,茂る:しげる,沈む:しずむ,沈める:しずめる,施設:しせつ,下敷き:したじき,湿気:しっけ/しっき,尻尾:しっぽ,湿度:しつど,失恋:しつれん,指摘:してき,支払い:しはらい,芝居:しばい,芝生:しばふ,縛る:しばる,渋い:しぶい,紙幣:しへい,脂肪:しぼう,絞る:しぼる,締め切り:しめきり,締め切る:しめきる,占める:しめる,湿る:しめる/しとる,締める:しめる,指紋:しもん,車掌:しゃしょう,斜面:しゃめん,収穫:しゅうかく,秀才:しゅうさい,終了:しゅうりょう,宿泊:しゅくはく,趣味:しゅみ,瞬間:しゅんかん,紹介:しょうかい,生涯:しょうがい,奨学金:しょうがくきん,将棋:しょうぎ,衝撃:しょうげき,証拠:しょうこ,詳細:しょうさい,昇進:しょうしん,症状:しょうじょう,焼酎:しょうちゅう,象徴:しょうちょう,焦点:しょうてん,衝突:しょうとつ,消滅:しょうめつ,消耗:しょうもう/しょうこう,食卓:しょくたく,書籍:しょせき,暑中見舞:しょちゅうみまい,真剣:しんけん,新婚:しんこん,診察:しんさつ,紳士:しんし,寝室:しんしつ,真珠:しんじゅ,申請:しんせい,親戚:しんせき,新鮮:しんせん,診断:しんだん,慎重:しんちょう,震度:しんど,振動:しんどう,侵入:しんにゅう,審判:しんぱん/しんばん,辛抱:しんぼう,信頼:しんらい,診療:しんりょう,地獄:じごく,地震:じしん,自炊:じすい,実況:じっきょう,実施:じっし,自慢:じまん,蛇口:じゃぐち,邪魔:じゃま,充実:じゅうじつ,渋滞:じゅうたい,柔道:じゅうどう,柔軟:じゅうなん,寿命:じゅみょう,需要:じゅよう,巡回:じゅんかい,巡査:じゅんさ,純粋:じゅんすい,状況:じょうきょう,上昇:じょうしょう,上旬:じょうじゅん,冗談:じょうだん,丈夫:じょうぶ,徐行:じょこう,吸い殻:すいがら,吸い込む:すいこむ,炊事:すいじ,推薦:すいせん,水滴:すいてき,水筒:すいとう,睡眠:すいみん,好き嫌い:すききらい,透き通る:すきとおる,隙間:すきま,勧める:すすめる,涼しい:すずしい,涼む:すずむ,砂浜:すなはま,滑る:すべる,澄む:すむ,相撲:すもう,鋭い:するどい,精一杯:せいいっぱい,請求:せいきゅう,清掃:せいそう,整頓:せいとん,西暦:せいれき,接触:せっしょく,狭い:せまい,迫る:せまる,攻める:せめる,繊維:せんい,繊細:せんさい,洗剤:せんざい,扇子:せんす,潜水艦:せんすいかん,洗濯:せんたく,選択:せんたく,洗濯機:せんたくき/せんたっき,先端:せんたん,戦闘:せんとう,栓抜き:せんぬき,先輩:せんぱい,扇風機:せんぷうき,是非:ぜひ,全滅:ぜんめつ,相違:そうい,騒音:そうおん,相互:そうご,捜査:そうさ,捜索:そうさく,葬式:そうしき,装飾:そうしょく,掃除:そうじ,掃除機:そうじき,騒動:そうどう,遭難:そうなん,添える:そえる,即席:そくせき,粗大:そだい,素朴:そぼく,粗末:そまつ,雑巾:ぞうきん,雑煮:ぞうに,草履:ぞうり,退屈:たいくつ,太鼓:たいこ,対抗:たいこう,滞在:たいざい,対称:たいしょう,逮捕:たいほ,耐える:たえる,倒す:たおす,倒れる:たおれる,互い:たがい,互いに:たがいに,炊く:たく,蓄える:たくわえる,尋ねる:たずねる,漂う:ただよう,立て替える:たてかえる,頼み:たのみ,頼む:たのむ,頼もしい:たのもしい,頼りない:たよりない,頼る:たよる,担架:たんか,大嫌い:だいきらい,大丈夫:だいじょうぶ/だいじょぶ,大胆:だいたん,妥協:だきょう,打撃:だげき,抱っこ:だっこ,脱出:だっしゅつ,脱水:だっすい,脱線:だっせん,脱走:だっそう,脱衣所:だついじょ/だついしょ,打撲:だぼく,黙る:だまる,誰か:だれか,旦那:だんな,暖房:だんぼう,知恵:ちえ,誓う:ちかう,近頃:ちかごろ,力一杯:ちからいっぱい,違い:ちがい,違う:ちがう,遅刻:ちこく,窒息:ちっそく,秩序:ちつじょ,中華:ちゅうか,駐車:ちゅうしゃ,駐車場:ちゅうしゃじょう,抽象的:ちゅうしょうてき,中旬:ちゅうじゅん,抽選:ちゅうせん,聴覚:ちょうかく,彫刻:ちょうこく,挑戦:ちょうせん,治療:ちりょう/じりょう,沈没:ちんぼつ,沈黙:ちんもく,陳列:ちんれつ,追伸:ついしん,追跡:ついせき,追突:ついとつ,墜落:ついらく,捕まえる:つかまえる,捕まる:つかまる,疲れ:つかれ,疲れる:つかれる,突き当たり:つきあたり,突き当たる:つきあたる,突き刺す:つきさす,突き抜ける:つきぬける,尽きる:つきる,尽くす:つくす,継ぐ:つぐ,漬物:つけもの,漬ける:つける,突っ込む:つっこむ,津波:つなみ,綱渡り:つなわたり,潰す:つぶす,潰れる:つぶれる,詰まる:つまる,爪切り:つめきり,詰める:つめる,貫く:つらぬく,釣り:つり,釣り合い:つりあい,釣る:つる,抵抗:ていこう,訂正:ていせい,丁寧:ていねい,堤防:ていぼう,手遅れ:ておくれ,手掛かり:てがかり,手柄:てがら,手錠:てじょう,徹底:てってい,徹底的:てっていてき,鉄砲:てっぽう,徹夜:てつや,手拭い:てぬぐい,手袋:てぶくろ,手振り:てぶり,添付:てんぷ,店舗:てんぽ,点滅:てんめつ,出掛ける:でかける,出迎え:でむかえ,電卓:でんたく,唐辛子:とうがらし/とんがらし,陶器:とうき,倒産:とうさん,逃走:とうそう,到達:とうたつ,到着:とうちゃく,盗難:とうなん,豆腐:とうふ,冬眠:とうみん,透明:とうめい,溶かす:とかす,途切れる:とぎれる,特殊:とくしゅ,特徴:とくちょう,溶け込む:とけこむ,溶ける:とける,床屋:とこや,戸締まり:とじまり,途端:とたん,戸棚:とだな,途中:とちゅう,突破:とっぱ,突然:とつぜん,隣り合う:となりあう,隣り合わせ:となりあわせ,跳び上がる:とびあがる,飛び込む:とびこむ,戸惑う:とまどう,泊まる:とまる,泊める:とめる,伴う:ともなう,捕らえる:とらえる,取り扱い:とりあつかい,取扱注意:とりあつかいちゅうい,取り扱う:とりあつかう,取り替える:とりかえる,取り締まり:とりしまり,取り締まる:とりしまる,取り戻す:とりもどす,捕る:とる,撮る:とる,胴上げ:どうあげ,胴体:どうたい,同封:どうふう,独占:どくせん,怒鳴る:どなる,泥棒:どろぼう,鈍感:どんかん,内緒:ないしょ,長袖:ながそで,眺め:ながめ,眺める:ながめる,慰める:なぐさめる,殴る:なぐる,嘆く:なげく,成し遂げる:なしとげる,雪崩:なだれ,懐かしい:なつかしい,斜め:ななめ,生臭い:なまぐさい,怠ける:なまける,滑らか:なめらか/すべらか,悩み:なやみ,悩む:なやむ,煮える:にえる,匂い:におい,匂う:におう,逃がす:にがす,握り締める:にぎりしめる,握り寿司:にぎりずし,握る:にぎる,憎しみ:にくしみ,憎む:にくむ,憎らしい:にくらしい,逃げ出す:にげだす,逃げ道:にげみち,逃げる:にげる,煮込む:にこむ,濁る:にごる,偽物:にせもの/ぎぶつ/にせもん,煮る:にる,縫う:ぬう,抜かす:ぬかす,抜く:ぬく,脱ぐ:ぬぐ,抜け出す:ぬけだす,抜ける:ぬける,盗む:ぬすむ,塗る:ぬる,寝かす:ねかす,寝かせる:ねかせる,寝返り:ねがえり,寝顔:ねがお,猫舌:ねこじた,猫背:ねこぜ,寝転ぶ:ねころぶ,寝言:ねごと,寝過ごす:ねすごす,寝床:ねどこ,粘り:ねばり,粘る:ねばる,寝坊:ねぼう,寝ぼける:ねぼける,寝巻き:ねまき,眠い:ねむい,眠気:ねむけ,眠たい:ねむたい/ねぶたい,眠り:ねむり,眠る:ねむる,狙い:ねらい,狙う:ねらう,寝る:ねる,捻挫:ねんざ,粘土:ねんど/ねばつち/へな/へなつち,年齢:ねんれい,濃厚:のうこう,逃れる:のがれる,伸ばす:のばす,伸びる:のびる,飲み込む:のみこむ,乗り遅れる:のりおくれる,乗り換え:のりかえ,乗り換える:のりかえる,乗り越える:のりこえる,乗り越す:のりこす,乗り込む:のりこむ,載る:のる,肺炎:はいえん,廃止:はいし,排除:はいじょ,排水:はいすい,配慮:はいりょ,破壊:はかい,履物:はきもの,履く:はく,掃く:はく,拍手:はくしゅ,迫力:はくりょく,派遣:はけん,励ます:はげます,励む:はげむ,挟む:はさむ,恥じる:はじる,恥ずかしい:はずかしい,弾む:はずむ,肌色:はだいろ,肌着:はだぎ,裸足:はだし,発掘:はっくつ,初恋:はつこい,初詣で:はつもうで,話し掛ける:はなしかける,離す:はなす,花婿:はなむこ,華やか:はなやか,花嫁:はなよめ,離れる:はなれる,跳ねる:はねる,幅広い:はばひろい,浜辺:はまべ,歯磨き:はみがき,早寝:はやね,払い込む:はらいこむ,腹一杯:はらいっぱい,払い戻す:はらいもどす,払う:はらう,破裂:はれつ,腫れる:はれる,範囲:はんい,反撃:はんげき,反抗:はんこう,繁盛:はんじょう/はんせい,半袖:はんそで,販売:はんばい,半端:はんぱ,ばい菌:ばいきん,爆弾:ばくだん,爆発:ばくはつ,罰金:ばっきん,罰則:ばっそく,抜群:ばつぐん,万歳:ばんざい/ばんぜい,控え室:ひかえしつ,控える:ひかえる,比較:ひかく,比較的:ひかくてき,日陰:ひかげ,被害:ひがい,日替わり:ひがわり,引き換え:ひきかえ,引き裂く:ひきさく,引き締める:ひきしめる,引き継ぐ:ひきつぐ,引き抜く:ひきぬく,引き離す:ひきはなす,悲惨:ひさん,潜む:ひそむ,浸す:ひたす,浸る:ひたる,引っ掛かる:ひっかかる,引っ掛ける:ひっかける,引っ越し:ひっこし,引っ越す:ひっこす,引っ込む:ひっこむ,必需品:ひつじゅひん,人影:ひとかげ/じんえい,人柄:ひとがら,人違い:ひとちがい,独り占め:ひとりじめ,避難:ひなん,響き:ひびき,響く:ひびく,皮膚:ひふ,暇潰し:ひまつぶし,冷や汗:ひやあせ,拍子:ひょうし,表彰:ひょうしょう,表彰状:ひょうしょうじょう,昼寝:ひるね,疲労:ひろう,披露宴:ひろうえん,頻繁:ひんぱん,微妙:びみょう,描写:びょうしゃ,敏感:びんかん,瓶詰め:びんづめ,貧乏:びんぼう,封筒:ふうとう,風鈴:ふうりん,不機嫌:ふきげん,吹き出す:ふきだす,普及:ふきゅう,不況:ふきょう,吹く:ふく,拭く:ふく,福祉:ふくし/ふくち,含む:ふくむ/くくむ,含める:ふくめる,膨らむ:ふくらむ,膨れる:ふくれる,符号:ふごう,塞ぐ:ふさぐ,双子:ふたご/そうし,普段着:ふだんぎ,沸騰:ふっとう,普通:ふつう,吹雪:ふぶき,踏切:ふみきり,踏む:ふむ,不愉快:ふゆかい,振り返る:ふりかえる,振り向く:ふりむく,振る:ふる,震える:ふるえる,振る舞う:ふるまう,触れ合う:ふれあう,触れる:ふれる,風呂:ふろ,風呂敷:ふろしき,風呂場:ふろば,風呂屋:ふろや,雰囲気:ふんいき,噴火:ふんか,紛失:ふんしつ,噴水:ふんすい,踏ん張る:ふんばる,舞台:ぶたい,豚肉:ぶたにく/とんにく,物騒:ぶっそう,分析:ぶんせき,文房具:ぶんぼうぐ,分離:ぶんり,分裂:ぶんれつ,閉鎖:へいさ,平凡:へいぼん,隔てる:へだてる,変換:へんかん,返却:へんきゃく,偏見:へんけん,変更:へんこう,偏差値:へんさち,別荘:べっそう,弁償:べんしょう,崩壊:ほうかい,報酬:ほうしゅう,褒美:ほうび,誇り:ほこり,誇る:ほこる,補充:ほじゅう,舗装:ほそう,微笑む:ほほえむ,褒める:ほめる,彫る:ほる,掘る:ほる,滅びる:ほろびる,本棚:ほんだな,翻訳:ほんやく,妨害:ぼうがい,防御:ぼうぎょ,冒険:ぼうけん,帽子:ぼうし,坊主:ぼうず,膨大:ぼうだい,募集:ぼしゅう,没頭:ぼっとう,盆踊り:ぼんおどり,盆地:ぼんち,舞う:まう,前払い:まえばらい,巻き込む:まきこむ,紛らわしい:まぎらわしい,摩擦:まさつ,麻酔:ますい,間違い:まちがい,間違う:まちがう,間違える:まちがえる,間抜け:まぬけ,魔法:まほう,眉毛:まゆげ,漫画:まんが,磨く:みがく,見込み:みこみ,未婚:みこん,惨め:みじめ,見違える:みちがえる,道端:みちばた,見詰める:みつめる,皆様:みなさま,皆さん:みなさん,醜い:みにくい,見逃す:みのがす,身振り:みぶり,見舞い:みまい,見舞う:みまう,脈拍:みゃくはく,苗字:みょうじ,魅力:みりょく,見渡す:みわたす,民謡:みんよう,迎え:むかえ,迎える:むかえる,無邪気:むじゃき,矛盾:むじゅん,無駄遣い:むだづかい,名刺:めいし,名簿:めいぼ,名誉:めいよ,迷惑:めいわく,恵まれる:めぐまれる,恵む:めぐむ,召し上がる:めしあがる,珍しい:めずらしい,滅多に:めったに,免許:めんきょ,免許証:めんきょしょう,申し込み:もうしこみ,申し込む:もうしこむ,盲腸:もうちょう,猛烈:もうれつ,模擬試験:もぎしけん,目撃:もくげき,持ち込む:もちこむ,戻す:もどす,戻る:もどる,模範:もはん,催し:もよおし,漏らす:もらす,漏れる:もれる,焼き芋:やきいも,屋敷:やしき,痩せる:やせる,厄介:やっかい,雇う:やとう,柔らか:やわらか,柔らかい:やわらかい,憂鬱:ゆううつ,誘拐:ゆうかい,優秀:ゆうしゅう,雄大:ゆうだい,誘導:ゆうどう,裕福:ゆうふく,幽霊:ゆうれい,誘惑:ゆうわく,愉快:ゆかい,譲る:ゆずる,揺らぐ:ゆらぐ,緩い:ゆるい,緩む:ゆるむ,緩める:ゆるめる,緩やか:ゆるやか,揺れる:ゆれる,酔う:よう,要旨:ようし,養殖:ようしょく,幼稚:ようち,幼稚園:ようちえん,用途:ようと,浴槽:よくそう,横綱:よこづな,酔っ払い:よっぱらい,酔っ払う:よっぱらう,呼び掛ける:よびかける,夜更かし:よふかし,余裕:よゆう,理屈:りくつ,離婚:りこん,了解:りょうかい,両替:りょうがえ,離陸:りりく,履歴書:りれきしょ,輪郭:りんかく,隣人:りんじん,礼儀:れいぎ,冷凍:れいとう,冷房:れいぼう,恋愛:れんあい,連絡:れんらく,廊下:ろうか,浪人:ろうにん,浪費:ろうひ,沸かす:わかす,脇役:わきやく,沸く:わく,湧く:わく,渡す:わたす,渡る:わたる,割り込む:わりこむ,割り箸:わりばし,腕力:わんりょく',
+'間柄:あいだがら,仰ぐ:あおぐ,仰向け:あおむけ,飽き:あき,嘲る:あざける,欺く:あざむく,圧迫:あっぱく,侮る:あなどる/あなずる,怪しむ:あやしむ,哀れむ:あわれむ,暗黙:あんもく,家柄:いえがら,威嚇:いかく,遺憾:いかん,行き渡る:いきわたる/ゆきわたる,幾度:いくど/いくたび,幾分:いくぶん,憩い:いこい,囲碁:いご,維新:いしん,威勢:いせい,依然:いぜん,悼む:いたむ,異端:いたん,一概に:いちがいに,一般に:いっぱんに,今更:いまさら,戒め:いましめ,戒める:いましめる,卑しい:いやしい,浮かれる:うかれる,薄まる:うすまる,打ち込む:うちこむ,訴え:うったえ,促す:うながす,右翼:うよく,売り込む:うりこむ,潤う:うるおう,憂える:うれえる,上唇:うわくちびる/じょうしん,会釈:えしゃく,閲覧:えつらん,襟巻き:えりまき,円滑:えんかつ,遠距離:えんきょり,延滞:えんたい,縁談:えんだん,円盤:えんばん,侵す:おかす,冒す:おかす,遅らす:おくらす,押し問答:おしもんどう,汚職:おしょく,恐る恐る:おそるおそる,恐るべき:おそるべき,御化け:おばけ,面影:おもかげ,及び:および,及ぼす:およぼす,卸売:おろしうり,卸す:おろす,音響:おんきょう,恩恵:おんけい,穏健:おんけん,怪奇:かいき,懐疑:かいぎ,回顧:かいこ,買い占める:かいしめる,楷書:かいしょ,海抜:かいばつ,解剖:かいぼう,顧みる:かえりみる,架橋:かきょう,核心:かくしん,格闘:かくとう,閣僚:かくりょう,賭け:かけ,傾げる:かしげる/かたげる,過剰:かじょう,化繊:かせん,過疎:かそ,肩代わり:かたがわり,硬さ:かたさ,過渡期:かとき,仮名遣い:かなづかい,貨幣:かへい,華麗:かれい,渇き:かわき,為替:かわせ,管轄:かんかつ,乾季:かんき,監禁:かんきん,還元:かんげん,冠婚葬祭:かんこんそうさい,換算:かんさん/かんざん,干渉:かんしょう,感嘆:かんたん,寛大:かんだい,官邸:かんてい,鑑定:かんてい,感銘:かんめい,官僚:かんりょう,緩和:かんわ,骸骨:がいこつ,該当:がいとう,概念:がいねん,概論:がいろん,雅致:がち,企画:きかく,飢餓:きが,気掛かり:きがかり,気兼ね:きがね,祈願:きがん,棄却:ききゃく,企業:きぎょう,危惧:きぐ,棄権:きけん,既成:きせい,既製:きせい,起訴:きそ,寄贈:きぞう/きそう,危篤:きとく,規範:きはん,基盤:きばん,機敏:きびん,脚色:きゃくしょく,境遇:きょうぐう,恐慌:きょうこう,郷愁:きょうしゅう,脅迫:きょうはく,虚栄心:きょえいしん,虚構:きょこう,巨視的:きょしてき,拒絶:きょぜつ,虚無:きょむ,謹賀新年:きんがしんねん,近距離:きんきょり,均衡:きんこう,近郊:きんこう,謹慎:きんしん,緊迫:きんぱく,金融:きんゆう,戯曲:ぎきょく,偽装:ぎそう,偽造:ぎぞう,儀礼:ぎれい,吟味:ぎんみ,悔い:くい,食い込む:くいこむ,空虚:くうきょ,屈折:くっせつ,苦悩:くのう,組み込む:くみこむ,企てる:くわだてる,偶像:ぐうぞう,軍艦:ぐんかん,傾斜:けいしゃ,軽薄:けいはく,結核:けっかく,血縁:けつえん,欠如:けつじょ,欠乏:けつぼう,懸念:けねん,煙たい:けむたい/けぶたい,煙る:けむる,検閲:けんえつ,嫌悪:けんお,繭糸:けんし/きぬいと,堅実:けんじつ,謙遜:けんそん,賢明:けんめい,倹約:けんやく,激励:げきれい,月賦:げっぷ,幻覚:げんかく,後援:こうえん,硬化:こうか,恒久:こうきゅう,交響曲:こうきょうきょく,控訴:こうそ,拘束:こうそく,勾配:こうばい,購買:こうばい,巧妙:こうみょう,顧客:こきゃく/こかく,告訴:こくそ,克明:こくめい,腰掛け:こしかけ,固執:こしつ/こしゅう,誇張:こちょう,滑稽:こっけい,事柄:ことがら,殊に:ことに,拒む:こばむ,凝る:こる,困惑:こんわく,語彙:ごい,如し:ごとし,御無沙汰:ごぶさた,歳月:さいげつ/としつき,先頃:さきごろ/せんころ,削減:さくげん,錯誤:さくご,搾取:さくしゅ,蔑む:さげすむ,鎖国:さこく,差し掛かる:さしかかる,差し伸べる:さしのべる,左遷:させん,殺到:さっとう,左翼:さよく,桟橋:さんばし/さんきょう,在籍:ざいせき,財閥:ざいばつ,座禅:ざぜん,雑踏:ざっとう,暫定:ざんてい,惨敗:ざんぱい/さんぱい,敷居:しきい,施行:しこう/しぎょう/せぎょう/せこう,試行錯誤:しこうさくご,示唆:しさ,鎮める:しずめる,慕う:したう,下唇:したくちびる/かしん,執行:しっこう/しぎょう/しゅうぎょう/しゅぎょう,嫉妬:しっと,執筆:しっぴつ,忍ぶ:しのぶ,市販:しはん,渋る:しぶる,湿っぽい:しめっぽい,釈放:しゃくほう,遮断器:しゃだんき,遮断機:しゃだんき,襲撃:しゅうげき,終止符:しゅうしふ,修繕:しゅうぜん,執着:しゅうちゃく/しゅうじゃく,執念:しゅうねん,修了:しゅうりょう,主催:しゅさい,趣旨:しゅし,称する:しょうする,承諾:しょうだく,衝動:しょうどう,賞罰:しょうばつ,奨励:しょうれい,処刑:しょけい,書斎:しょさい,処罰:しょばつ,庶民:しょみん,審議:しんぎ,真偽:しんぎ,信仰:しんこう,振興:しんこう,神髄:しんずい,寝台:しんだい/ねだい,親睦:しんぼく,侵略:しんりゃく,慈善:じぜん,実践:じっせん,慈悲:じひ,自滅:じめつ,重症:じゅうしょう,十字架:じゅうじか,渋面:じゅうめん/しぶつら/しぶづら,授与:じゅよ,循環:じゅんかん,潤色:じゅんしょく,譲歩:じょうほ,徐徐に:じょじょに,遂行:すいこう,水爆:すいばく,崇拝:すうはい,据え置き:すえおき,据える:すえる,凄まじい:すさまじい,随筆:ずいひつ,西欧:せいおう,請願:せいがん,制御:せいぎょ,静粛:せいしゅく,静寂:せいじゃく/しじま,征服:せいふく,歳暮:せいぼ,姓名:せいめい,摂氏:せっし,折衷:せっちゅう,瀬戸物:せともの,狭まる:せばまる,狭める:せばめる,専攻:せんこう,潜在:せんざい,船舶:せんぱく,旋律:せんりつ,占領:せんりょう,是正:ぜせい,是非とも:ぜひとも,前途:ぜんと,全般:ぜんぱん,添う:そう,喪失:そうしつ,挿入:そうにゅう,僧侶:そうりょ,疎遠:そえん,疎外:そがい,即座:そくざ,促進:そくしん,促成:そくせい,束縛:そくばく,訴訟:そしょう,措置:そち,逸らす:そらす,憎悪:ぞうお,贈与:ぞうよ,俗語:ぞくご,大概:たいがい,待遇:たいぐう,堆積:たいせき,怠惰:たいだ,滞納:たいのう,退廃:たいはい,退廃的:たいはいてき,退避:たいひ,大砲:たいほう,互い違い:たがいちがい,炊出し:たきだし,択一:たくいつ,託す:たくす,巧み:たくみ,企み:たくらみ,多湿:たしつ,携える:たずさえる,携わる:たずさわる,立て込む:たてこむ,多忙:たぼう,戯れ:たわむれ,戯れる:たわむれる/ざれる/じゃれる,丹誠:たんせい,端的:たんてき,代償:だいしょう,代替:だいたい/だいがえ,妥結:だけつ,脱退:だったい,脱衣:だつい,脱税:だつぜい,脱落:だつらく,妥当:だとう,堕落:だらく,弾圧:だんあつ,違いない:ちがいない,蓄積:ちくせき,致命的:ちめいてき,仲介:ちゅうかい,中核:ちゅうかく,中継:ちゅうけい,中堅:ちゅうけん,中途:ちゅうと,懲役:ちょうえき,超越:ちょうえつ,超過:ちょうか,徴候:ちょうこう,聴講:ちょうこう,徴収:ちょうしゅう,聴衆:ちょうしゅう,頂戴:ちょうだい,超特急:ちょうとっきゅう,徴兵:ちょうへい,跳躍:ちょうやく,直撃:ちょくげき,貯蓄:ちょちく,陳腐:ちんぷ,追及:ついきゅう,追悼:ついとう,通俗的:つうぞくてき,痛烈:つうれつ,付添い:つきそい,繕う:つくろう,償う:つぐなう/つぐのう,付け込む:つけこむ,突っ張る:つっぱる,慎む:つつしむ,募る:つのる,釣り合う:つりあう,提携:ていけい,帝国:ていこく,偵察:ていさつ,亭主:ていしゅ,停滞:ていたい,邸宅:ていたく,適宜:てきぎ,摘発:てきはつ,適齢期:てきれいき,撤回:てっかい,徹する:てっする,哲学:てつがく,添加:てんか,転嫁:てんか,添削:てんさく,転覆:てんぷく,凸凹:でこぼこ/とつおう,投影:とうえい,東欧:とうおう,騰貴:とうき,凍結:とうけつ,搭乗:とうじょう,陶酔:とうすい,闘争:とうそう,倒置:とうち,逃避:とうひ,到来:とうらい,当惑:とうわく,溶く:とく,督促:とくそく,匿名:とくめい,遂げる:とげる,床の間:とこのま,年頃:としごろ,途上:とじょう,途絶える:とだえる,嫁ぐ:とつぐ,突如:とつじょ,乏しい:とぼしい/ともしい,共稼ぎ:ともかせぎ,捕らわれる:とらわれる,取り柄:とりえ,取り掛かる:とりかかる,取り込む:とりこむ,取締役:とりしまりやく,執る:とる,洞察:どうさつ,同姓:どうせい,同伴:どうはん,動揺:どうよう,貪欲:どんよく/たんよく/とんよく,中継ぎ:なかつぎ,嘆き:なげき,軟化:なんか,逃げ足:にげあし,濁す:にごす,日韓:にっかん,煮詰める:につめる,入籍:にゅうせき,女房:にょうぼう/にょうぼ,妊娠:にんしん,忍耐:にんたい,縫目:ぬいめ,拭う:ぬぐう,寝息:ねいき,寝返る:ねがえる,寝相:ねぞう,寝付く:ねつく,熱烈:ねつれつ,寝冷え:ねびえ,粘着:ねんちゃく,濃縮:のうしゅく,軒並み:のきなみ,罵る:ののしる,伸び:のび,伸びやか:のびやか,乗り越し:のりこし,配偶者:はいぐうしゃ,拝啓:はいけい,排斥:はいせき,廃絶:はいぜつ,排他主義:はいたしゅぎ,破棄:はき,吐く:はく,迫害:はくがい,薄弱:はくじゃく,剥ぐ:はぐ/へぐ,恥さらし:はじさらし,恥知らず:はじしらず,破綻:はたん,発展途上国:はってんとじょうこく,話し込む:はなしこむ,甚だしい:はなはだしい,派閥:はばつ,阻む:はばむ,破滅:はめつ,払い:はらい,繁栄:はんえい,反響:はんきょう,繁殖:はんしょく,煩忙:はんぼう,氾濫:はんらん,賠償:ばいしょう,媒体:ばいたい,爆撃:ばくげき,漠然:ばくぜん,暴露:ばくろ,場違い:ばちがい,抜粋:ばっすい,罰する:ばっする,冷え込む:ひえこむ,彼岸:ひがん,引き締まる:ひきしまる,引き締め:ひきしめ,引き継ぎ:ひきつぎ,引き戻す:ひきもどす,被告:ひこく,避暑:ひしょ,必須:ひっす/ひっしゅ/ひっすう,匹敵:ひってき,一握り:ひとにぎり,百姓:ひゃくしょう,飛躍:ひやく,比喩:ひゆ,翻す:ひるがえす,卑劣:ひれつ,頻発:ひんぱつ,微笑:びしょう,便箋:びんせん,貧乏人:びんぼうにん,封鎖:ふうさ,風刺:ふうし,風俗:ふうぞく,不可避:ふかひ,吹き込む:ふきこむ,不吉:ふきつ,吹き出物:ふきでもの,布巾:ふきん,服飾:ふくしょく,覆面:ふくめん,更ける:ふける,負債:ふさい,不審:ふしん,不振:ふしん,扶助:ふじょ,伏せる:ふせる,不透明:ふとうめい,赴任:ふにん,腐敗:ふはい,普遍:ふへん,踏み切る:ふみきる,不眠:ふみん,扶養:ふよう,振り:ふり,不慮:ふりょ,憤慨:ふんがい,紛争:ふんそう,侮辱:ぶじょく,舞踏:ぶとう,侮蔑:ぶべつ,文献:ぶんけん,平穏:へいおん,弊害:へいがい,返還:へんかん,変貌:へんぼう,便宜:べんぎ,放棄:ほうき,封建主義:ほうけんしゅぎ,封建的:ほうけんてき,奉仕:ほうし,邦人:ほうじん,法廷:ほうてい,葬る:ほうむる/ほうぶる,飽和:ほうわ,補償:ほしょう,発端:ほったん,施す:ほどこす,捕虜:ほりょ,傍観:ぼうかん,忘却:ぼうきゃく,坊さん:ぼうさん,紡績:ぼうせき,傍聴:ぼうちょう,膨張:ぼうちょう,冒頭:ぼうとう,暴騰:ぼうとう,牧畜:ぼくちく,撲滅:ぼくめつ,没落:ぼつらく,凡人:ぼんじん/ぼんにん,前触れ:まえぶれ,賄う:まかなう,巻き添え:まきぞえ,紛らす:まぎらす,紛れる:まぎれる,魔術:まじゅつ,待ち兼ねる:まちかねる,待ち伏せ:まちぶせ,抹消:まっしょう,末端:まったん,惑わす:まどわす,麻薬:まやく,丸め込む:まるめこむ,慢性:まんせい,身柄:みがら,未遂:みすい,水臭い:みずくさい,見せ掛け:みせかけ,脈絡:みゃくらく,診る:みる,魅惑:みわく,民俗:みんぞく,無縁:むえん,剥ける:むける,無恥:むち,無謀:むぼう,名称:めいしょう,明瞭:めいりょう,巡り会う:めぐりあう,滅亡:めつぼう,免税:めんぜい,盲点:もうてん,網羅:もうら,持ち堪える:もちこたえる,物陰:ものかげ,模倣:もほう,催す:もよおす,漏る:もる,雇主:やといぬし/こしゅ,野蛮:やばん,由緒:ゆいしょ,優越感:ゆうえつかん,勇敢:ゆうかん,融通:ゆうずう/ゆうづう,猶予:ゆうよ,癒着:ゆちゃく,揺る:ゆる,揺るがす:ゆるがす,要項:ようこう,擁護:ようご,容赦:ようしゃ,要請:ようせい,余暇:よか,抑圧:よくあつ,抑止:よくし,抑制:よくせい,抑揚:よくよう,与党:よとう,夜更け:よふけ,詠む:よむ,立脚:りっきゃく,了承:りょうしょう,両端:りょうたん/りょうはし/りょうはじ,療養:りょうよう,療養所:りょうようじょ/りょうようしょ,履歴:りれき,隣家:りんか,倫理:りんり,零下:れいか,冷酷:れいこく,冷淡:れいたん,劣等感:れっとうかん,連邦:れんぽう,露顕:ろけん,露骨:ろこつ,賄賂:わいろ,脇見:わきみ,患う:わずらう,煩わしい:わずらわしい,悪賢い:わるがしこい'
+];
