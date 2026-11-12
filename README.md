@@ -67,3 +67,4 @@ assets/apps.js      アプリの一覧
 | minna-graph | みんなでグラフ | みんなでグラフ/ |
 | minna-graph-drill | みんなでグラフ：ドリル | （プロジェクトには未保存） |
 | minna-rittai | みんなで立体 | みんなで立体/ |
+| minna-kanji | みんなで漢字の読み | （プロジェクトには未保存） |
