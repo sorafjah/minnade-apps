@@ -243,7 +243,7 @@ function sanitize_(s) {
 // 生徒に送る情報（参加コードそのものは送らない）
 function pub_(r) {
   if (!r) return null;
-  const s = r.settings, o = { id: r.id, prevId: r.prevId || '', status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt, showRes: !!r.showRes };
+  const s = r.settings, o = { id: r.id, prevId: r.prevId || '', status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt, showRes: !!r.showRes, plan: r.plan || [] };
   ['mode', 'genres', 'count', 'minutes', 'order', 'answer', 'autoLv', 'up', 'down', 'master', 'sometimes', 'rate', 'ta', 'taSec', 'next', 'flagN', 'sound', 'kana', 'guide', 'join']
     .forEach(k => { o[k] = s[k]; });
   return o;
@@ -267,7 +267,9 @@ function endRound_(r) {
     s.sumd = true; put[keys[i]] = JSON.stringify(s);
     let correct = 0; const mist = {};
     Object.keys(s.ans || {}).forEach(q => { const a = s.ans[q]; if (a[1]) correct++; else if (a[2]) mist[a[2]] = (mist[a[2]] || 0) + 1; });
-    rows.push(sumRow_(r.id, 'all', m.name, r.settings.genres[0], m.lv, m.lv, r.settings.count, correct, mist, ''));
+    const mx = GENRES[r.settings.genres[0]].max, pl = r.plan || [];
+    const lvAt = q => Math.max(1, Math.min(mx, (parseInt(m.lv, 10) || 1) + (q >= 0 ? (pl[q] || 0) : 0)));
+    rows.push(sumRow_(r.id, 'all', m.name, r.settings.genres[0], lvAt(r.curQ >= 0 ? 0 : -1), lvAt(r.curQ), r.settings.count, correct, mist, ''));
   });
   if (rows.length) appendRows_(sheet_(SHEET_SUM, HEAD_SUM), rows);
   if (Object.keys(put).length) c.putAll(put, CACHE_SEC);
@@ -503,6 +505,25 @@ function api_tSetQ(roundId, idx) {
     const r = getJSON_('ROUND', null);
     if (!r || r.id !== roundId || r.status !== 'open') return r;
     r.curQ = Math.max(-1, Math.min(r.settings.count - 1, parseInt(idx, 10)));
+    // この問題から使うレベルのずれ（「つぎのレベルへ」「前のレベルへ」で決めた分）を、問題ごとに残す
+    if (r.curQ >= 0) { r.plan = r.plan || []; if (r.plan[r.curQ] == null) r.plan[r.curQ] = r.shift || 0; }
+    setJSON_('ROUND', r);
+    return r;
+  });
+}
+
+// 「みんなで」の途中で、つぎの問題からのレベルを上げ下げする（足りないレベルの問題は、先生の画面で作って渡す）
+function api_tShift(roundId, shift, sets) {
+  mustTeacher_();
+  return withLock_(() => {
+    const r = getJSON_('ROUND', null);
+    if (!r || r.id !== roundId || r.status !== 'open' || r.settings.mode !== 'all') return r;
+    const max = GENRES[r.settings.genres[0]].max;
+    r.sets = r.sets || [];
+    Object.keys(sets || {}).forEach(k => {
+      if (r.sets.indexOf(k) < 0) { putBig_('QS_' + k, String(sets[k])); r.sets.push(k); }
+    });
+    r.shift = Math.max(-(max - 1), Math.min(max - 1, parseInt(shift, 10) || 0));
     setJSON_('ROUND', r);
     return r;
   });

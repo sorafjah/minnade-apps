@@ -140,6 +140,10 @@ button.choice:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.08
 .fb-title.ok{color:var(--ok)} .fb-title.ng{color:var(--ng)} .fb-title.info{color:#9a5313}
 .fb-row{display:flex;justify-content:flex-end;margin-top:6px}
 .waitnote{margin-top:6px;background:var(--main-weak);color:var(--main-d);border-radius:12px;padding:6px 14px;font-weight:700;line-height:2}
+.t-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--main-d);color:#fff;font-size:20px;font-weight:700;padding:14px 28px;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:60;pointer-events:none;text-align:center}
+.t-toast.ng{background:#b3401f}
+.ghost.pressed{background:var(--main);color:#fff;border-color:var(--main)}
+.ghost:active{background:#dcecf8}
 .banner{position:fixed;top:28%;left:50%;transform:translateX(-50%);background:#fff;border:3px solid var(--main);color:var(--ink);font-size:26px;font-weight:700;padding:16px 34px;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:45;text-align:center;line-height:1.8;pointer-events:none}
 .score{text-align:center;font-size:28px;font-weight:700;line-height:2}
 .score b{font-size:52px;color:var(--main-d)}
@@ -357,7 +361,7 @@ table.mt td{padding:7px 6px;border-bottom:1px solid #edf1f5;vertical-align:middl
 <!-- ======================= 先生画面 ======================= -->
 <div id="teacherApp" class="hidden">
   <header class="t-top">
-    <h1>みんなでグラフ：ドリル<small>先生用</small></h1>
+    <h1>みんなでグラフ：ドリル<small>先生用（11月17日版）</small></h1>
     <span id="tBadge" class="tbadge">受付していません</span>
     <span id="tNet" class="tnet hidden">通信できていません（自動でやり直します）</span>
   </header>
@@ -1296,7 +1300,7 @@ var DEMO = (function () {
   setConf('あおやま', 'bou', { level: 3 });
   function pub(r) {
     if (!r) return null;
-    var o = { id: r.id, prevId: r.prevId, status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt, showRes: !!r.showRes };
+    var o = { id: r.id, prevId: r.prevId, status: r.status, curQ: r.curQ, code: !!r.code, startedAt: r.startedAt, showRes: !!r.showRes, plan: r.plan || [] };
     Object.keys(DEF).forEach(function (k) { if (k !== 'roster' && k !== 'level' && k !== 'levelMode' && k !== 'useCode') o[k] = r.settings[k]; });
     return o;
   }
@@ -1375,7 +1379,7 @@ var DEMO = (function () {
     items.forEach(function (it) {
       if (it.kind !== 'answer' || it.roundId !== r.id || it.qi !== r.curQ || advanced[r.id + it.qi]) return;
       advanced[r.id + it.qi] = true;
-      if (r.curQ < r.settings.count - 1) setTimeout(function () { if (S.round === r) r.curQ++; }, 3500);
+      if (r.curQ < r.settings.count - 1) setTimeout(function () { if (S.round === r) { r.curQ++; r.plan = r.plan || []; if (r.plan[r.curQ] == null) r.plan[r.curQ] = r.shift || 0; } }, 3500);
       else setTimeout(function () { end(); }, 4000);
     });
   }
@@ -1428,7 +1432,8 @@ var DEMO = (function () {
         if (now < f.nextAt) return;
         f.nextAt = now + 2500 + Math.random() * 3500;
         if (s.mode === 'self') { stepSelf(f, r); return; }
-        var Q = JSON.parse(S.sets[f.key]), qi = r.curQ;
+        var qi = r.curQ, fmax = GENRES[s.genres[0]].levels.length, fk = String(Math.max(1, Math.min(fmax, (+f.key || 1) + ((r.plan || [])[qi] || 0))));
+        var Q = JSON.parse(S.sets[fk] || S.sets[f.key]);
         if (qi < 0 || qi >= Q.length) return;
         var st = S.st[key(r.id, f.name)];
         if (st && st.ans[qi]) return;
@@ -1488,7 +1493,12 @@ var DEMO = (function () {
       var now = Date.now();
       return { round: r, members: S.mem.map(function (m) { var st = S.st[key(r.id, m.name)], sn = S.seen[key(r.id, m.name)]; return { name: m.name, kind: m.kind, lv: m.lv, ans: st ? st.ans : {}, snap: st ? st.snap : null, done: !!(st && st.done), ago: sn ? Math.round((now - sn) / 1000) : -1 }; }) };
     },
-    api_tSetQ: function (rid, idx) { var r = S.round; if (r && r.id === rid && r.status === 'open') r.curQ = idx; return r; },
+    api_tSetQ: function (rid, idx) { var r = S.round; if (r && r.id === rid && r.status === 'open') { r.curQ = idx; r.plan = r.plan || []; if (r.plan[idx] == null) r.plan[idx] = r.shift || 0; } return r; },
+    api_tShift: function (rid, sh, sets) {
+      var r = S.round; if (!r || r.id !== rid || r.status !== 'open') return r;
+      Object.keys(sets || {}).forEach(function (k) { if (r.sets.indexOf(k) < 0) { S.sets[k] = sets[k]; r.sets.push(k); } });
+      r.shift = sh; return r;
+    },
     api_tEnd: function () { end(); return S.round; },
     api_tShowRes: function (rid, on) { if (S.round) S.round.showRes = on === true; return S.round; },
     api_tGetConf: function (k, group) {
@@ -1734,16 +1744,31 @@ function doJoin(name, code, prevId) {
     afterGuide(function () { showSelfReady(); });
   }).catch(function () { showWait('net'); });
 }
+// 問題は、レベルごとに1まとまり（ST.Qs）。先生が途中でレベルを変えると、つぎの問題からべつのまとまりを使う
 function loadSet(rd, key) {
   var qs = lsGet(Q_KEY);
-  if (qs && qs.id === rd.id && qs.key === key) { ST.Q = qs.list; return Promise.resolve(true); }
+  ST.Qs = qs && qs.id === rd.id && qs.sets ? qs.sets : {};
+  if (ST.Qs[key]) { ST.Q = ST.Qs[key]; return Promise.resolve(true); }
+  return fetchSet(rd, key).then(function (ok) { if (ok) ST.Q = ST.Qs[key]; return ok; });
+}
+function fetchSet(rd, key) {
+  if (ST.Qs && ST.Qs[key]) return Promise.resolve(true);
   return api('api_questions', rd.id, key).then(function (raw) {
     if (!raw) return false;
-    qs = { id: rd.id, key: key, list: JSON.parse(raw) };
-    lsSet(Q_KEY, qs);
-    ST.Q = qs.list;
+    ST.Qs = ST.Qs || {};
+    ST.Qs[key] = JSON.parse(raw);
+    lsSet(Q_KEY, { id: rd.id, sets: ST.Qs });
     return true;
   }).catch(function () { return false; });
+}
+// i問目で使うレベル（はじめのレベル＋先生が決めたずれ。1〜いちばん上のあいだ）
+function effKeyAt(rd, i) {
+  var max = GENRES[(rd.genres || ['bou'])[0]].levels.length, sh = (rd.plan && rd.plan[i]) || 0;
+  return String(Math.max(1, Math.min(max, (+me.setKey || 1) + sh)));
+}
+function qAt(rd, i) {
+  var l = ST.Qs && ST.Qs[effKeyAt(rd, i)];
+  return l && l[i] ? l[i] : ST.Q[i];
 }
 
 /* --- 使い方の説明（参加のあとに出す） --- */
@@ -1784,9 +1809,16 @@ function teacherStep(rd) {
   if (rd.curQ < 0) { if (ST.view !== 'ready') showAllReady(); return; }
   var target = Math.min(rd.curQ, ST.Q.length - 1);
   if (ST.view === 'quiz' && ST.qi === target) return;
+  var key = effKeyAt(rd, target);
+  if (!ST.Qs || !ST.Qs[key]) {
+    if (ST.loadingKey === key) return;
+    ST.loadingKey = key;
+    fetchSet(rd, key).then(function (ok) { ST.loadingKey = ''; if (ok && ST.Q) teacherStep(ST.round || rd); });
+    return;
+  }
   if (ST.view === 'quiz' && !ST.answered && ST.qi < target) recordAll(null, '', -1, 'こたえる前につぎの問題へ進んだ', true);
   ST.qi = target; me.qi = target; saveMe();
-  var it = ST.Q[target];
+  var it = ST.Qs[key][target] || ST.Q[target];
   showQuestion(it.q, viewChoices(it.q, it.ch, ansModeOf(it.q.g)));
 }
 function showAllReady() {
@@ -2258,8 +2290,10 @@ function endAllRound() {
   if (me.roundId && ST.Q && !me.fin) {
     var res = me.res || [], mist = {}, correct = 0;
     res.forEach(function (r) { if (!r) return; if (r.ok) correct++; else if (r.ml && !r.na) mist[r.ml] = (mist[r.ml] || 0) + 1; });
-    var tp = topType(mist), q0 = ST.Q[0].q;
-    outPush({ id: uid(), kind: 'finish', at: Date.now(), roundId: me.roundId, name: me.name, mode: 'all', per: [{ genre: q0.g, start: q0.level, end: q0.level, n: ST.Q.length, correct: correct, top: tp.t ? tp.t + '（' + tp.n + '回）' : '' }] });
+    var rd0 = ST.round || {}, lastI = 0;
+    res.forEach(function (r, i) { if (r) lastI = i; });
+    var tp = topType(mist), q0 = qAt(rd0, 0).q, q1 = qAt(rd0, lastI).q;
+    outPush({ id: uid(), kind: 'finish', at: Date.now(), roundId: me.roundId, name: me.name, mode: 'all', per: [{ genre: q0.g, start: q0.level, end: q1.level, n: ST.Q.length, correct: correct, top: tp.t ? tp.t + '（' + tp.n + '回）' : '' }] });
     me.fin = true; saveMe();
     flushOutbox();
   }
@@ -2268,12 +2302,12 @@ function endAllRound() {
   swap('resMsg', R(c === n ? '{全部|ぜんぶ} せいかい！ すごいね。' : 'よく がんばったね。'));
   var li = '';
   for (var i = 0; i < n; i++) {
-    var r = res2[i], q = ST.Q[i].q;
+    var r = res2[i], q = qAt(ST.round || {}, i).q;
     var badge = !r || r.na ? '<span class="badge na">こたえていないよ</span>' : r.ok ? '<span class="badge ok">せいかい</span>' : '<span class="badge ng">ちがったよ</span>';
     li += '<li><span>' + (i + 1) + '.</span><span>こたえ：' + q.answerText + '</span>' + badge + '</li>';
   }
   swap('resList', R(li));
-  ST.Q = null;
+  ST.Q = null; ST.Qs = {};
   showResultOrWait();
 }
 
@@ -2469,6 +2503,7 @@ function ctrlHtml(r, s, open, inView) {
       if (r.curQ < 0) c += '<button class="primary" data-act="next">1問目を出す</button>';
       else if (r.curQ < s.count - 1) c += '<button class="primary" data-act="next">つぎの問題へ（' + (r.curQ + 2) + '問目を出す）</button>';
       else c += '<button class="primary" data-act="endnow">この回を終える</button>';
+      if (r.curQ < s.count - 1) c += lvBtns(r, s);
       if (r.curQ >= 0 && !inView) c += '<button class="ghost" data-act="qview">いまの問題を大きく映す</button>';
       if (r.curQ < s.count - 1) c += '<button class="ghost danger" data-act="end">ここでこの回を終える</button>';
     } else {
@@ -2477,6 +2512,59 @@ function ctrlHtml(r, s, open, inView) {
     }
   } else if (!inView) c += resBtn(r) + '<span class="note">新しい回は、下の「設定」から始めます。待っている生徒は、新しい回に自動で入ります。</span>';
   return c;
+}
+/* --- 「みんなで」の途中で、つぎの問題からのレベルを上げ下げする --- */
+function clampLv(key, n) { return Math.max(1, Math.min(GENRES[key].levels.length, n)); }
+function lvBases(r, s) {
+  var b = [String(s.level)];
+  if (s.levelMode === 'each') {
+    T.members.forEach(function (m) { b.push(String(m.lv)); });
+    Object.keys(r.levelMap || {}).forEach(function (n) { b.push(String(r.levelMap[n])); });
+  }
+  return b.filter(function (v, i, a) { return a.indexOf(v) === i; });
+}
+function lvBtns(r, s) {
+  var key = s.genres[0], max = GENRES[key].levels.length, sh = r.shift || 0, bases = lvBases(r, s);
+  var canUp = bases.some(function (b) { return +b + sh < max; });
+  var canDown = bases.some(function (b) { return +b + sh > 1; });
+  var info;
+  if (s.levelMode === 'each') {
+    info = sh === 0 ? 'つぎの問題から：生徒ごとのレベルのまま' : 'つぎの問題から：生徒ごとのレベルより ' + (sh > 0 ? sh + ' つ上' : (-sh) + ' つ下');
+  } else {
+    var now = r.curQ >= 0 ? clampLv(key, +s.level + ((r.plan || [])[r.curQ] || 0)) : null;
+    info = (now != null ? 'いまの問題：レベル' + now + '　' : '') + 'つぎの問題から：レベル' + clampLv(key, +s.level + sh);
+  }
+  return '<button class="ghost" data-act="lvdown"' + (canDown ? '' : ' disabled') + '>前のレベルへ</button>' +
+    '<button class="ghost" data-act="lvup"' + (canUp ? '' : ' disabled') + '>つぎのレベルへ</button>' +
+    '<span class="note" style="width:auto">' + esc(info) + '</span>';
+}
+function changeLevel(d, btn) {
+  var r = T.round, s = r.settings, key = s.genres[0], nsh = (r.shift || 0) + d, sets = {}, mem = {};
+  lvBases(r, s).forEach(function (b) {
+    var k = String(clampLv(key, +b + nsh));
+    if ((r.sets || []).indexOf(k) >= 0 || sets[k]) return;
+    var list = T.sets[k] || buildSet(key, +k, s.count);
+    sets[k] = JSON.stringify(list); mem[k] = list;
+  });
+  // 押した瞬間に、ボタンの色と文字を変えて、「押せた」と分かるようにする
+  var label = btn.textContent, now = d > 0 ? '上げています…' : '下げています…';
+  document.querySelectorAll('[data-act="lvup"],[data-act="lvdown"]').forEach(function (b) { b.disabled = true; });
+  btn.classList.add('pressed'); btn.textContent = now;
+  var text = s.levelMode === 'each'
+    ? (nsh === 0 ? '生徒ごとのレベルのまま' : '生徒ごとのレベルより ' + (nsh > 0 ? nsh + ' つ上' : (-nsh) + ' つ下'))
+    : 'レベル' + clampLv(key, +s.level + nsh);
+  api('api_tShift', r.id, nsh, sets).then(function (x) {
+    if (x) { T.round = x; Object.keys(mem).forEach(function (k) { T.sets[k] = mem[k]; }); }
+    setNetT(true);
+    tToast('✓ つぎの問題から ' + text + ' にしました');
+  }).catch(function () { setNetT(false); tToast('レベルを変えられませんでした。もう一度押してください', true); })
+    .then(function () { btn.classList.remove('pressed'); btn.textContent = label; return tPoll(); });
+}
+function tToast(msg, ng) {
+  var old = $('tToast'); if (old) old.remove();
+  var el = document.createElement('div'); el.id = 'tToast'; el.className = 't-toast' + (ng ? ' ng' : ''); el.textContent = msg;
+  document.body.appendChild(el);
+  clearTimeout(tToast.t); tToast.t = setTimeout(function () { if (el.isConnected) el.remove(); }, 3200);
 }
 function resBtn(r) {
   return r.showRes ? '<button class="ghost" data-act="showres">生徒の画面の結果をかくす</button>' : '<button class="primary" data-act="showres">生徒の画面に結果を出す</button>';
@@ -2488,6 +2576,7 @@ function bindCtrl(box) {
 function ctrlAct(act, btn) {
   var r = T.round;
   if (act === 'qview') { T.qView = true; renderTQ(); return; }
+  if (act === 'lvup' || act === 'lvdown') { changeLevel(act === 'lvup' ? 1 : -1, btn); return; }
   if (act === 'showres') {
     btn.disabled = true;
     api('api_tShowRes', r.id, !r.showRes).then(function (x) { if (x) T.round = x; setNetT(true); }).catch(function () { setNetT(false); }).then(function () { renderAll(); });
@@ -2522,7 +2611,7 @@ function renderMembers() {
       var mt = Object.keys(mist).map(function (k) { return esc(k) + (mist[k] > 1 ? '×' + mist[k] : ''); }).join('<br>');
       var cur = '';
       if (tm) { var a = ans[r.curQ]; cur = '<td>' + (a ? esc(a[3] || '－') + ' <span class="' + (a[1] ? 'okc">○' : 'ngc">×') + '</span>' : '<span class="subc">まだ</span>') + '</td>'; }
-      return '<tr><td><b>' + esc(m.name) + '</b></td><td>' + esc(m.lv) + '</td><td>' + keys.length + ' / ' + s.count + '</td><td>' + correct + '</td>' + cur + '<td style="font-size:13px">' + (mt || '<span class="subc">なし</span>') + '</td><td>' + netCell(r, m) + '</td></tr>';
+      return '<tr><td><b>' + esc(m.name) + '</b></td><td>' + esc(tm ? clampLv(s.genres[0], +m.lv + ((r.plan || [])[r.curQ] || 0)) : m.lv) + '</td><td>' + keys.length + ' / ' + s.count + '</td><td>' + correct + '</td>' + cur + '<td style="font-size:13px">' + (mt || '<span class="subc">なし</span>') + '</td><td>' + netCell(r, m) + '</td></tr>';
     }).join('');
     swap('memBody', rows || '<tr><td colspan="7" class="subc">まだ参加した人はいません。</td></tr>');
   } else {
@@ -2552,9 +2641,25 @@ function renderTQ() {
   $('qCard').classList.toggle('hidden', !(on && T.qView));
   if (!on || !T.qView) return;
   KANA_ONLY = s.kana === 'hira';
-  var keys = (r.sets || []).filter(function (k) { return T.sets[k]; });
-  if (!keys.length) return;
-  if (!T.sets[T.viewKey]) T.viewKey = keys[0];
+  var plan = (r.plan || [])[r.curQ] || 0, gk = s.genres[0];
+  var want = lvBases(r, s).map(function (b) { return String(clampLv(gk, +b + plan)); })
+    .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+  // この問題のレベルの問題が手もとにないときは、サーバーからもらってから出す（前のレベルの問題は出さない）
+  var miss = want.filter(function (k) { return !T.sets[k]; });
+  if (miss.length) {
+    swap('tqTitle', (r.curQ + 1) + '問目（問題を読み込んでいます…）');
+    if (!T.loadingSets) {
+      T.loadingSets = true;
+      Promise.all(miss.map(function (k) { return api('api_questions', r.id, k).then(function (raw) { if (raw) T.sets[k] = JSON.parse(raw); }); }))
+        .catch(function () {}).then(function () { T.loadingSets = false; T.shownQ = ''; renderTQ(); });
+    }
+    return;
+  }
+  var keys = want;
+  // 問題やレベルが変わったら、全体のレベル（はじめのレベル＋上げ下げ）の問題を出す
+  var main = String(clampLv(gk, +s.level + plan)), forSig = r.id + '|' + r.curQ + '|' + plan;
+  if (T.tqFor !== forSig) { T.tqFor = forSig; T.viewKey = keys.indexOf(main) >= 0 ? main : keys[0]; T.shownQ = ''; }
+  else if (keys.indexOf(String(T.viewKey)) < 0) T.viewKey = keys[0];
   $('tLvTabs').innerHTML = keys.length > 1 ? keys.map(function (k) { return '<button class="gchip' + (k === T.viewKey ? ' on' : '') + '" data-k="' + k + '">レベル' + k + 'の問題</button>'; }).join('') : '';
   $('tLvTabs').querySelectorAll('[data-k]').forEach(function (b) { b.addEventListener('click', function () { T.viewKey = b.dataset.k; T.shownQ = ''; renderTQ(); }); });
   var it = T.sets[T.viewKey][r.curQ];
@@ -2569,7 +2674,7 @@ function renderTQ() {
     swap('tqVisual', R(G.render(q, { explain: T.reveal })));
   }
   var cnt = {}, rv = T.reveal;
-  T.members.filter(function (m) { return String(m.lv) === String(T.viewKey); }).forEach(function (m) { var a = m.ans && m.ans[r.curQ]; if (a) cnt[a[3] || '－'] = (cnt[a[3] || '－'] || 0) + 1; });
+  T.members.filter(function (m) { return String(clampLv(gk, +m.lv + plan)) === String(T.viewKey); }).forEach(function (m) { var a = m.ans && m.ans[r.curQ]; if (a) cnt[a[3] || '－'] = (cnt[a[3] || '－'] || 0) + 1; });
   $('revealBtn').textContent = rv ? '正解と答えの分かれ方をかくす' : '正解と答えの分かれ方を表示する';
   var html = '<div class="choices">' + it.ch.map(function (c, i) {
     var n = cnt[noRuby(c.text)] || 0;
@@ -2688,7 +2793,7 @@ function teacherGuide() {
     title: '使い方',
     text: '<ol><li>「設定」で <b>進め方</b>（みんなで／ひとりずつ）、<b>ジャンル</b>（棒グラフ・折れ線グラフ）、<b>答え方</b>（4択・2択・記述）などを選び、<b>「この設定で受付を始める」</b>を押します。</li>' +
       '<li>QRコードが出ます。<b>「QRコードを大きく表示」</b>で教室の大きな画面に映し、生徒のiPadで読み取ります（「ふつうの表示にもどす」でもどります）。</li>' +
-      '<li><b>みんなで</b>：全員がそろったら<b>「1問目を出す」</b>。グラフと問題だけの大きな画面になるので、そのまま映せます。答えた人数を見て<b>「つぎの問題へ」</b>、<b>「正解と答えの分かれ方を表示する」</b>でみんなで答え合わせができます（グラフに答えの場所と数が出ます）。</li>' +
+      '<li><b>みんなで</b>：全員がそろったら<b>「1問目を出す」</b>。グラフと問題だけの大きな画面になるので、そのまま映せます。答えた人数を見て<b>「つぎの問題へ」</b>。途中でむずかしさを変えたいときは、<b>「つぎのレベルへ」「前のレベルへ」</b>を押すと、つぎの問題からレベルが変わります（いま出している問題は変わりません）。<b>「正解と答えの分かれ方を表示する」</b>でみんなで答え合わせができます（グラフに答えの場所と数が出ます）。</li>' +
       '<li><b>ひとりずつ</b>：生徒は自分で進みます。レベルは1〜6のあいだで自動に上下します（上限・下限はありません）。いちばん上のレベルで続けて正解すると<b>「習得」</b>になり、<b>「つぎのジャンルへ」</b>が「進む」なら次のジャンルに進みます。終えるときは<b>「この回を終える」</b>。</li>' +
       '<li><b>答え方を生徒ごとに変える</b>ときは、<b>「生徒ごとの設定を開く」</b>の〈答え方〉を押して、4択・2択・記述を選び、<b>「生徒ごとの設定を保存する」</b>を押します（「先生の設定」のままなら、受付で選んだ答え方になります）。レベルや「出す」も、ここで決められます。</li>' +
       '<li>終わった生徒は「おわったよ」の画面で待ちます。<b>「生徒の画面に結果を出す」</b>を押すと、生徒の画面に結果が出ます。</li>' +
