@@ -1,0 +1,118 @@
+/**
+ * @OnlyCurrentDoc
+ */
+// みんなでピタゴラ５：授業や校内での利用・改造は自由です。販売・そのままの再配布はご遠慮ください（保証やサポートの約束はしません）。
+// 使い方：貼りかえたら setup を1回実行して許可 → 「デプロイ」→「新しいデプロイ」（更新は「デプロイを管理」→ 鉛筆 →「新バージョン」）。
+// ===== ピタゴラ５ みんなで（GAS）=====
+// GAS は「小さい データの やりとり」だけを します。ゲーム本体（index.html）は 1回だけ 配ります。
+// ・先生の 指示（cfg）は キャッシュ（CacheService）から 読むので、生徒が 何人 問い合わせても 速い
+// ・生徒の 記録は 人ごとに べつの キー（st_◯◯）に 保存するので、同時に クリアしても 上書きされない
+// ・作品は レベルごとに べつの キーに 保存する（クリアした作品＝wk_◯◯_レベル、うまくいかなかった作品＝wt_◯◯_レベル）
+// 更新：2026-11-17（受付の QRコード、作品の 発表、?p=teacher）
+
+const CACHE_SEC = 21600;   // キャッシュを 持っておく 時間（秒。6時間）
+
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('ピタゴラ５')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// はじめに 1回 エディタで 実行して、許可を 出す（貼りかえた あとも 1回 実行する）
+function setup() {
+  PropertiesService.getScriptProperties().getProperty('cfg');
+  CacheService.getScriptCache().get('cfg');
+  Logger.log('生徒用URL：' + ScriptApp.getService().getUrl());
+}
+
+// 受付の QRコード 用。生徒用の URL（?page などを つけない）を 返す
+function getStudentUrl() {
+  return ScriptApp.getService().getUrl();
+}
+
+// ---- 先生の 指示 ----
+// cfg = { mode:'menu'|'lock', level, payload, count, ts }
+const DEFAULT_CFG = { mode: 'menu', level: -1, payload: null, count: 16, ts: 0 };
+
+function readCfg_() {
+  const c = CacheService.getScriptCache().get('cfg');
+  if (c) return c;
+  const p = PropertiesService.getScriptProperties().getProperty('cfg') || JSON.stringify(DEFAULT_CFG);
+  CacheService.getScriptCache().put('cfg', p, CACHE_SEC);
+  return p;
+}
+
+// 生徒が 3秒おきに よぶ。返すのは 小さい 文字列だけ
+function getCfg() {
+  return readCfg_();
+}
+
+function setCfg(cfg) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    const old = JSON.parse(readCfg_());
+    const next = Object.assign({}, old, cfg, { ts: Date.now() });
+    const s = JSON.stringify(next);
+    PropertiesService.getScriptProperties().setProperty('cfg', s);
+    CacheService.getScriptCache().put('cfg', s, CACHE_SEC);
+    return s;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ---- 生徒の 記録 ----
+// id は 'n3'（3ばん）や 'm' + なまえ。info = { name, lv, status:'join'|'play'|'win'|'fail', tries, clears:[レベル番号…] }
+// work は クリアしたときと、うまくいかなかったときに 送られる 作品
+function report(id, info, work) {
+  id = String(id).slice(0, 24);
+  const props = PropertiesService.getScriptProperties();
+  const rec = Object.assign({}, info, { t: Date.now() });
+  // 前の 作品の しるしを のこす
+  const old = props.getProperty('st_' + id);
+  if (old) {
+    const o = JSON.parse(old);
+    if (o.lastWork !== undefined) rec.lastWork = o.lastWork;
+    if (o.lastTry !== undefined) rec.lastTry = o.lastTry;
+  }
+  if (work) {
+    const w = JSON.stringify(work);
+    if (w.length < 8500) {
+      if (info.status === 'win') { props.setProperty('wk_' + id + '_' + info.lv, w); rec.lastWork = info.lv; }
+      else { props.setProperty('wt_' + id + '_' + info.lv, w); rec.lastTry = info.lv; }
+    }
+  }
+  props.setProperty('st_' + id, JSON.stringify(rec));
+  return readCfg_();   // ついでに 先生の 指示も 返す（問い合わせを へらす）
+}
+
+// ---- 先生パネル ----
+function getAll() {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  const students = {};
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf('st_') === 0) students[k.slice(3)] = JSON.parse(all[k]);
+  });
+  return JSON.stringify({ cfg: JSON.parse(readCfg_()), students: students, now: Date.now() });
+}
+
+// kind：'w'＝クリアした作品、't'＝うまくいかなかった作品
+function getWork(id, lv, kind) {
+  return PropertiesService.getScriptProperties().getProperty((kind === 't' ? 'wt_' : 'wk_') + id + '_' + lv);
+}
+
+function resetAll() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    Object.keys(props.getProperties()).forEach(function (k) {
+      if (k.indexOf('st_') === 0 || k.indexOf('wk_') === 0 || k.indexOf('wt_') === 0) props.deleteProperty(k);
+    });
+    return getAll();
+  } finally {
+    lock.releaseLock();
+  }
+}
